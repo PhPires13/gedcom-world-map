@@ -81,6 +81,22 @@
         <details class="section" id="sec-display" open>
           <summary>Display</summary>
           <div class="controls">
+            <div class="field">
+              <span class="field-label">Show</span>
+              <div class="segmented" role="radiogroup" aria-label="Map view">
+                <label><input type="radio" name="view" value="dots" checked /><span>Dots</span></label>
+                <label><input type="radio" name="view" value="density" /><span>Density</span></label>
+                <label><input type="radio" name="view" value="both" /><span>Both</span></label>
+              </div>
+              <div id="density-key" class="density-key" hidden>
+                <div class="density-scale">
+                  <span>Fewer births</span>
+                  <span class="density-steps" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                  <span>More</span>
+                </div>
+                <span>Each area takes the color of its most common generation.</span>
+              </div>
+            </div>
             <label>
               Lines when selecting
               <select id="line-mode">

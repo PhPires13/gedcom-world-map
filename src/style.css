@@ -541,6 +541,100 @@ details.section > :last-child {
   border-color: var(--border-strong);
 }
 
+/* Segmented control (Dots / Heat map / Both) built from radio buttons. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.controls .segmented label {
+  display: block;
+  gap: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented span {
+  display: block;
+  padding: 6px 4px;
+  border-radius: 7px;
+  text-align: center;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.segmented label:hover span {
+  color: var(--fg);
+}
+.segmented input:checked + span {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.14);
+}
+.segmented input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.density-key {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.density-key[hidden] {
+  display: none;
+}
+.density-scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* The four density levels (same opacities as the map), as small hexagons. */
+.density-steps {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+}
+.density-steps i {
+  width: 16px;
+  height: 18px;
+  background: #374151;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.density-steps i:nth-child(1) {
+  opacity: 0.45;
+}
+.density-steps i:nth-child(2) {
+  opacity: 0.55;
+}
+.density-steps i:nth-child(3) {
+  opacity: 0.63;
+}
+.density-steps i:nth-child(4) {
+  opacity: 0.72;
+}
+
 /* Toggle switch built from a checkbox. */
 label.switch {
   flex-direction: row !important;

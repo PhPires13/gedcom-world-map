@@ -7,8 +7,9 @@ import './style.css';
 import { decodeGedcom, originEvent, parseGedcom, type Person, type Tree } from './gedcom';
 import { computeGenerations } from './generations';
 import { Geocoder } from './geocode';
-import { generationColor } from './colors';
+import { generationColor, vibrant } from './colors';
 import { DOT, DOTS_FROM_ZOOM, layoutSpot, spreadBox, spreadScale, type SpotLayout } from './spots';
+import { DENSITY_LEVELS, densityLevel, hexCorners, hexDensity } from './hexbin';
 
 // ---------- Types & state ----------
 
@@ -28,6 +29,7 @@ interface SpotMarkerOptions extends L.MarkerOptions {
 }
 
 type LineMode = 'family' | 'ancestors' | 'descendants' | 'all';
+type MapView = 'dots' | 'density' | 'both';
 
 const state = {
   tree: null as Tree | null,
@@ -48,6 +50,8 @@ const state = {
   viewTouched: false,
   /** People opened most recently first, for the "Recently viewed" list. */
   recent: [] as string[],
+  /** Show people as dots, as a hexagon density map of birth places, or both. */
+  view: 'dots' as MapView,
 };
 
 const geocoder = new Geocoder();
@@ -87,6 +91,72 @@ let markerLayer: L.FeatureGroup = makeCluster().addTo(map);
 // While someone is selected, the towns holding them and the relatives their lines go to are
 // taken out of the clusters and shown here, so every line ends at a real dot.
 const pinnedLayer = L.featureGroup().addTo(map);
+
+// ---------- Density map (hexagon areas) ----------
+
+/** Hexagon radius in screen pixels; hexagons keep this size at every zoom. */
+const HEX_R = 9;
+
+map.createPane('density');
+map.getPane('density')!.style.zIndex = '430'; // under town circles, lines and dots
+const densityRenderer = L.canvas({ pane: 'density' });
+const densityLayer = L.layerGroup([], { pane: 'density' }).addTo(map);
+
+/**
+ * Tile the map with hexagons filled in the main generation of the people born in and around each
+ * one, at a few discrete density levels, so towns become solid areas and nearby towns merge into
+ * regions. Recomputed per zoom level, since the hexagons have a fixed on-screen size.
+ */
+function renderDensity() {
+  densityLayer.clearLayers();
+  if (state.view === 'dots' || !state.tree) return;
+  const zoom = map.getZoom();
+  const points = [];
+  for (const [id, l] of state.located) {
+    const gen = state.gens.get(id) ?? 0;
+    if (state.hiddenGens.has(gen)) continue;
+    const p = map.project([l.lat, l.lon], zoom);
+    points.push({ x: p.x, y: p.y, gen });
+  }
+  const toLatLng = ([x, y]: [number, number]) => map.unproject([x, y], zoom);
+
+  for (const hex of hexDensity(points, HEX_R)) {
+    // A more saturated version of the generation colour, so translucent areas don't look pastel.
+    const color = vibrant(generationColor(hex.mainGen, state.maxGen));
+    const polygon = L.polygon(hexCorners(hex.cx, hex.cy, HEX_R).map(toLatLng), {
+      renderer: densityRenderer,
+      stroke: false,
+      fillColor: color,
+      fillOpacity: DENSITY_LEVELS[densityLevel(hex.weight)].opacity,
+      bubblingMouseEvents: false,
+    });
+    // Hexagons with people born in them say who; the ones around only add area.
+    const total = [...hex.people.values()].reduce((a, b) => a + b, 0);
+    if (total) {
+      const rows = [...hex.people.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([g, n]) => `<i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>${genLabel(g)}: ${n}`)
+        .join('<br>');
+      polygon.bindTooltip(`<b>${total} ${total === 1 ? 'person' : 'people'} born here</b><br>${rows}`, { sticky: true });
+    }
+    const centre = toLatLng([hex.cx, hex.cy]);
+    polygon.on('click', () => map.flyTo(centre, Math.min(map.getMaxZoom(), zoom + 2)));
+    polygon.addTo(densityLayer);
+  }
+}
+
+const dotsShown = () => state.view !== 'density';
+
+function setView(view: MapView) {
+  state.view = view;
+  for (const layer of [markerLayer, pinnedLayer]) {
+    if (dotsShown()) layer.addTo(map);
+    else map.removeLayer(layer);
+  }
+  $('#density-key').hidden = view === 'dots';
+  renderDensity();
+  renderOverlays();
+}
 
 const idsOf = (m: L.Marker) => (m.options as SpotMarkerOptions).personIds;
 
@@ -367,6 +437,7 @@ function rebuildMarkers() {
   if (markerLayer instanceof L.MarkerClusterGroup) markerLayer.addLayers(markers);
   else markers.forEach((m) => markerLayer.addLayer(m));
   syncPinned();
+  renderDensity();
   renderOverlays();
 }
 
@@ -414,7 +485,7 @@ function setClustering(on: boolean) {
   map.removeLayer(markerLayer);
   markerLayer = on ? makeCluster() : L.featureGroup();
   markerLayer.on('animationend', renderOverlays);
-  markerLayer.addTo(map);
+  if (dotsShown()) markerLayer.addTo(map);
   rebuildMarkers();
 }
 markerLayer.on('animationend', renderOverlays);
@@ -434,7 +505,7 @@ function renderTownCircles() {
   townsLayer.clearLayers();
   for (const marker of state.spots.values()) {
     const layout = (marker.options as SpotMarkerOptions).layout;
-    if (!layout || townAsDisk() || !spotVisible(marker)) continue;
+    if (!layout || !dotsShown() || townAsDisk() || !spotVisible(marker)) continue;
     const { halfW, halfH } = spreadBox(layout, spreadScale(map.getZoom(), layout.minScale));
     L.circleMarker(marker.getLatLng(), {
       pane: 'towns',
@@ -462,6 +533,7 @@ function renderOverlays() {
 function dotLatLng(id: string): L.LatLng {
   const loc = state.located.get(id)!;
   const latlng = L.latLng(loc.lat, loc.lon);
+  if (!dotsShown()) return latlng; // density map only: lines go to the birth places themselves
   const marker = state.spots.get(state.spotOf.get(id) ?? '');
   const layout = marker && (marker.options as SpotMarkerOptions).layout;
   if (!marker || !layout) return latlng;
@@ -538,7 +610,9 @@ function linePoints(e: Edge): L.LatLng[] {
   const b = dotLatLng(e.to);
   const key = state.spotOf.get(e.from);
   const marker = key !== undefined && key === state.spotOf.get(e.to) ? state.spots.get(key) : undefined;
-  if (!marker || !(marker.options as SpotMarkerOptions).layout || townAsDisk() || !spotVisible(marker)) return [a, b];
+  if (!marker || !(marker.options as SpotMarkerOptions).layout || !dotsShown() || townAsDisk() || !spotVisible(marker)) {
+    return [a, b];
+  }
 
   const p1 = map.latLngToLayerPoint(a);
   const p2 = map.latLngToLayerPoint(b);
@@ -585,6 +659,7 @@ function renderLines() {
 // Town dots are spread by a zoom-dependent amount, so redraw them, their circles and lines per zoom level.
 map.on('zoomend', () => {
   if (state.tree) refreshIcons();
+  renderDensity();
   renderOverlays();
 });
 
@@ -905,6 +980,29 @@ $<HTMLSelectElement>('#line-mode').addEventListener('change', (e) => {
 });
 
 $<HTMLInputElement>('#cluster').addEventListener('change', (e) => setClustering((e.target as HTMLInputElement).checked));
+
+const VIEW_KEY = 'gedcom-world-map:view';
+for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="view"]')) {
+  radio.addEventListener('change', () => {
+    if (!radio.checked) return;
+    setView(radio.value as MapView);
+    try {
+      localStorage.setItem(VIEW_KEY, radio.value);
+    } catch {
+      /* not remembered */
+    }
+  });
+}
+try {
+  const saved = localStorage.getItem(VIEW_KEY) as MapView | null;
+  const radio = saved && document.querySelector<HTMLInputElement>(`input[name="view"][value="${saved}"]`);
+  if (radio) {
+    radio.checked = true;
+    setView(saved!);
+  }
+} catch {
+  /* default view */
+}
 
 $('#legend').addEventListener('change', (e) => {
   const box = e.target as HTMLInputElement;

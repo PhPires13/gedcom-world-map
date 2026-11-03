@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { extractYear, originEvent, parseCoord, parseGedcom } from '../src/gedcom';
 import { computeGenerations, lineage } from '../src/generations';
 import { placeVariants } from '../src/geocode';
-import { generationColor } from '../src/colors';
+import { generationColor, vibrant } from '../src/colors';
 
 const sample = parseGedcom(readFileSync(new URL('../public/sample.ged', import.meta.url), 'utf8'));
 
@@ -58,6 +58,25 @@ describe('helpers', () => {
       'Viana do Castelo, Portugal',
     ]);
     expect(placeVariants('Paris')).toEqual(['Paris']);
+  });
+
+  it('makes colours more vibrant: same hue and lightness, more saturated', () => {
+    const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const light = (h: string) => (Math.max(...rgb(h)) + Math.min(...rgb(h))) / 2;
+    const chroma = (h: string) => Math.max(...rgb(h)) - Math.min(...rgb(h));
+    const order = (h: string) =>
+      rgb(h)
+        .map((x, i) => [x, i])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+        .map((p) => p[1])
+        .join();
+    for (const c of ['#f76707', '#74b816', '#1098ad', '#5f3dc4', '#862e9c']) {
+      const v = vibrant(c);
+      expect(Math.abs(light(v) - light(c))).toBeLessThanOrEqual(1.5); // not darker
+      expect(chroma(v)).toBeGreaterThanOrEqual(chroma(c)); // more saturated
+      expect(order(v)).toBe(order(c)); // same hue family
+    }
+    expect(vibrant('#808080')).toBe('#808080');
   });
 
   it('gives distinct colours to each generation in small trees', () => {
