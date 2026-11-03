@@ -8,23 +8,43 @@
   </head>
   <body>
     <aside id="sidebar">
-      <header>
+      <header class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+          </svg>
+        </span>
         <h1>GEDCOM World Map</h1>
-        <button id="toggle-sidebar" class="icon-btn" title="Hide panel" aria-label="Hide panel">‹</button>
+        <button id="toggle-sidebar" class="icon-btn ghost" title="Hide panel" aria-label="Hide panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
       </header>
 
       <section id="upload">
         <label id="dropzone" for="file-input">
           <input type="file" id="file-input" accept=".ged,.gedcom,text/plain" hidden />
+          <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+          </svg>
           <strong>Drop a .ged file here</strong>
           <span>or click to choose one</span>
         </label>
-        <button id="load-sample" class="link-btn">Try a sample family tree</button>
+        <button id="load-sample" class="btn wide">Try a sample family tree</button>
         <p class="hint">Your file never leaves your browser. Only place names are sent to OpenStreetMap to find their coordinates.</p>
       </section>
 
       <section id="tree-info" hidden>
-        <div id="stats"></div>
+        <div class="tree-header">
+          <div class="tree-title">
+            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" />
+            </svg>
+            <span id="file-name" class="file-name"></span>
+            <button id="load-other" class="small-btn" title="Load a different file">Change file</button>
+          </div>
+          <div id="stats"></div>
+        </div>
         <div id="progress" hidden>
           <div class="progress-row">
             <span id="progress-label"></span>
@@ -33,31 +53,58 @@
           <div class="bar"><div id="progress-fill"></div></div>
         </div>
 
-        <input id="search" type="search" placeholder="Search people…" autocomplete="off" />
-        <ul id="search-results"></ul>
-
-        <div class="controls">
-          <label>
-            Lines when selecting
-            <select id="line-mode">
-              <option value="family">Parents, children &amp; spouses</option>
-              <option value="ancestors">All ancestors</option>
-              <option value="descendants">All descendants</option>
-              <option value="all">All ancestors &amp; descendants</option>
-            </select>
-          </label>
-          <label class="check"><input type="checkbox" id="cluster" checked /> Group nearby people</label>
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            id="search"
+            type="search"
+            placeholder="Search people…"
+            autocomplete="off"
+            role="combobox"
+            aria-controls="search-results"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          />
+          <div id="search-popup" hidden>
+            <div id="search-count"></div>
+            <ul id="search-results" role="listbox" aria-label="Search results"></ul>
+          </div>
         </div>
 
-        <h2>Generations <small>(click to show/hide)</small></h2>
-        <ul id="legend"></ul>
-
-        <details id="unmapped">
-          <summary></summary>
-          <ul></ul>
+        <details class="section" id="sec-recent" open hidden>
+          <summary>Recently viewed</summary>
+          <ul id="recent" class="people"></ul>
         </details>
 
-        <button id="load-other" class="link-btn">Load a different file</button>
+        <details class="section" id="sec-display" open>
+          <summary>Display</summary>
+          <div class="controls">
+            <label>
+              Lines when selecting
+              <select id="line-mode">
+                <option value="family">Parents, children &amp; spouses</option>
+                <option value="ancestors">All ancestors</option>
+                <option value="descendants">All descendants</option>
+                <option value="all">All ancestors &amp; descendants</option>
+              </select>
+            </label>
+            <label class="switch"><input type="checkbox" id="cluster" checked /><span>Group nearby people</span></label>
+          </div>
+        </details>
+
+        <details class="section" id="sec-generations" open>
+          <summary>Generations <span id="gen-summary"></span></summary>
+          <label class="check gen-all"><input type="checkbox" id="gen-all" checked /> Select all</label>
+          <ul id="legend"></ul>
+          <p class="hint">Tick to show or hide a generation. Click a name to show only that one.</p>
+        </details>
+
+        <details class="section" id="unmapped">
+          <summary></summary>
+          <ul class="people"></ul>
+        </details>
       </section>
     </aside>
 

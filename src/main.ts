@@ -46,6 +46,8 @@ const state = {
   geocodeAbort: null as AbortController | null,
   /** Set once the user pans/zooms/clicks the map, so we stop re-fitting the view under them. */
   viewTouched: false,
+  /** People opened most recently first, for the "Recently viewed" list. */
+  recent: [] as string[],
 };
 
 const geocoder = new Geocoder();
@@ -204,8 +206,12 @@ async function loadText(text: string, fileName: string) {
 
   $('#upload').hidden = true;
   $('#tree-info').hidden = false;
+  $('#file-name').textContent = fileName;
+  $('#file-name').title = fileName;
   $<HTMLInputElement>('#search').value = '';
-  $('#search-results').innerHTML = '';
+  renderSearch('');
+  state.recent = [];
+  renderRecent();
 
   // Places that need looking up → people waiting on them.
   const pending = new Map<string, string[]>();
@@ -584,7 +590,11 @@ map.on('zoomend', () => {
 
 function select(id: string | null, opts: { pan: boolean } = { pan: true }) {
   state.selected = id;
-  if (id) state.viewTouched = true;
+  if (id) {
+    state.viewTouched = true;
+    state.recent = [id, ...state.recent.filter((x) => x !== id)].slice(0, RECENT_MAX);
+  }
+  renderRecent();
   const { edges, related } = id ? computeEdges(id) : { edges: [], related: new Set<string>() };
   state.edges = edges;
   state.related = related;
@@ -612,12 +622,12 @@ function select(id: string | null, opts: { pan: boolean } = { pan: true }) {
 
 // ---------- Person panel ----------
 
-function personLink(id: string) {
+function personLink(id: string, liAttrs = '') {
   const p = state.tree!.people.get(id);
   if (!p) return '';
   const g = state.gens.get(id) ?? 0;
   const noLoc = state.located.has(id) ? '' : ' <em class="muted">· no location</em>';
-  return `<li><a href="#" data-person="${esc(id)}"><i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>${esc(p.name)}</a> <span class="muted">${lifespan(p)}</span>${noLoc}</li>`;
+  return `<li${liAttrs}><a href="#" data-person="${esc(id)}" tabindex="-1"><i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>${esc(p.name)}</a> <span class="muted">${lifespan(p)}</span>${noLoc}</li>`;
 }
 
 function eventRow(label: string, ev: Person['birth']) {
@@ -636,7 +646,7 @@ function renderPerson() {
   const g = state.gens.get(id) ?? 0;
   const loc = state.located.get(id);
   const section = (title: string, ids: string[]) =>
-    ids.length ? `<h3>${title}</h3><ul class="people">${ids.map(personLink).join('')}</ul>` : '';
+    ids.length ? `<h3>${title}</h3><ul class="people">${ids.map((id) => personLink(id)).join('')}</ul>` : '';
 
   let locNote = '';
   if (!loc) {
@@ -682,7 +692,8 @@ function renderStats() {
   const t = state.tree!;
   const total = t.people.size;
   const onMap = state.located.size;
-  $('#stats').innerHTML = `<strong>${total.toLocaleString()}</strong> people · <strong>${onMap.toLocaleString()}</strong> on the map · <strong>${state.maxGen + 1}</strong> generations`;
+  const stat = (n: number, label: string) => `<div class="stat"><b>${n.toLocaleString()}</b><span>${label}</span></div>`;
+  $('#stats').innerHTML = stat(total, 'people') + stat(onMap, 'on the map') + stat(state.maxGen + 1, 'generations');
 
   const missing = [...t.people.values()].filter((p) => !state.located.has(p.id));
   const details = $<HTMLDetailsElement>('#unmapped');
@@ -710,31 +721,102 @@ function renderLegend() {
     if (!e) continue;
     const ys = e.years.sort((a, b) => a - b);
     const median = ys.length ? `born ≈ ${ys[Math.floor(ys.length / 2)]}` : '';
-    const tag = g === 0 ? ' · most recent' : g === state.maxGen ? ' · oldest' : '';
+    const shown = !state.hiddenGens.has(g);
     rows.push(
-      `<li class="${state.hiddenGens.has(g) ? 'off' : ''}" data-gen="${g}">
+      `<li class="${shown ? '' : 'off'}" data-gen="${g}">
+        <input type="checkbox" class="gen-check" ${shown ? 'checked' : ''} aria-label="Show ${genLabel(g)}" />
         <i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>
-        <span>${genLabel(g)}<small>${tag}</small></span>
+        <button type="button" class="gen-name" title="Show only this generation">${genLabel(g)}</button>
         <span class="muted">${median}</span>
         <span class="count">${e.count}</span>
       </li>`,
     );
   }
   $('#legend').innerHTML = rows.join('');
+
+  // "Select all" is ticked when everything shows, half-ticked when only some do.
+  const total = byGen.size;
+  const hidden = [...byGen.keys()].filter((g) => state.hiddenGens.has(g)).length;
+  const all = $<HTMLInputElement>('#gen-all');
+  all.checked = hidden === 0;
+  all.indeterminate = hidden > 0 && hidden < total;
+  $('#gen-summary').textContent = hidden ? `(${total - hidden} of ${total} shown)` : '';
+}
+
+/** Generations that exist in this tree. */
+const allGens = () => [...new Set(state.gens.values())];
+
+function setHiddenGens(hidden: Iterable<number>) {
+  state.hiddenGens = new Set(hidden);
+  renderLegend();
+  rebuildMarkers();
+}
+
+const RECENT_MAX = 8;
+
+/** Last people opened, newest first, with the one currently open highlighted. */
+function renderRecent() {
+  const section = $<HTMLDetailsElement>('#sec-recent');
+  section.hidden = state.recent.length === 0;
+  $('#recent').innerHTML = state.recent
+    .map((id) => personLink(id, id === state.selected ? ' class="current"' : ''))
+    .join('');
+}
+
+/** Lower-case and strip accents, so "antonio" finds "António". */
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+let searchActive = -1;
+const searchItems = () => [...$('#search-results').querySelectorAll<HTMLLIElement>('li[data-result]')];
+
+/** Highlight one search result (keyboard or mouse) and keep it scrolled into view. */
+function setSearchActive(i: number) {
+  const items = searchItems();
+  searchActive = items.length ? Math.max(0, Math.min(i, items.length - 1)) : -1;
+  items.forEach((li, k) => {
+    li.classList.toggle('active', k === searchActive);
+    li.setAttribute('aria-selected', String(k === searchActive));
+  });
+  const input = $<HTMLInputElement>('#search');
+  if (searchActive >= 0) {
+    input.setAttribute('aria-activedescendant', items[searchActive].id);
+    items[searchActive].scrollIntoView({ block: 'nearest' });
+  } else input.removeAttribute('aria-activedescendant');
+}
+
+const MAX_RESULTS = 50;
+
+/** Results float over the menu below the search box; shown while there's a query. */
+function setSearchOpen(open: boolean) {
+  $('#search-popup').hidden = !open;
+  $('#search').setAttribute('aria-expanded', String(open));
 }
 
 function renderSearch(q: string) {
   const list = $('#search-results');
-  q = q.trim().toLowerCase();
-  if (!q || !state.tree) {
+  const terms = fold(q.trim()).split(/\s+/).filter(Boolean);
+  if (!terms.length || !state.tree) {
     list.innerHTML = '';
+    setSearchActive(-1);
+    setSearchOpen(false);
     return;
   }
-  const terms = q.split(/\s+/);
-  const hits = [...state.tree.people.values()]
-    .filter((p) => terms.every((t) => p.name.toLowerCase().includes(t)))
-    .slice(0, 30);
-  list.innerHTML = hits.length ? hits.map((p) => personLink(p.id)).join('') : '<li class="muted">No matches</li>';
+  const all = [...state.tree.people.values()].filter((p) => {
+    const name = fold(p.name);
+    return terms.every((t) => name.includes(t));
+  });
+  const hits = all.slice(0, MAX_RESULTS);
+  const count = !all.length
+    ? 'No matches'
+    : all.length > hits.length
+      ? `Showing ${hits.length} of ${all.length} matches`
+      : `${all.length} ${all.length === 1 ? 'match' : 'matches'}`;
+  const keys = all.length ? '<span class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open</span>' : '';
+  $('#search-count').innerHTML = `<span>${count}</span>${keys}`;
+  list.innerHTML = hits.map((p, i) => personLink(p.id, ` id="result-${i}" role="option" data-result="${esc(p.id)}"`)).join('');
+  setSearchOpen(true);
+  // The first match is pre-highlighted, so typing a name and pressing Enter opens it.
+  setSearchActive(0);
 }
 
 // ---------- Events ----------
@@ -781,7 +863,41 @@ $('#progress-stop').addEventListener('click', () => {
   renderStats();
 });
 
-$<HTMLInputElement>('#search').addEventListener('input', (e) => renderSearch((e.target as HTMLInputElement).value));
+const searchInput = $<HTMLInputElement>('#search');
+searchInput.addEventListener('input', () => renderSearch(searchInput.value));
+searchInput.addEventListener('focus', () => searchInput.value.trim() && renderSearch(searchInput.value));
+// Clicking anywhere outside the search box closes the results (the query is kept).
+document.addEventListener('pointerdown', (e) => {
+  if (!(e.target as HTMLElement).closest('.search-box')) setSearchOpen(false);
+});
+searchInput.addEventListener('keydown', (e) => {
+  const items = searchItems();
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!items.length) return;
+    e.preventDefault(); // don't move the text cursor
+    setSearchActive(searchActive + (e.key === 'ArrowDown' ? 1 : -1));
+  } else if (e.key === 'Enter') {
+    const li = items[searchActive] ?? items[0];
+    if (!li) return;
+    e.preventDefault();
+    select(li.dataset.result!);
+  } else if (e.key === 'Escape' && searchInput.value) {
+    // Clear the search first; a second Escape then closes the selected person as usual.
+    e.stopPropagation();
+    searchInput.value = '';
+    renderSearch('');
+  }
+});
+// The whole row is clickable, not just the name (clicks on the name itself go through [data-person]).
+$('#search-results').addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('[data-person]')) return;
+  const li = (e.target as HTMLElement).closest<HTMLLIElement>('li[data-result]');
+  if (li) select(li.dataset.result!);
+});
+$('#search-results').addEventListener('mousemove', (e) => {
+  const li = (e.target as HTMLElement).closest<HTMLLIElement>('li[data-result]');
+  if (li) setSearchActive(searchItems().indexOf(li));
+});
 
 $<HTMLSelectElement>('#line-mode').addEventListener('change', (e) => {
   state.lineMode = (e.target as HTMLSelectElement).value as LineMode;
@@ -790,14 +906,28 @@ $<HTMLSelectElement>('#line-mode').addEventListener('change', (e) => {
 
 $<HTMLInputElement>('#cluster').addEventListener('change', (e) => setClustering((e.target as HTMLInputElement).checked));
 
+$('#legend').addEventListener('change', (e) => {
+  const box = e.target as HTMLInputElement;
+  const li = box.closest<HTMLElement>('li[data-gen]');
+  if (!li || !box.classList.contains('gen-check')) return;
+  const g = Number(li.dataset.gen);
+  const hidden = new Set(state.hiddenGens);
+  if (box.checked) hidden.delete(g);
+  else hidden.add(g);
+  setHiddenGens(hidden);
+});
 $('#legend').addEventListener('click', (e) => {
-  const li = (e.target as HTMLElement).closest<HTMLElement>('li[data-gen]');
+  const btn = (e.target as HTMLElement).closest<HTMLElement>('.gen-name');
+  const li = btn?.closest<HTMLElement>('li[data-gen]');
   if (!li) return;
   const g = Number(li.dataset.gen);
-  if (state.hiddenGens.has(g)) state.hiddenGens.delete(g);
-  else state.hiddenGens.add(g);
-  li.classList.toggle('off');
-  rebuildMarkers();
+  const others = allGens().filter((x) => x !== g);
+  // Show only this generation; clicking it again while it's the only one shown brings all back.
+  const alreadySolo = !state.hiddenGens.has(g) && others.every((x) => state.hiddenGens.has(x));
+  setHiddenGens(alreadySolo ? [] : others);
+});
+$<HTMLInputElement>('#gen-all').addEventListener('change', (e) => {
+  setHiddenGens((e.target as HTMLInputElement).checked ? [] : allGens());
 });
 
 // Any [data-person] link anywhere selects that person.
@@ -817,6 +947,28 @@ map.on('click', () => state.selected && select(null));
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.selected) select(null);
 });
+
+// Collapsible menu sections remember whether they were open (per browser; storage may be unavailable).
+const SECTIONS_KEY = 'gedcom-world-map:sections';
+function loadSectionState(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(SECTIONS_KEY) ?? '{}') as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+const sectionState = loadSectionState();
+for (const d of document.querySelectorAll<HTMLDetailsElement>('details.section')) {
+  if (d.id in sectionState) d.open = sectionState[d.id];
+  d.addEventListener('toggle', () => {
+    sectionState[d.id] = d.open;
+    try {
+      localStorage.setItem(SECTIONS_KEY, JSON.stringify(sectionState));
+    } catch {
+      /* not persisted */
+    }
+  });
+}
 
 $('#toggle-sidebar').addEventListener('click', () => {
   document.body.classList.add('sidebar-hidden');
