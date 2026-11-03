@@ -479,3 +479,45 @@ a[data-person]:hover {
 .base-tiles {
   filter: saturate(0.35) brightness(1.04);
 }
+
+/* Cluster that contains the selected person. */
+.cluster.has-selected .pie {
+  box-shadow:
+    0 0 0 3px rgba(0, 0, 0, 0.75),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Town tree: everyone born at one spot, one row per generation ---------- */
+
+/* The container only positions the dots; clicks between dots fall through to the map. */
+.leaflet-marker-icon.spot-tree {
+  pointer-events: none;
+}
+.tree-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    transform 0.1s,
+    opacity 0.15s;
+}
+.tree-dot:hover {
+  transform: scale(1.3);
+  z-index: 1;
+}
+.tree-dot.selected {
+  transform: scale(1.5);
+  border-width: 3px;
+  box-shadow:
+    0 0 0 3px rgba(0, 0, 0, 0.75),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+.tree-dot.dim {
+  opacity: 0.3;
+}

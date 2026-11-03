@@ -8,6 +8,7 @@ import { decodeGedcom, originEvent, parseGedcom, type Person, type Tree } from '
 import { computeGenerations } from './generations';
 import { Geocoder } from './geocode';
 import { generationColor } from './colors';
+import { DOT, DOTS_FROM_ZOOM, layoutSpot, spreadBox, spreadScale, type SpotLayout } from './spots';
 
 // ---------- Types & state ----------
 
@@ -21,8 +22,9 @@ interface Located {
   approximate?: string;
 }
 
-interface PersonMarkerOptions extends L.MarkerOptions {
-  personId: string;
+interface SpotMarkerOptions extends L.MarkerOptions {
+  personIds: string[];
+  layout: SpotLayout | null;
 }
 
 type LineMode = 'family' | 'ancestors' | 'descendants' | 'all';
@@ -32,13 +34,18 @@ const state = {
   gens: new Map<string, number>(),
   maxGen: 0,
   located: new Map<string, Located>(),
-  markers: new Map<string, L.Marker>(),
+  /** One marker per birth spot (people born at the same coordinates share it). */
+  spots: new Map<string, L.Marker>(),
+  spotOf: new Map<string, string>(),
+  edges: [] as Edge[],
   selected: null as string | null,
   related: new Set<string>(),
   lineMode: 'family' as LineMode,
   hiddenGens: new Set<number>(),
   clustering: true,
   geocodeAbort: null as AbortController | null,
+  /** Set once the user pans/zooms/clicks the map, so we stop re-fitting the view under them. */
+  viewTouched: false,
 };
 
 const geocoder = new Geocoder();
@@ -59,24 +66,40 @@ map.getPane('lines')!.style.zIndex = '450'; // above tiles, below markers (600)
 
 const linesLayer = L.layerGroup([], { pane: 'lines' }).addTo(map);
 
+// Translucent circles grouping each town's dots; below the lines so lines stay visible over them.
+map.createPane('towns');
+map.getPane('towns')!.style.zIndex = '440';
+map.getPane('towns')!.style.pointerEvents = 'none';
+const townsLayer = L.layerGroup([], { pane: 'towns' }).addTo(map);
+
 function makeCluster() {
   return L.markerClusterGroup({
-    maxClusterRadius: 40,
+    maxClusterRadius: 50,
     showCoverageOnHover: false,
-    spiderfyOnMaxZoom: true,
     iconCreateFunction: clusterIcon,
   });
 }
 
 let markerLayer: L.FeatureGroup = makeCluster().addTo(map);
 
+// While someone is selected, the towns holding them and the relatives their lines go to are
+// taken out of the clusters and shown here, so every line ends at a real dot.
+const pinnedLayer = L.featureGroup().addTo(map);
+
+const idsOf = (m: L.Marker) => (m.options as SpotMarkerOptions).personIds;
+
 function clusterIcon(cluster: L.MarkerCluster) {
+  return pieIcon(cluster.getAllChildMarkers().flatMap(idsOf));
+}
+
+/** A disk split by generation colour, with a head count: used for clusters and for zoomed-out towns. */
+function pieIcon(ids: string[]) {
   const counts = new Map<number, number>();
-  for (const m of cluster.getAllChildMarkers()) {
-    const g = state.gens.get((m.options as PersonMarkerOptions).personId) ?? 0;
+  for (const id of ids) {
+    const g = state.gens.get(id) ?? 0;
     counts.set(g, (counts.get(g) ?? 0) + 1);
   }
-  const total = cluster.getChildCount();
+  const total = ids.length;
   let acc = 0;
   const stops = [...counts.entries()]
     .sort((a, b) => a[0] - b[0])
@@ -87,11 +110,12 @@ function clusterIcon(cluster: L.MarkerCluster) {
     })
     .join(', ');
   const size = total < 10 ? 34 : total < 100 ? 42 : 50;
-  const related = cluster.getAllChildMarkers().some((m) => isHighlighted((m.options as PersonMarkerOptions).personId));
-  const dim = state.selected && !related ? ' dim' : '';
+  const cls = ['cluster'];
+  if (state.selected && ids.includes(state.selected)) cls.push('has-selected');
+  else if (state.selected && !ids.some(isHighlighted)) cls.push('dim');
   return L.divIcon({
     html: `<div class="pie" style="background: conic-gradient(${stops})"><span>${total}</span></div>`,
-    className: `cluster${dim}`,
+    className: cls.join(' '),
     iconSize: [size, size],
   });
 }
@@ -114,19 +138,44 @@ function isHighlighted(id: string) {
   return id === state.selected || state.related.has(id);
 }
 
-function personIcon(id: string) {
-  const g = state.gens.get(id) ?? 0;
-  const p = state.tree!.people.get(id)!;
-  const cls = ['person-pin'];
-  if (id === state.selected) cls.push('selected');
-  else if (state.selected && !state.related.has(id)) cls.push('dim');
-  if (p.sex === 'M') cls.push('male');
-  if (p.sex === 'F') cls.push('female');
-  const size = id === state.selected ? 22 : 14;
+/** CSS state classes for one person's dot. */
+function dotState(id: string): string {
+  if (id === state.selected) return ' selected';
+  if (state.selected && !state.related.has(id)) return ' dim';
+  return '';
+}
+
+/** A lone person: a simple dot. Several people at one spot: dots spread around it, one row per generation. */
+function spotIcon(ids: string[], layout: SpotLayout | null) {
+  const people = state.tree!.people;
+  // Zoomed out, a town with several people is a disk like the clusters between towns.
+  if (layout && townAsDisk()) return pieIcon(ids);
+  if (!layout) {
+    const id = ids[0];
+    const size = id === state.selected ? 22 : 14;
+    return L.divIcon({
+      className: `person-pin${dotState(id)}`,
+      html: `<span style="background:${generationColor(state.gens.get(id) ?? 0, state.maxGen)}"></span>`,
+      iconSize: [size, size],
+    });
+  }
+  // Spread grows with the map once zoomed in, so people keep their place within the town.
+  const scale = spreadScale(map.getZoom(), layout.minScale);
+  const { halfW, halfH } = spreadBox(layout, scale);
+  const dots = layout.dots
+    .map((d) => {
+      const p = people.get(d.id)!;
+      const title = [p.name, lifespan(p), state.located.get(d.id)?.place].filter(Boolean).join(' · ');
+      const left = halfW + d.dx * scale - DOT / 2;
+      const top = halfH + d.dy * scale - DOT / 2;
+      return `<span class="tree-dot${dotState(d.id)}" data-pid="${esc(d.id)}" title="${esc(title)}" style="left:${left}px;top:${top}px;background:${generationColor(d.gen, state.maxGen)}"></span>`;
+    })
+    .join('');
   return L.divIcon({
-    className: cls.join(' '),
-    html: `<span style="background:${generationColor(g, state.maxGen)}"></span>`,
-    iconSize: [size, size],
+    className: 'spot-tree',
+    html: dots,
+    iconSize: [halfW * 2, halfH * 2],
+    iconAnchor: [halfW, halfH],
   });
 }
 
@@ -147,8 +196,8 @@ async function loadText(text: string, fileName: string) {
   state.hiddenGens.clear();
   state.selected = null;
   state.related.clear();
-  state.markers.clear();
-  markerLayer.clearLayers();
+  state.edges = [];
+  state.viewTouched = false;
   linesLayer.clearLayers();
   $('#person-panel').hidden = true;
   $('#line-legend').hidden = true;
@@ -178,7 +227,7 @@ async function loadText(text: string, fileName: string) {
     }
   }
 
-  for (const id of state.located.keys()) addMarker(id);
+  rebuildMarkers();
   renderLegend();
   renderStats();
   fitToMarkers();
@@ -218,8 +267,8 @@ async function geocodeAll(pending: Map<string, string[]>) {
         for (const id of pending.get(place)!) {
           const kind = originEvent(state.tree!.people.get(id)!)!.kind;
           setGeocoded(id, place, kind, c);
-          addMarker(id);
         }
+        scheduleRebuild();
       }
     } catch (e) {
       if (abort.signal.aborted) break;
@@ -237,49 +286,184 @@ async function geocodeAll(pending: Map<string, string[]>) {
   progress.hidden = true;
   state.geocodeAbort = null;
   renderStats();
-  if (state.selected) drawLines();
-  if (!abort.signal.aborted) fitToMarkers();
+  if (state.selected) select(state.selected, { pan: false });
+  if (!abort.signal.aborted && !state.viewTouched) fitToMarkers();
 }
 
 // ---------- Markers ----------
 
-function addMarker(id: string) {
-  const loc = state.located.get(id)!;
-  const existing = state.markers.get(id);
-  if (existing) markerLayer.removeLayer(existing);
-  const p = state.tree!.people.get(id)!;
-  const marker = L.marker([loc.lat, loc.lon], {
-    icon: personIcon(id),
-    personId: id,
-    title: p.name,
-    riseOnHover: true,
-  } as PersonMarkerOptions);
-  marker.bindTooltip(`<b>${esc(p.name)}</b> ${lifespan(p)}<br>${esc(loc.place)}`, { direction: 'top', offset: [0, -8] });
-  marker.on('click', () => select(id, { pan: false }));
-  state.markers.set(id, marker);
-  if (!state.hiddenGens.has(state.gens.get(id) ?? 0)) markerLayer.addLayer(marker);
+const spotKey = (l: Located) => `${l.lat.toFixed(4)},${l.lon.toFixed(4)}`;
+
+/** Recreate every marker: one per birth spot, holding all visible people born there. */
+function rebuildMarkers() {
+  markerLayer.clearLayers();
+  pinnedLayer.clearLayers();
+  state.spots.clear();
+  state.spotOf.clear();
+  if (!state.tree) return;
+
+  const exact = new Map<string, string[]>();
+  for (const [id, loc] of state.located) {
+    if (state.hiddenGens.has(state.gens.get(id) ?? 0)) continue;
+    const key = spotKey(loc);
+    exact.set(key, [...(exact.get(key) ?? []), id]);
+  }
+
+  // The same town often ends up with slightly different coordinates (coordinates from the file vs.
+  // geocoded, "Braga" vs "Braga, Braga, Portugal"), so merge spots that are very close together.
+  // Each merged spot sits at the location of its largest original group.
+  const MERGE_METERS = 1500;
+  const spots: { at: L.LatLng; ids: string[] }[] = [];
+  for (const ids of [...exact.values()].sort((a, b) => b.length - a.length)) {
+    const loc = state.located.get(ids[0])!;
+    const at = L.latLng(loc.lat, loc.lon);
+    const near = spots.find((sp) => sp.at.distanceTo(at) < MERGE_METERS);
+    if (near) near.ids.push(...ids);
+    else spots.push({ at, ids: [...ids] });
+  }
+  const groups = new Map(spots.map((sp, i) => [String(i), sp] as const));
+
+  const markers: L.Marker[] = [];
+  for (const [key, { at, ids }] of groups) {
+    const loc = state.located.get(ids[0])!;
+    const layout =
+      ids.length > 1
+        ? layoutSpot(
+            ids,
+            (id) => state.gens.get(id) ?? 0,
+            (id) => state.tree!.people.get(id)?.birth?.year,
+          )
+        : null;
+    const marker = L.marker(at, {
+      icon: spotIcon(ids, layout),
+      personIds: ids,
+      layout,
+      riseOnHover: true,
+    } as SpotMarkerOptions);
+    if (!layout) {
+      const p = state.tree.people.get(ids[0])!;
+      marker.bindTooltip(`<b>${esc(p.name)}</b> ${lifespan(p)}<br>${esc(loc.place)}`, { direction: 'top', offset: [0, -8] });
+    }
+    marker.on('click', (e: L.LeafletMouseEvent) => {
+      // A zoomed-out town disk behaves like a cluster: zoom in until its people spread out.
+      if (layout && townAsDisk()) {
+        map.flyTo(marker.getLatLng(), Math.max(DOTS_FROM_ZOOM, map.getZoom() + 2));
+        return;
+      }
+      const dot = (e.originalEvent.target as HTMLElement).closest<HTMLElement>('[data-pid]');
+      const id = dot?.dataset.pid ?? (layout ? null : ids[0]);
+      if (id) select(id, { pan: false });
+    });
+    state.spots.set(key, marker);
+    for (const id of ids) state.spotOf.set(id, key);
+    markers.push(marker);
+  }
+  if (markerLayer instanceof L.MarkerClusterGroup) markerLayer.addLayers(markers);
+  else markers.forEach((m) => markerLayer.addLayer(m));
+  syncPinned();
+  renderOverlays();
+}
+
+/** Move the selected person's family out of (or back into) the clusters. */
+function syncPinned() {
+  const want = new Set<string>();
+  if (state.selected && markerLayer instanceof L.MarkerClusterGroup) {
+    for (const id of [state.selected, ...state.edges.flatMap((e) => [e.from, e.to])]) {
+      const key = state.spotOf.get(id);
+      if (key !== undefined) want.add(key);
+    }
+  }
+  const pin: L.Marker[] = [];
+  const unpin: L.Marker[] = [];
+  for (const [key, m] of state.spots) {
+    const pinned = pinnedLayer.hasLayer(m);
+    if (want.has(key) && !pinned) pin.push(m);
+    else if (!want.has(key) && pinned) unpin.push(m);
+  }
+  if (!pin.length && !unpin.length) return;
+  if (markerLayer instanceof L.MarkerClusterGroup) markerLayer.removeLayers(pin);
+  pin.forEach((m) => pinnedLayer.addLayer(m));
+  unpin.forEach((m) => pinnedLayer.removeLayer(m));
+  if (markerLayer instanceof L.MarkerClusterGroup) markerLayer.addLayers(unpin);
+  else unpin.forEach((m) => markerLayer.addLayer(m));
+}
+
+let rebuildTimer = 0;
+/** Coalesce rebuilds while places are being geocoded one by one. */
+function scheduleRebuild() {
+  clearTimeout(rebuildTimer);
+  rebuildTimer = window.setTimeout(rebuildMarkers, 300);
 }
 
 function refreshIcons() {
-  for (const [id, m] of state.markers) m.setIcon(personIcon(id));
-  if (markerLayer instanceof L.MarkerClusterGroup) markerLayer.refreshClusters();
-}
-
-function applyVisibility() {
-  for (const [id, m] of state.markers) {
-    const hidden = state.hiddenGens.has(state.gens.get(id) ?? 0);
-    const on = markerLayer.hasLayer(m);
-    if (hidden && on) markerLayer.removeLayer(m);
-    if (!hidden && !on) markerLayer.addLayer(m);
+  for (const m of state.spots.values()) {
+    const o = m.options as SpotMarkerOptions;
+    m.setIcon(spotIcon(o.personIds, o.layout));
   }
+  if (markerLayer instanceof L.MarkerClusterGroup) markerLayer.refreshClusters();
 }
 
 function setClustering(on: boolean) {
   state.clustering = on;
   map.removeLayer(markerLayer);
   markerLayer = on ? makeCluster() : L.featureGroup();
+  markerLayer.on('animationend', renderOverlays);
   markerLayer.addTo(map);
-  applyVisibility();
+  rebuildMarkers();
+}
+markerLayer.on('animationend', renderOverlays);
+
+/** Zoomed out far enough that towns are drawn as disks rather than spread-out dots? */
+const townAsDisk = () => map.getZoom() < DOTS_FROM_ZOOM;
+
+/** Is this spot drawn as itself (not folded into a cluster)? */
+function spotVisible(marker: L.Marker): boolean {
+  if (pinnedLayer.hasLayer(marker)) return true;
+  return markerLayer instanceof L.MarkerClusterGroup
+    ? markerLayer.getVisibleParent(marker) === marker
+    : markerLayer.hasLayer(marker);
+}
+
+function renderTownCircles() {
+  townsLayer.clearLayers();
+  for (const marker of state.spots.values()) {
+    const layout = (marker.options as SpotMarkerOptions).layout;
+    if (!layout || townAsDisk() || !spotVisible(marker)) continue;
+    const { halfW, halfH } = spreadBox(layout, spreadScale(map.getZoom(), layout.minScale));
+    L.circleMarker(marker.getLatLng(), {
+      pane: 'towns',
+      radius: Math.hypot(halfW, halfH) + 9,
+      color: '#343a40',
+      weight: 1,
+      opacity: 0.35,
+      fillColor: '#495057',
+      fillOpacity: 0.12,
+      interactive: false,
+    }).addTo(townsLayer);
+  }
+}
+
+/** Things drawn relative to where spots currently appear: town circles and relationship lines. */
+function renderOverlays() {
+  renderTownCircles();
+  renderLines();
+}
+
+/**
+ * Where a person's dot is actually drawn. In a town's group of dots that's offset from the town's
+ * coordinates; inside a cluster (or for a lone dot) it's the coordinates themselves.
+ */
+function dotLatLng(id: string): L.LatLng {
+  const loc = state.located.get(id)!;
+  const latlng = L.latLng(loc.lat, loc.lon);
+  const marker = state.spots.get(state.spotOf.get(id) ?? '');
+  const layout = marker && (marker.options as SpotMarkerOptions).layout;
+  if (!marker || !layout) return latlng;
+  if (!spotVisible(marker)) return latlng;
+  if (townAsDisk()) return marker.getLatLng();
+  const dot = layout.dots.find((d) => d.id === id)!;
+  const scale = spreadScale(map.getZoom(), layout.minScale);
+  return map.layerPointToLatLng(map.latLngToLayerPoint(marker.getLatLng()).add([dot.dx * scale, dot.dy * scale]));
 }
 
 function fitToMarkers() {
@@ -339,19 +523,45 @@ function computeEdges(id: string): { edges: Edge[]; related: Set<string> } {
 
 const LINE_COLORS = { up: '#1864ab', down: '#d9480f', spouse: '#495057' };
 
-function drawLines() {
+/**
+ * Points for one relationship line. Lines between relatives born in the same town bow gently
+ * outwards, so lines between neighbouring dots don't run on top of each other or the dots.
+ */
+function linePoints(e: Edge): L.LatLng[] {
+  const a = dotLatLng(e.from);
+  const b = dotLatLng(e.to);
+  const key = state.spotOf.get(e.from);
+  const marker = key !== undefined && key === state.spotOf.get(e.to) ? state.spots.get(key) : undefined;
+  if (!marker || !(marker.options as SpotMarkerOptions).layout || townAsDisk() || !spotVisible(marker)) return [a, b];
+
+  const p1 = map.latLngToLayerPoint(a);
+  const p2 = map.latLngToLayerPoint(b);
+  const centre = map.latLngToLayerPoint(marker.getLatLng());
+  const mid = p1.add(p2).divideBy(2);
+  const d = p2.subtract(p1);
+  const len = Math.hypot(d.x, d.y) || 1;
+  // Unit normal, flipped to point away from the town's centre.
+  let n = L.point(-d.y / len, d.x / len);
+  const away = mid.subtract(centre);
+  if (n.x * away.x + n.y * away.y < 0) n = n.multiplyBy(-1);
+  const bulge = Math.min(40, Math.max(10, len * 0.3));
+  const ctrl = mid.add(n.multiplyBy(bulge * 2)); // quadratic Bézier apex sits at `bulge`
+
+  const pts: L.LatLng[] = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    const x = (1 - t) ** 2 * p1.x + 2 * (1 - t) * t * ctrl.x + t ** 2 * p2.x;
+    const y = (1 - t) ** 2 * p1.y + 2 * (1 - t) * t * ctrl.y + t ** 2 * p2.y;
+    pts.push(map.layerPointToLatLng([x, y]));
+  }
+  return pts;
+}
+
+function renderLines() {
   linesLayer.clearLayers();
   if (!state.selected) return;
-  const { edges, related } = computeEdges(state.selected);
-  state.related = related;
-
-  for (const e of edges) {
-    const a = state.located.get(e.from)!;
-    const b = state.located.get(e.to)!;
-    const pts: L.LatLngExpression[] = [
-      [a.lat, a.lon],
-      [b.lat, b.lon],
-    ];
+  for (const e of state.edges) {
+    const pts = linePoints(e);
     L.polyline(pts, { pane: 'lines', color: '#fff', weight: 6, opacity: 0.8, interactive: false }).addTo(linesLayer);
     L.polyline(pts, {
       pane: 'lines',
@@ -364,14 +574,23 @@ function drawLines() {
       interactive: false,
     }).addTo(linesLayer);
   }
-  return edges;
 }
+
+// Town dots are spread by a zoom-dependent amount, so redraw them, their circles and lines per zoom level.
+map.on('zoomend', () => {
+  if (state.tree) refreshIcons();
+  renderOverlays();
+});
 
 function select(id: string | null, opts: { pan: boolean } = { pan: true }) {
   state.selected = id;
-  state.related = new Set();
-  const edges = drawLines() ?? [];
+  if (id) state.viewTouched = true;
+  const { edges, related } = id ? computeEdges(id) : { edges: [], related: new Set<string>() };
+  state.edges = edges;
+  state.related = related;
+  syncPinned();
   refreshIcons();
+  renderOverlays();
   $('#line-legend').hidden = !id;
   renderPerson();
 
@@ -381,13 +600,12 @@ function select(id: string | null, opts: { pan: boolean } = { pan: true }) {
     // Keep the family clear of the info panel floating over the right side of the map.
     const panelW = window.innerWidth > 720 ? $('#person-panel').offsetWidth + 70 : 40;
     const fit = { paddingTopLeft: [60, 60] as L.PointTuple, paddingBottomRight: [panelW, 60] as L.PointTuple };
-    if (pts.length === 1 || L.latLngBounds(pts).getNorthEast().equals(L.latLngBounds(pts).getSouthWest())) {
-      const m = state.markers.get(ids[0])!;
-      if (markerLayer instanceof L.MarkerClusterGroup && markerLayer.hasLayer(m)) {
-        markerLayer.zoomToShowLayer(m);
-      } else map.flyTo(pts[0], Math.max(map.getZoom(), 7));
-    } else if (pts.length > 1) {
-      map.flyToBounds(L.latLngBounds(pts), { ...fit, maxZoom: 9, duration: 0.8 });
+    const bounds = pts.length ? L.latLngBounds(pts) : null;
+    if (bounds && bounds.getNorthEast().equals(bounds.getSouthWest())) {
+      // Everyone is at one spot: zoom in far enough for the town's tree card to show.
+      map.flyTo(pts[0], Math.max(map.getZoom(), 11), { duration: 0.8 });
+    } else if (bounds) {
+      map.flyToBounds(bounds, { ...fit, maxZoom: 9, duration: 0.8 });
     }
   }
 }
@@ -579,7 +797,7 @@ $('#legend').addEventListener('click', (e) => {
   if (state.hiddenGens.has(g)) state.hiddenGens.delete(g);
   else state.hiddenGens.add(g);
   li.classList.toggle('off');
-  applyVisibility();
+  rebuildMarkers();
 });
 
 // Any [data-person] link anywhere selects that person.
@@ -589,6 +807,10 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
   select(a.dataset.person!);
 });
+
+for (const ev of ['pointerdown', 'wheel'] as const) {
+  map.getContainer().addEventListener(ev, () => (state.viewTouched = true), { passive: true });
+}
 
 $('#close-person').addEventListener('click', () => select(null));
 map.on('click', () => state.selected && select(null));

@@ -5,8 +5,8 @@ Upload a GEDCOM (`.ged`) family tree and see where everyone was born, on an inte
 - **Birth places on a map.** Each person is a dot at their birth place, or their baptism place if no birth place is recorded.
 - **Colored by generation.** Warm colors are the most recent generations, cool colors the oldest. Click a generation in the legend to show or hide it.
 - **Click anyone** for their details: dates, places, occupation, parents, spouses, children and siblings. Every name is a link.
-- **Family lines.** Selecting someone draws lines to their parents (blue), children (orange) and spouses (dashed). You can switch to all ancestors and/or all descendants. A dotted line means it skips a relative whose place isn't known.
-- **Grouping.** People born near each other are grouped into pie-chart clusters, colored by generation. You can turn grouping off.
+- **Family lines.** Selecting someone draws lines to their parents (blue), children (orange) and spouses (dashed). You can switch to all ancestors and/or all descendants. A dotted line means it skips a relative whose place isn't known. Relatives born in the same town are joined by a curved line. While someone is selected, their town and their relatives' towns stay spread out, even when zoomed out.
+- **Grouping.** People born near each other are grouped into pie-chart clusters, colored by generation. Clicking a cluster zooms in. Below zoom 6 a town with several people is one of those disks too. From zoom 6, everyone born there is spread out inside a light circle, with one row per generation (oldest on top). Past zoom 14, the spread grows with the map, so each person keeps their place in the town and zooming in spreads them further apart. When zoomed out, towns with many people are packed tighter, so a group never covers a whole region. Each of those dots works like any other dot. Places less than 1.5 km apart count as the same town. You can turn grouping off.
 - **Search** by name.
 
 ## Run it
