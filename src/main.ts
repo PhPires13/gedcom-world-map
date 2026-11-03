@@ -10,6 +10,7 @@ import { Geocoder } from './geocode';
 import { generationColor, vibrant } from './colors';
 import { DOT, DOTS_FROM_ZOOM, layoutSpot, spreadBox, spreadScale, type SpotLayout } from './spots';
 import { DENSITY_LEVELS, densityLevel, hexCorners, hexDensity } from './hexbin';
+import { arrowHead, bundleFlows, bundleGeometry, computeFlows, cutPath, laneBend, trimEnd, type BundlePath } from './flows';
 
 // ---------- Types & state ----------
 
@@ -48,10 +49,26 @@ const state = {
   geocodeAbort: null as AbortController | null,
   /** Set once the user pans/zooms/clicks the map, so we stop re-fitting the view under them. */
   viewTouched: false,
+  /** Place names still waiting to be looked up, and whether the lookup is running. */
+  pendingPlaces: new Set<string>(),
+  lookupActive: false,
   /** People opened most recently first, for the "Recently viewed" list. */
   recent: [] as string[],
   /** Show people as dots, as a hexagon density map of birth places, or both. */
   view: 'dots' as MapView,
+  /** Draw migration arrows from parents' birthplaces to their children's. */
+  showFlows: false,
+  /**
+   * Generations timeline: the generation currently shown (0 = most recent), or null when off.
+   * Generations older than it stay visible but faded; more recent ones are hidden.
+   */
+  timeline: null as number | null,
+  /**
+   * During a timeline step, the generation whose arrows are still growing (its people appear once
+   * the arrows arrive), and how far the arrows have grown (0..1).
+   */
+  arriving: null as number | null,
+  growProgress: 1,
 };
 
 const geocoder = new Geocoder();
@@ -114,7 +131,7 @@ function renderDensity() {
   const points = [];
   for (const [id, l] of state.located) {
     const gen = state.gens.get(id) ?? 0;
-    if (state.hiddenGens.has(gen)) continue;
+    if (!genShown(gen)) continue;
     const p = map.project([l.lat, l.lon], zoom);
     points.push({ x: p.x, y: p.y, gen });
   }
@@ -127,7 +144,7 @@ function renderDensity() {
       renderer: densityRenderer,
       stroke: false,
       fillColor: color,
-      fillOpacity: DENSITY_LEVELS[densityLevel(hex.weight)].opacity,
+      fillOpacity: DENSITY_LEVELS[densityLevel(hex.weight)].opacity * (genFaded(hex.mainGen) ? 0.4 : 1),
       bubblingMouseEvents: false,
     });
     // Hexagons with people born in them say who; the ones around only add area.
@@ -146,6 +163,216 @@ function renderDensity() {
 }
 
 const dotsShown = () => state.view !== 'density';
+
+/** Is this generation part of the map: ticked in the legend and, with the timeline on, reached by it. */
+const genVisible = (g: number) => !state.hiddenGens.has(g) && (state.timeline === null || g >= state.timeline);
+/** Are this generation's people drawn: visible, and not still arriving in a timeline step. */
+const genShown = (g: number) => genVisible(g) && g !== state.arriving;
+/** During the timeline, generations before the current step are shown faded. */
+const genFaded = (g: number) => state.timeline !== null && g > state.timeline;
+
+// ---------- Migration arrows ----------
+
+map.createPane('flows');
+map.getPane('flows')!.style.zIndex = '445'; // over density and town circles, under selection lines and dots
+const flowsRenderer = L.canvas({ pane: 'flows' });
+const flowsLayer = L.layerGroup([], { pane: 'flows' }).addTo(map);
+
+/** Places closer than this on screen are grouped, so arrows bundle until you zoom in. */
+const FLOW_GROUP_PX = 60;
+/** Arrows stop this far (px) before their destination, so the arrowhead isn't hidden under a marker. */
+const FLOW_END_GAP = 20;
+
+/** Pixel length of a path. */
+const pathLength = (pts: [number, number][]) =>
+  pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+
+const flowWeight = (n: number) => Math.min(16, 1.5 + 1.6 * Math.sqrt(n));
+
+/** Parent→child pairs ("parentId>childId") whose move is traced along the arrows for the selected person. */
+let flowTraced = new Set<string>();
+
+/**
+ * When each piece grows during a timeline step (as shares of the step): branches merge in, the
+ * trunk travels, then it splits out. Bundles without merging or splitting give their time to the rest.
+ */
+function growPhase(kind: BundlePath['kind'], hasIn: boolean, hasTrunk: boolean): [number, number] {
+  if (hasIn && hasTrunk) return { in: [0, 0.25], trunk: [0.25, 0.75], out: [0.75, 1] }[kind] as [number, number];
+  if (hasTrunk) return kind === 'trunk' ? [0, 0.65] : [0.65, 1];
+  if (hasIn) return kind === 'in' ? [0, 0.3] : [0.3, 1];
+  return [0, 1];
+}
+
+/**
+ * Migration arrows as a flow map: for each generation, moves between two groups of nearby places
+ * become one trunk, sized by how many people made them, that splits into thinner arrows to each
+ * destination (and gathers several origins at the start). Groups are measured on screen, so they
+ * separate as you zoom in. Colours are the children's generation. Recomputed per zoom.
+ */
+function renderFlows() {
+  flowsLayer.clearLayers();
+  if (!state.showFlows || !state.tree) return;
+  const zoom = map.getZoom();
+  // A move shows if the mover's generation is ticked in the legend, and (with the timeline on) once the
+  // timeline reaches the generation of the child whose birth dates it.
+  const flows = computeFlows(
+    state.tree.people,
+    state.located,
+    state.gens,
+    (moverGen, childGen) => !state.hiddenGens.has(moverGen) && (state.timeline === null || childGen >= state.timeline),
+  );
+  const project = (p: { lat: number; lon: number }): [number, number] => {
+    const pt = map.project([p.lat, p.lon], zoom);
+    return [pt.x, pt.y];
+  };
+  const toLatLng = ([x, y]: [number, number]) => map.unproject([x, y], zoom);
+  const people = state.tree.people;
+  const placeOf = (id: string) => state.located.get(id)?.place ?? '';
+  const nameOf = (id: string) => esc(people.get(id)?.name ?? '');
+  const born = (id: string) => {
+    const y = people.get(id)?.birth?.year;
+    return y ? ` (${y})` : '';
+  };
+  /** One line per move: who moved, and the children they had at the destination. */
+  const moveLines = (fs: (typeof flows)[number][]) => {
+    const lines = fs.map(
+      (f) =>
+        `<b>${f.parents.map(nameOf).join(' &amp; ')}</b> <span class="muted">→ had ${f.children.map((c) => nameOf(c) + born(c)).join(', ')}</span>`,
+    );
+    return lines.slice(0, 6).join('<br>') + (lines.length > 6 ? `<br><span class="muted">and ${lines.length - 6} more</span>` : '');
+  };
+  const moved = (n: number) => `${n} ${n === 1 ? 'person' : 'people'} moved`;
+
+  // The selected person's moves are traced along the bundles they belong to: their own (as the one who
+  // moved) solid, and their parents' move to where they were born dashed. Everything else fades back.
+  const sel = state.selected;
+  const ownMove = (f: (typeof flows)[number]) => !!sel && f.parents.includes(sel);
+  const parentsMove = (f: (typeof flows)[number]) => !!sel && f.children.includes(sel);
+  flowTraced = new Set();
+  const traced: { pts: [number, number][]; own: boolean }[] = [];
+
+  // Small bundles first, so the big routes are drawn on top.
+  const bundles = bundleFlows(flows, project, FLOW_GROUP_PX).sort((a, b) => a.total - b.total);
+  for (const b of bundles) {
+    const color = generationColor(b.gen, state.maxGen);
+    const mine = [...new Set([...b.origins, ...b.dests].flatMap((e) => e.flows))].filter((f) => ownMove(f) || parentsMove(f));
+    // The timeline dates a move by the child's birth, so fading and growing follow the child's generation.
+    const opacity = (genFaded(b.step) ? 0.25 : 0.85) * (sel && !mine.length ? 0.35 : 1);
+    const growing = b.step === state.arriving;
+    const paths = bundleGeometry(b, laneBend(b.lane));
+    const hasIn = paths.some((p) => p.kind === 'in');
+    const hasTrunk = paths.some((p) => p.kind === 'trunk');
+    const header = `<i class="dot" style="background:${color}"></i>${genLabel(b.gen)}`;
+
+    // Trace each of the selected person's moves through this bundle: their branch in, the trunk, their branch out.
+    for (const f of mine) {
+      const piece = (kind: BundlePath['kind']) =>
+        paths.find((p) => p.kind === kind && (kind === 'trunk' || p.end?.flows.includes(f)))?.pts ?? [];
+      const route = trimEnd([...piece('in'), ...piece('trunk').slice(1), ...piece('out').slice(1)], FLOW_END_GAP);
+      const pts = growing ? cutPath(route, state.growProgress) : route;
+      if (pts.length >= 2) traced.push({ pts, own: ownMove(f) });
+      // Record the parent→child links this move covers, so their straight family line isn't drawn too.
+      if (ownMove(f)) for (const c of f.children) flowTraced.add(`${sel}>${c}`);
+      else for (const p of f.parents) flowTraced.add(`${p}>${sel}`);
+    }
+
+    for (const path of paths) {
+      // How much of this piece is drawn: all of it, or its share of a timeline step's growth.
+      let frac = 1;
+      if (growing) {
+        const [a, z] = growPhase(path.kind, hasIn, hasTrunk);
+        frac = Math.max(0, Math.min(1, (state.growProgress - a) / (z - a)));
+        if (frac <= 0) continue;
+      }
+      // Branches to a destination stop short of it, so their arrowhead shows beside the marker.
+      const base = path.kind === 'out' ? trimEnd(path.pts, FLOW_END_GAP) : path.pts;
+      const pts = cutPath(base, frac);
+      if (pts.length < 2) continue;
+      const weight = flowWeight(path.count);
+
+      // Hover details: the whole bundle on its trunk; on a branch, who moved and the children they had there.
+      const endFlows = path.end?.flows ?? [];
+      const endMovers = new Set(endFlows.flatMap((f) => f.parents)).size;
+      let tip: string;
+      if (path.kind === 'trunk') {
+        const from = [...new Set(b.origins.map((e) => placeOf(e.flows[0].parents[0])))];
+        const to = [...new Set(b.dests.map((e) => placeOf(e.flows[0].children[0])))];
+        const list = (xs: string[]) => esc(xs.slice(0, 4).join(', ') + (xs.length > 4 ? `, +${xs.length - 4}` : ''));
+        tip = `${header}: ${moved(b.total)}<br><b>From</b> ${list(from)}<br><b>To</b> ${list(to)}`;
+      } else if (path.kind === 'in') {
+        tip = `<b>From ${esc(placeOf(endFlows[0].parents[0]))}</b><br>${header}: ${moved(endMovers)}<br>${moveLines(endFlows)}`;
+      } else {
+        const from = [...new Set(endFlows.map((f) => placeOf(f.parents[0])))].join(', ');
+        tip = `<b>${esc(from)} → ${esc(placeOf(endFlows[0].children[0]))}</b><br>${header}: ${moved(endMovers)}<br>${moveLines(endFlows)}`;
+      }
+
+      // Arrows stop just short so the arrowhead's tip lands on the place (or on the growing tip).
+      const isOut = path.kind === 'out';
+      const headSize = 6 + weight * 1.3;
+      // The line ends under the arrowhead, not past its tip.
+      L.polyline((isOut ? trimEnd(pts, headSize * 0.6) : pts).map(toLatLng), {
+        renderer: flowsRenderer,
+        color,
+        weight,
+        opacity,
+        lineCap: 'round',
+        lineJoin: 'round',
+        bubblingMouseEvents: false,
+      })
+        .bindTooltip(tip, { sticky: true })
+        .addTo(flowsLayer);
+      if (isOut && pts.length >= 3) {
+        L.polygon(arrowHead(pts[pts.length - 1], pts[pts.length - 3], headSize).map(toLatLng), {
+          renderer: flowsRenderer,
+          stroke: false,
+          fillColor: color,
+          fillOpacity: opacity,
+          interactive: false,
+        }).addTo(flowsLayer);
+      }
+      // A direction marker halfway along long trunks (and long single arrows), once fully grown.
+      const main = path.kind === 'trunk' || (isOut && !hasTrunk); // the long shared part of the route
+      if (main && frac >= 1 && pathLength(path.pts) > 140) {
+        const mid = cutPath(path.pts, 0.55);
+        L.polygon(arrowHead(mid[mid.length - 1], mid[mid.length - 3], headSize + 2).map(toLatLng), {
+          renderer: flowsRenderer,
+          color: '#fff',
+          weight: 1.5,
+          opacity,
+          fillColor: color,
+          fillOpacity: opacity,
+          interactive: false,
+        }).addTo(flowsLayer);
+      }
+    }
+  }
+
+  // Traced routes on top, with a white edge so they read over any arrow colour: the selected person's
+  // own move solid and dark, their parents' move (to where they were born) dashed and lighter.
+  for (const { pts, own } of traced.sort((a, b) => Number(a.own) - Number(b.own))) {
+    const ll = pts.slice(0, -1).map(toLatLng);
+    const ink = own ? '#1f2937' : '#6b7280';
+    L.polyline(ll, { renderer: flowsRenderer, color: '#fff', weight: own ? 7 : 6, opacity: 0.95, interactive: false }).addTo(flowsLayer);
+    L.polyline(ll, {
+      renderer: flowsRenderer,
+      color: ink,
+      weight: own ? 3 : 2.5,
+      opacity: 1,
+      dashArray: own ? undefined : '7 6',
+      interactive: false,
+    }).addTo(flowsLayer);
+    if (pts.length >= 3) {
+      L.polygon(arrowHead(pts[pts.length - 1], pts[pts.length - 3], own ? 12 : 10).map(toLatLng), {
+        renderer: flowsRenderer,
+        color: '#fff',
+        weight: 1.5,
+        fillColor: ink,
+        fillOpacity: 1,
+        interactive: false,
+      }).addTo(flowsLayer);
+    }
+  }
+}
 
 function setView(view: MapView) {
   state.view = view;
@@ -178,7 +405,9 @@ function pieIcon(ids: string[]) {
     .map(([g, n]) => {
       const from = (acc / total) * 360;
       acc += n;
-      return `${generationColor(g, state.maxGen)} ${from}deg ${(acc / total) * 360}deg`;
+      // During the timeline, earlier generations' slices are translucent so the current one stands out.
+      const color = generationColor(g, state.maxGen) + (genFaded(g) ? '59' : '');
+      return `${color} ${from}deg ${(acc / total) * 360}deg`;
     })
     .join(', ');
   const size = total < 10 ? 34 : total < 100 ? 42 : 50;
@@ -214,6 +443,7 @@ function isHighlighted(id: string) {
 function dotState(id: string): string {
   if (id === state.selected) return ' selected';
   if (state.selected && !state.related.has(id)) return ' dim';
+  if (genFaded(state.gens.get(id) ?? 0)) return ' faded';
   return '';
 }
 
@@ -255,6 +485,8 @@ function spotIcon(ids: string[], layout: SpotLayout | null) {
 
 async function loadText(text: string, fileName: string) {
   state.geocodeAbort?.abort();
+  state.lookupActive = false;
+  state.pendingPlaces = new Set();
   const tree = parseGedcom(text);
   if (tree.people.size === 0) {
     alert(`No people found in “${fileName}”. Is it a GEDCOM file?`);
@@ -282,6 +514,12 @@ async function loadText(text: string, fileName: string) {
   renderSearch('');
   state.recent = [];
   renderRecent();
+  stopTimeline();
+  cancelAnimationFrame(growFrame);
+  state.timeline = null;
+  state.arriving = null;
+  state.growProgress = 1;
+  $('#timeline').hidden = true;
 
   // Places that need looking up → people waiting on them.
   const pending = new Map<string, string[]>();
@@ -308,6 +546,7 @@ async function loadText(text: string, fileName: string) {
   renderStats();
   fitToMarkers();
 
+  state.pendingPlaces = new Set(pending.keys());
   if (pending.size) await geocodeAll(pending);
 }
 
@@ -325,6 +564,7 @@ function setGeocoded(id: string, place: string, kind: Located['kind'], c: { lat:
 async function geocodeAll(pending: Map<string, string[]>) {
   const abort = new AbortController();
   state.geocodeAbort = abort;
+  state.lookupActive = true;
   const places = [...pending.keys()];
   const progress = $('#progress');
   progress.hidden = false;
@@ -346,6 +586,9 @@ async function geocodeAll(pending: Map<string, string[]>) {
         }
         scheduleRebuild();
       }
+      state.pendingPlaces.delete(place);
+      // If the open person was waiting on this place, refresh their panel and lines now.
+      if (state.selected && pending.get(place)!.includes(state.selected)) select(state.selected, { pan: false });
     } catch (e) {
       if (abort.signal.aborted) break;
       failed++;
@@ -353,6 +596,8 @@ async function geocodeAll(pending: Map<string, string[]>) {
       if (failed >= 5) {
         $('#progress-label').textContent = 'Place lookup is failing — check your connection.';
         state.geocodeAbort = null;
+        state.lookupActive = false;
+        if (state.selected) renderPerson();
         return;
       }
     }
@@ -361,6 +606,7 @@ async function geocodeAll(pending: Map<string, string[]>) {
 
   progress.hidden = true;
   state.geocodeAbort = null;
+  state.lookupActive = false;
   renderStats();
   if (state.selected) select(state.selected, { pan: false });
   if (!abort.signal.aborted && !state.viewTouched) fitToMarkers();
@@ -380,7 +626,7 @@ function rebuildMarkers() {
 
   const exact = new Map<string, string[]>();
   for (const [id, loc] of state.located) {
-    if (state.hiddenGens.has(state.gens.get(id) ?? 0)) continue;
+    if (!genShown(state.gens.get(id) ?? 0)) continue;
     const key = spotKey(loc);
     exact.set(key, [...(exact.get(key) ?? []), id]);
   }
@@ -438,6 +684,7 @@ function rebuildMarkers() {
   else markers.forEach((m) => markerLayer.addLayer(m));
   syncPinned();
   renderDensity();
+  renderFlows();
   renderOverlays();
 }
 
@@ -641,6 +888,9 @@ function renderLines() {
   linesLayer.clearLayers();
   if (!state.selected) return;
   for (const e of state.edges) {
+    // Moves already traced along the migration arrows don't need a straight line too.
+    const pair = e.kind === 'up' ? `${e.to}>${e.from}` : `${e.from}>${e.to}`;
+    if (state.showFlows && e.kind !== 'spouse' && flowTraced.has(pair)) continue;
     const pts = linePoints(e);
     L.polyline(pts, { pane: 'lines', color: '#fff', weight: 6, opacity: 0.8, interactive: false }).addTo(linesLayer);
     L.polyline(pts, {
@@ -660,6 +910,7 @@ function renderLines() {
 map.on('zoomend', () => {
   if (state.tree) refreshIcons();
   renderDensity();
+  renderFlows();
   renderOverlays();
 });
 
@@ -675,6 +926,7 @@ function select(id: string | null, opts: { pan: boolean } = { pan: true }) {
   state.related = related;
   syncPinned();
   refreshIcons();
+  renderFlows();
   renderOverlays();
   $('#line-legend').hidden = !id;
   renderPerson();
@@ -725,9 +977,15 @@ function renderPerson() {
 
   let locNote = '';
   if (!loc) {
-    locNote = originEvent(p)
-      ? `<p class="note">Birth place couldn’t be found on the map.</p>`
-      : `<p class="note">No birth place recorded — not shown on the map.</p>`;
+    const origin = originEvent(p);
+    const waiting = origin?.event.place !== undefined && state.pendingPlaces.has(origin.event.place);
+    locNote = !origin
+      ? `<p class="note">No birth place recorded — not shown on the map.</p>`
+      : waiting && state.lookupActive
+        ? `<p class="note">Still looking up this place — it will appear on the map once found.</p>`
+        : waiting
+          ? `<p class="note">The place lookup stopped before reaching this place. Load the file again to continue.</p>`
+          : `<p class="note">Birth place couldn’t be found on the map.</p>`;
   } else {
     const notes: string[] = [];
     if (loc.kind === 'baptism') notes.push('Placed at baptism location (no birth place recorded).');
@@ -934,8 +1192,10 @@ window.addEventListener('drop', (e) => {
 
 $('#progress-stop').addEventListener('click', () => {
   state.geocodeAbort?.abort();
+  state.lookupActive = false;
   $('#progress').hidden = true;
   renderStats();
+  if (state.selected) renderPerson();
 });
 
 const searchInput = $<HTMLInputElement>('#search');
@@ -980,6 +1240,107 @@ $<HTMLSelectElement>('#line-mode').addEventListener('change', (e) => {
 });
 
 $<HTMLInputElement>('#cluster').addEventListener('change', (e) => setClustering((e.target as HTMLInputElement).checked));
+
+$<HTMLInputElement>('#flows').addEventListener('change', (e) => {
+  state.showFlows = (e.target as HTMLInputElement).checked;
+  renderFlows();
+});
+
+// ---------- Generations timeline ----------
+
+const TIMELINE_STEP_MS = 2400;
+/** How long a step's arrows take to grow from the parents' birthplaces to the children's. */
+const GROW_MS = 1200;
+let timelineTimer = 0;
+let growFrame = 0;
+const timelineRange = $<HTMLInputElement>('#timeline-range');
+
+/** Median birth year of a generation, for the timeline label. */
+function genMedianYear(g: number): number | undefined {
+  const years = [...state.tree!.people.values()]
+    .filter((p) => state.gens.get(p.id) === g && p.birth?.year)
+    .map((p) => p.birth!.year!)
+    .sort((a, b) => a - b);
+  return years.length ? years[Math.floor(years.length / 2)] : undefined;
+}
+
+/**
+ * Show the map up to generation `g` (null turns the timeline off and shows everyone again). With
+ * `animate`, generation g's arrows grow out first and its people appear once they arrive.
+ */
+function setTimeline(g: number | null, animate = false) {
+  cancelAnimationFrame(growFrame);
+  state.arriving = null;
+  state.growProgress = 1;
+  state.timeline = g;
+  $('#timeline').hidden = g === null;
+  if (g !== null) {
+    // The slider runs oldest (left) to newest (right); generation numbers run the other way.
+    timelineRange.max = String(state.maxGen);
+    timelineRange.value = String(state.maxGen - g);
+    $('#timeline-gen').textContent = genLabel(g);
+    const year = genMedianYear(g);
+    $('#timeline-year').textContent = year ? `born ≈ ${year}` : '';
+    $('#timeline-dot').style.background = generationColor(g, state.maxGen);
+  }
+  if (g === null || !animate) {
+    rebuildMarkers();
+    return;
+  }
+  // Hide generation g's people and grow its arrows; reveal them when the arrows arrive.
+  state.arriving = g;
+  state.growProgress = 0;
+  rebuildMarkers();
+  const start = performance.now();
+  const ease = (t: number) => 1 - (1 - t) ** 3;
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - start) / GROW_MS);
+    state.growProgress = ease(t);
+    if (t < 1) {
+      renderFlows();
+      growFrame = requestAnimationFrame(tick);
+    } else {
+      state.arriving = null;
+      state.growProgress = 1;
+      rebuildMarkers();
+    }
+  };
+  growFrame = requestAnimationFrame(tick);
+}
+
+function stopTimeline() {
+  clearInterval(timelineTimer);
+  timelineTimer = 0;
+  $('#timeline').classList.remove('playing');
+  $('#timeline-play').setAttribute('aria-label', 'Play');
+}
+
+/** Step from the oldest generation to the newest, one generation every TIMELINE_STEP_MS. */
+function playTimeline() {
+  stopTimeline();
+  if (state.timeline === null || state.timeline === 0) setTimeline(state.maxGen, true);
+  $('#timeline').classList.add('playing');
+  $('#timeline-play').setAttribute('aria-label', 'Pause');
+  timelineTimer = window.setInterval(() => {
+    if (state.timeline === null || state.timeline <= 0) return stopTimeline();
+    setTimeline(state.timeline - 1, true);
+    if (state.timeline === 0) stopTimeline();
+  }, TIMELINE_STEP_MS);
+}
+
+$('#timeline-open').addEventListener('click', () => state.tree && playTimeline());
+$('#timeline-play').addEventListener('click', () => (timelineTimer ? stopTimeline() : playTimeline()));
+timelineRange.addEventListener('input', () => {
+  stopTimeline();
+  setTimeline(state.maxGen - Number(timelineRange.value), true);
+});
+$('#timeline-close').addEventListener('click', () => {
+  stopTimeline();
+  setTimeline(null);
+});
+// Clicks and scrolls on the bar shouldn't reach the map underneath.
+L.DomEvent.disableClickPropagation($('#timeline'));
+L.DomEvent.disableScrollPropagation($('#timeline'));
 
 const VIEW_KEY = 'gedcom-world-map:view';
 for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="view"]')) {

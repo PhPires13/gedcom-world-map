@@ -107,6 +107,14 @@
               </select>
             </label>
             <label class="switch"><input type="checkbox" id="cluster" checked /><span>Group nearby people</span></label>
+            <label class="switch">
+              <input type="checkbox" id="flows" />
+              <span>Migration arrows <small>Each parent's move: from where they were born to where they had children</small></span>
+            </label>
+            <button id="timeline-open" class="btn wide timeline-btn" type="button">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+              Play generations timeline
+            </button>
           </div>
         </details>
 
@@ -126,7 +134,24 @@
 
     <button id="show-sidebar" class="icon-btn floating" title="Show panel" aria-label="Show panel" hidden>☰</button>
 
-    <main id="map"></main>
+    <main id="map">
+      <div id="timeline" class="timeline" hidden>
+        <button id="timeline-play" class="icon-btn play" type="button" aria-label="Play">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+        </button>
+        <div class="timeline-main">
+          <div class="timeline-label">
+            <i id="timeline-dot" class="dot"></i><b id="timeline-gen"></b><span id="timeline-year" class="muted"></span>
+          </div>
+          <input id="timeline-range" type="range" min="0" step="1" aria-label="Generation" />
+          <div class="timeline-ends"><span>Oldest</span><span>Newest</span></div>
+        </div>
+        <button id="timeline-close" class="icon-btn ghost" type="button" aria-label="Close timeline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+    </main>
 
     <aside id="person-panel" hidden>
       <button id="close-person" class="icon-btn" aria-label="Close">×</button>
