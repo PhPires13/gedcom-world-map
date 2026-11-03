@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GEDCOM World Map</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
+  </head>
+  <body>
+    <aside id="sidebar">
+      <header>
+        <h1>GEDCOM World Map</h1>
+        <button id="toggle-sidebar" class="icon-btn" title="Hide panel" aria-label="Hide panel">‹</button>
+      </header>
+
+      <section id="upload">
+        <label id="dropzone" for="file-input">
+          <input type="file" id="file-input" accept=".ged,.gedcom,text/plain" hidden />
+          <strong>Drop a .ged file here</strong>
+          <span>or click to choose one</span>
+        </label>
+        <button id="load-sample" class="link-btn">Try a sample family tree</button>
+        <p class="hint">Your file never leaves your browser. Only place names are sent to OpenStreetMap to find their coordinates.</p>
+      </section>
+
+      <section id="tree-info" hidden>
+        <div id="stats"></div>
+        <div id="progress" hidden>
+          <div class="progress-row">
+            <span id="progress-label"></span>
+            <button id="progress-stop" class="link-btn">Stop</button>
+          </div>
+          <div class="bar"><div id="progress-fill"></div></div>
+        </div>
+
+        <input id="search" type="search" placeholder="Search people…" autocomplete="off" />
+        <ul id="search-results"></ul>
+
+        <div class="controls">
+          <label>
+            Lines when selecting
+            <select id="line-mode">
+              <option value="family">Parents, children &amp; spouses</option>
+              <option value="ancestors">All ancestors</option>
+              <option value="descendants">All descendants</option>
+              <option value="all">All ancestors &amp; descendants</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="cluster" checked /> Group nearby people</label>
+        </div>
+
+        <h2>Generations <small>(click to show/hide)</small></h2>
+        <ul id="legend"></ul>
+
+        <details id="unmapped">
+          <summary></summary>
+          <ul></ul>
+        </details>
+
+        <button id="load-other" class="link-btn">Load a different file</button>
+      </section>
+    </aside>
+
+    <button id="show-sidebar" class="icon-btn floating" title="Show panel" aria-label="Show panel" hidden>☰</button>
+
+    <main id="map"></main>
+
+    <aside id="person-panel" hidden>
+      <button id="close-person" class="icon-btn" aria-label="Close">×</button>
+      <div id="person-content"></div>
+    </aside>
+
+    <div id="line-legend" hidden>
+      <span><i class="ln anc"></i>Parents / ancestors</span>
+      <span><i class="ln desc"></i>Children / descendants</span>
+      <span><i class="ln spouse"></i>Spouse</span>
+      <span><i class="ln skip"></i>Skips someone with no known place</span>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

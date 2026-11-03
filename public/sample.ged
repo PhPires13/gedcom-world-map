@@ -1,0 +1,361 @@
+0 HEAD
+1 SOUR GEDCOM-WORLD-MAP-SAMPLE
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 NOTE Fictional family created to demo GEDCOM World Map.
+0 @I1@ INDI
+1 NAME Sofia /Almeida Costa/
+1 SEX F
+1 BIRT
+2 DATE 14 MAR 1995
+2 PLAC Lisboa, Portugal
+1 OCCU Architect
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Tiago /Almeida Costa/
+1 SEX M
+1 BIRT
+2 DATE 2 SEP 1998
+2 PLAC London, England, United Kingdom
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Miguel /Costa/
+1 SEX M
+1 BIRT
+2 DATE 21 JUN 1965
+2 PLAC Porto, Portugal
+1 OCCU Engineer
+1 FAMC @F2@
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Ana /Almeida/
+1 SEX F
+1 BIRT
+2 DATE 5 JAN 1968
+2 PLAC São Paulo, Brazil
+1 FAMC @F4@
+1 FAMS @F1@
+0 @I5@ INDI
+1 NAME António /Costa/
+1 SEX M
+1 BIRT
+2 DATE 11 NOV 1935
+2 PLAC Braga, Portugal
+3 MAP
+4 LATI N41.5454
+4 LONG W8.4265
+1 DEAT
+2 DATE 3 FEB 2010
+2 PLAC Porto, Portugal
+1 OCCU Teacher
+1 FAMC @F5@
+1 FAMS @F2@
+0 @I6@ INDI
+1 NAME Maria /Ferreira/
+1 SEX F
+1 BIRT
+2 DATE 30 APR 1938
+2 PLAC Viseu, Portugal
+1 FAMC @F6@
+1 FAMS @F2@
+0 @I7@ INDI
+1 NAME Isabel /Costa/
+1 SEX F
+1 BIRT
+2 DATE 8 AUG 1962
+2 PLAC Porto, Portugal
+1 FAMC @F2@
+1 FAMS @F3@
+0 @I8@ INDI
+1 NAME Jean /Dubois/
+1 SEX M
+1 BIRT
+2 DATE 19 OCT 1960
+2 PLAC Lyon, France
+1 FAMS @F3@
+0 @I9@ INDI
+1 NAME Lucas /Dubois/
+1 SEX M
+1 BIRT
+2 DATE 1 DEC 1990
+2 PLAC Paris, France
+1 FAMC @F3@
+0 @I10@ INDI
+1 NAME Roberto /Almeida/
+1 SEX M
+1 BIRT
+2 DATE 17 JUL 1940
+2 PLAC Rio de Janeiro, Brazil
+1 DEAT
+2 DATE 2015
+2 PLAC São Paulo, Brazil
+1 FAMC @F7@
+1 FAMS @F4@
+0 @I11@ INDI
+1 NAME Helena /Santos/
+1 SEX F
+1 BIRT
+2 DATE 22 FEB 1942
+2 PLAC Luanda, Angola
+1 FAMC @F8@
+1 FAMS @F4@
+0 @I12@ INDI
+1 NAME José /Costa/
+1 SEX M
+1 BIRT
+2 DATE 1905
+2 PLAC Braga, Portugal
+1 DEAT
+2 DATE 1978
+2 PLAC Braga, Portugal
+1 OCCU Shoemaker
+1 FAMC @F9@
+1 FAMS @F5@
+0 @I13@ INDI
+1 NAME Rosa /Silva/
+1 SEX F
+1 BIRT
+2 DATE ABT 1908
+2 PLAC Guimarães, Braga, Portugal
+1 FAMS @F5@
+0 @I14@ INDI
+1 NAME Manuel /Ferreira/
+1 SEX M
+1 BIRT
+2 DATE 1910
+2 PLAC Viseu, Portugal
+1 FAMS @F6@
+0 @I15@ INDI
+1 NAME Carmen /López/
+1 SEX F
+1 BIRT
+2 DATE 1912
+2 PLAC Vigo, Pontevedra, Spain
+1 FAMS @F6@
+0 @I16@ INDI
+1 NAME Francisco /Almeida/
+1 SEX M
+1 BIRT
+2 DATE 1912
+2 PLAC Funchal, Madeira, Portugal
+1 DEAT
+2 DATE 1990
+2 PLAC Rio de Janeiro, Brazil
+1 OCCU Merchant
+1 FAMC @F13@
+1 FAMS @F7@
+0 @I17@ INDI
+1 NAME Margaret /O'Brien/
+1 SEX F
+1 BIRT
+2 DATE 1915
+2 PLAC Cork, Ireland
+1 FAMC @F10@
+1 FAMS @F7@
+0 @I18@ INDI
+1 NAME Joaquim /Santos/
+1 SEX M
+1 BIRT
+2 DATE 1915
+2 PLAC Coimbra, Portugal
+1 FAMS @F8@
+0 @I19@ INDI
+1 NAME Luísa /Mendes/
+1 SEX F
+1 BIRT
+2 DATE ABT 1918
+1 BAPM
+2 DATE 1918
+2 PLAC Benguela, Angola
+1 FAMS @F8@
+0 @I20@ INDI
+1 NAME Domingos /Costa/
+1 SEX M
+1 BIRT
+2 DATE 1875
+2 PLAC Barcelos, Braga, Portugal
+1 FAMC @F14@
+1 FAMS @F9@
+0 @I21@ INDI
+1 NAME Joana /Pereira/
+1 SEX F
+1 BIRT
+2 DATE ABT 1878
+1 FAMC @F17@
+1 FAMS @F9@
+0 @I22@ INDI
+1 NAME Patrick /O'Brien/
+1 SEX M
+1 BIRT
+2 DATE 1885
+2 PLAC Cork, Ireland
+1 OCCU Fisherman
+1 FAMC @F15@
+1 FAMS @F10@
+0 @I23@ INDI
+1 NAME Mary /Walsh/
+1 SEX F
+1 BIRT
+2 DATE 1888
+2 PLAC Kinsale, County Cork, Ireland
+1 FAMS @F10@
+0 @I24@ INDI
+1 NAME Seán /O'Brien/
+1 SEX M
+1 BIRT
+2 DATE 1918
+2 PLAC Cork, Ireland
+1 FAMC @F10@
+1 FAMS @F11@
+0 @I25@ INDI
+1 NAME Michael /O'Brien/
+1 SEX M
+1 BIRT
+2 DATE 1950
+2 PLAC Boston, Massachusetts, USA
+1 FAMC @F11@
+1 FAMS @F12@
+0 @I26@ INDI
+1 NAME Linda /Russo/
+1 SEX F
+1 BIRT
+2 DATE 1952
+2 PLAC New York, New York, USA
+1 FAMS @F12@
+0 @I27@ INDI
+1 NAME Emily /O'Brien/
+1 SEX F
+1 BIRT
+2 DATE 1980
+2 PLAC Boston, Massachusetts, USA
+1 FAMC @F12@
+0 @I28@ INDI
+1 NAME Gonçalo /Almeida/
+1 SEX M
+1 BIRT
+2 DATE 1880
+2 PLAC Funchal, Madeira, Portugal
+1 FAMS @F13@
+0 @I29@ INDI
+1 NAME Teresa /Gomes/
+1 SEX F
+1 BIRT
+2 DATE 1884
+2 PLAC Santana, Madeira, Portugal
+1 FAMS @F13@
+0 @I30@ INDI
+1 NAME Bento /Costa/
+1 SEX M
+1 BIRT
+2 DATE 1840
+2 PLAC Barcelos, Braga, Portugal
+3 MAP
+4 LATI N41.5388
+4 LONG W8.6151
+1 FAMC @F16@
+1 FAMS @F14@
+0 @I31@ INDI
+1 NAME Ana /Rodrigues/
+1 SEX F
+1 BIRT
+2 DATE 1845
+2 PLAC Lugar do Outeiro, Ponte de Lima, Viana do Castelo, Portugal
+1 FAMS @F14@
+0 @I32@ INDI
+1 NAME Thomas /O'Brien/
+1 SEX M
+1 BIRT
+2 DATE ABT 1855
+2 PLAC Skibbereen, County Cork, Ireland
+1 FAMS @F15@
+0 @I33@ INDI
+1 NAME Custódio /Costa/
+1 SEX M
+1 BIRT
+2 DATE ABT 1810
+2 PLAC Braga, Portugal
+3 MAP
+4 LATI N41.5454
+4 LONG W8.4265
+1 FAMS @F16@
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+1 MARR
+2 DATE 1992
+2 PLAC Lisboa, Portugal
+0 @F2@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+1 CHIL @I7@
+1 CHIL @I3@
+0 @F3@ FAM
+1 HUSB @I8@
+1 WIFE @I7@
+1 CHIL @I9@
+0 @F4@ FAM
+1 HUSB @I10@
+1 WIFE @I11@
+1 CHIL @I4@
+0 @F5@ FAM
+1 HUSB @I12@
+1 WIFE @I13@
+1 CHIL @I5@
+0 @F6@ FAM
+1 HUSB @I14@
+1 WIFE @I15@
+1 CHIL @I6@
+0 @F7@ FAM
+1 HUSB @I16@
+1 WIFE @I17@
+1 CHIL @I10@
+0 @F8@ FAM
+1 HUSB @I18@
+1 WIFE @I19@
+1 CHIL @I11@
+0 @F9@ FAM
+1 HUSB @I20@
+1 WIFE @I21@
+1 CHIL @I12@
+0 @F10@ FAM
+1 HUSB @I22@
+1 WIFE @I23@
+1 CHIL @I17@
+1 CHIL @I24@
+0 @F11@ FAM
+1 HUSB @I24@
+1 CHIL @I25@
+0 @F12@ FAM
+1 HUSB @I25@
+1 WIFE @I26@
+1 CHIL @I27@
+0 @F13@ FAM
+1 HUSB @I28@
+1 WIFE @I29@
+1 CHIL @I16@
+0 @F14@ FAM
+1 HUSB @I30@
+1 WIFE @I31@
+1 CHIL @I20@
+0 @F15@ FAM
+1 HUSB @I32@
+1 CHIL @I22@
+0 @F16@ FAM
+1 HUSB @I33@
+1 CHIL @I30@
+0 @I34@ INDI
+1 NAME Rui /Pereira/
+1 SEX M
+1 BIRT
+2 DATE ABT 1850
+2 PLAC Esposende, Braga, Portugal
+1 OCCU Boatman
+1 FAMS @F17@
+0 @F17@ FAM
+1 HUSB @I34@
+1 CHIL @I21@
+0 TRLR
