@@ -132,6 +132,9 @@ describe('measuring', () => {
     expect(degreeLabel(30, 'lon', 'pt')).toBe('30°L');
     expect(degreeLabel(-40, 'lat', 'en')).toBe('40°S');
     expect(degreeLabel(0, 'lat', 'en')).toBe('0°');
+    expect(degreeLabel(-20, 'lon', 'es')).toBe('20°O');
+    expect(degreeLabel(30, 'lon', 'es')).toBe('30°E');
+    expect(degreeLabel(40, 'lat', 'es')).toBe('40°N');
   });
 
   it('picks finer coastlines for zoomed-in maps', () => {

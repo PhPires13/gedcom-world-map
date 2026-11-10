@@ -75,16 +75,31 @@
   max-width: 34vw;
 }
 
+.tv-header-end {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.tv-lang {
+  flex: none;
+}
+
 .tv-health {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
-  min-width: 220px;
+  min-width: 0;
+  /* Stay clear of the centered Map / Tree switch: long labels wrap instead of running under it. */
+  max-width: calc(50vw - 210px);
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.3;
 }
 .tv-health-bar {
   display: flex;
-  width: 220px;
+  width: min(220px, 100%);
   height: 8px;
   border-radius: 4px;
   overflow: hidden;
@@ -320,7 +335,7 @@
   border-radius: var(--radius-sm);
   font-size: 12px;
 }
-.tv-legend span {
+.tv-legend > span {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -712,6 +727,12 @@
   }
   .tv-health {
     align-items: flex-start;
+    max-width: none;
+    text-align: left;
+  }
+  .tv-header-end {
+    width: 100%;
+    justify-content: space-between;
   }
   .tv-search {
     width: 160px;

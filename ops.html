@@ -1,17 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shop operations</title>
+    <title>Operações da loja</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>" />
   </head>
   <body class="shop-page wide">
     <main>
       <header class="ops-head">
-        <h1>Orders</h1>
-        <label>Status <select id="filter"><option value="">All</option></select></label>
-        <button id="reload" class="btn">Reload</button>
+        <h1 data-i18n="ops.heading">Pedidos</h1>
+        <label><span data-i18n="ops.filter">Situação</span> <select id="filter"></select></label>
+        <button id="reload" class="btn" data-i18n="ops.reload">Atualizar</button>
+        <span id="lang"></span>
       </header>
       <p id="ops-status" class="muted small"></p>
       <div class="table-wrap"><table id="orders"></table></div>

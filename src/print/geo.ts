@@ -8,7 +8,7 @@ import {
   geoNaturalEarth1,
   type GeoProjection,
 } from 'd3-geo';
-import type { AreaId, Box, Orientation, PaperSize, Pt } from './types';
+import type { AreaId, Box, Lang, Orientation, PaperSize, Pt } from './types';
 
 // ---------- Paper ----------
 
@@ -216,13 +216,13 @@ export function frameTicks(projection: GeoProjection, frame: Box, step: number):
     .sort((a, b) => (a.side === b.side ? a.pos - b.pos : a.side.localeCompare(b.side)));
 }
 
-/** "40°N", "20°W" (or "20°O" in Portuguese). */
-export function degreeLabel(deg: number, kind: 'lat' | 'lon', lang: 'pt' | 'en'): string {
+/** "40°N", "20°W" (or "20°O" in Portuguese and Spanish; east is "L" in Portuguese, "E" in Spanish). */
+export function degreeLabel(deg: number, kind: 'lat' | 'lon', lang: Lang): string {
   const a = Math.abs(Math.round(deg));
   if (a === 0) return '0°';
   if (kind === 'lat') return `${a}°${deg > 0 ? 'N' : 'S'}`;
   if (a === 180) return '180°';
-  return `${a}°${deg > 0 ? (lang === 'pt' ? 'L' : 'E') : lang === 'pt' ? 'O' : 'W'}`;
+  return `${a}°${deg > 0 ? (lang === 'pt' ? 'L' : 'E') : lang === 'en' ? 'W' : 'O'}`;
 }
 
 /**

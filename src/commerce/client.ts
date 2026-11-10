@@ -1,6 +1,7 @@
 // Browser client for the shop routes (server/commerce/routes.ts).
 
 import { API_BASE, ApiError } from '../tree/api';
+import { countryForTimeZone } from '../i18n/core';
 import type { Currency, PriceList } from './catalogue';
 import type { Address, Order, OrderDetail } from './order';
 import type { OrderStatus } from './status';
@@ -54,8 +55,20 @@ export const shop = {
   },
 };
 
-/** A first guess at the visitor's country from the browser language (pt-BR → BR); they can change it. */
+/**
+ * A first guess at the visitor's country, by the same signals as the site's language: where they are
+ * (the device's time zone, for the Portuguese- and Spanish-speaking countries it can name), then the
+ * browser language's region (pt-BR → BR). They can change it.
+ */
 export function guessCountry(): string {
+  let zone: string | undefined;
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    /* no time zone */
+  }
+  const fromZone = countryForTimeZone(zone);
+  if (fromZone && fromZone !== 'ZZ') return fromZone;
   for (const l of navigator.languages ?? [navigator.language]) {
     const region = /^[a-z]{2,3}-([A-Z]{2})$/i.exec(l)?.[1];
     if (region) return region.toUpperCase();

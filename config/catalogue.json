@@ -5,6 +5,7 @@
     "Prices are in major units (349.90 = R$ 349,90) and include VAT/taxes as shown to the customer. 'shipping' adds a flat amount per order; 0 = shipping included.",
     "Where the placeholders come from (docs/research, seen 2026-11-10): digital migration maps on Etsy sell for BRL 32-98; framed migration prints BRL 240-1,198; the plan's framed hypothesis was USD 129-249. Partner wholesale costs are unknown until a Prodigi quote / local lab quote.",
     "Prodigi SKUs: GLOBAL-HPR-A3 and GLOBAL-HPR-A2 (Hahnemuhle Photo Rag 308 gsm) were seen on Prodigi's product pages. GLOBAL-HPR-A1 and the framed GLOBAL-CFPM-A3/-A2 are UNVERIFIED guesses: check them with the Prodigi catalogue API or dashboard before going live.",
+    "Product names, descriptions and materials need 'pt', 'en' and 'es' (the site's languages); the shop shows the visitor's. Frame colours stay as English ids (sent to the partner); the pages translate them.",
     "Each market's 'fulfilment' picks who makes physical products: 'prodigi' (API) or 'manual' (an operator sends the file to a local lab and framer). Brazil is manual: no Brazilian framed-print partner with an API was found."
   ],
   "version": 1,
@@ -15,22 +16,24 @@
     {
       "id": "digital",
       "kind": "digital",
-      "name": { "en": "Digital heritage map", "pt": "Mapa de família digital" },
+      "name": { "pt": "Mapa de família digital", "en": "Digital heritage map", "es": "Mapa familiar digital" },
       "description": {
+        "pt": "PDF e PNG em 300 dpi do seu mapa, prontos para imprimir, para baixar logo após o pagamento. Imprima onde quiser.",
         "en": "Print-ready PDF and 300 dpi PNG of your map, to download right after payment. Print it anywhere.",
-        "pt": "PDF e PNG a 300 dpi do seu mapa, prontos para imprimir, para descarregar logo após o pagamento."
+        "es": "PDF y PNG a 300 dpi de tu mapa, listos para imprimir, para descargar justo después del pago. Imprímelo donde quieras."
       },
       "variants": [{ "size": "A1", "prices": { "BRL": 69.9, "EUR": 14.9, "USD": 16.9 } }]
     },
     {
       "id": "print",
       "kind": "print",
-      "name": { "en": "Fine-art print (unframed)", "pt": "Impressão fine-art (sem moldura)" },
+      "name": { "pt": "Impressão fine-art (sem moldura)", "en": "Fine-art print (unframed)", "es": "Impresión fine art (sin marco)" },
       "description": {
+        "pt": "Impressão giclée em papel de algodão com qualidade de museu, enviada enrolada em um tubo.",
         "en": "Giclée print on museum-grade cotton rag paper, shipped rolled in a tube.",
-        "pt": "Impressão giclée em papel de algodão de qualidade museu, enviada enrolada num tubo."
+        "es": "Impresión giclée en papel de algodón con calidad de museo, enviada enrollada en un tubo."
       },
-      "material": { "en": "Hahnemühle Photo Rag 308 gsm, giclée", "pt": "Hahnemühle Photo Rag 308 g/m², giclée" },
+      "material": { "pt": "Hahnemühle Photo Rag 308 g/m², giclée", "en": "Hahnemühle Photo Rag 308 gsm, giclée", "es": "Hahnemühle Photo Rag 308 g/m², giclée" },
       "variants": [
         { "size": "A3", "prices": { "BRL": 149.9, "EUR": 39, "USD": 42 }, "skus": { "prodigi": "GLOBAL-HPR-A3" } },
         { "size": "A2", "prices": { "BRL": 219.9, "EUR": 55, "USD": 59 }, "skus": { "prodigi": "GLOBAL-HPR-A2" } },
@@ -40,14 +43,16 @@
     {
       "id": "framed",
       "kind": "framed",
-      "name": { "en": "Framed fine-art print", "pt": "Impressão fine-art emoldurada" },
+      "name": { "pt": "Impressão fine-art emoldurada", "en": "Framed fine-art print", "es": "Impresión fine art enmarcada" },
       "description": {
+        "pt": "A impressão giclée com passe-partout, em moldura de madeira maciça, pronta para pendurar.",
         "en": "The giclée print with a mount, in a solid wood frame, ready to hang.",
-        "pt": "A impressão giclée com passe-partout, em moldura de madeira, pronta a pendurar."
+        "es": "La impresión giclée con paspartú, en un marco de madera maciza, lista para colgar."
       },
       "material": {
+        "pt": "Giclée em papel fine-art, passe-partout de conservação, moldura de madeira, com vidro",
         "en": "Giclée on fine-art paper, conservation mount, wood frame, glazed",
-        "pt": "Giclée em papel fine-art, passe-partout de conservação, moldura de madeira, com vidro"
+        "es": "Giclée en papel fine art, paspartú de conservación, marco de madera, con vidrio"
       },
       "frameColours": ["black", "natural", "brown", "antique gold", "white"],
       "variants": [

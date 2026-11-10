@@ -110,6 +110,27 @@ describe('renderHeritageMap', () => {
     expect(off.layout.routeLabels.every((l) => /^\d{4}(–\d{4})?$/.test(l.text))).toBe(true);
   });
 
+  it('prints in Spanish', () => {
+    const texts = defaultTexts(data, 'es', root);
+    expect(texts.title).toBe('Familia Costa');
+    expect(texts.subtitle).toBe(defaultTexts(data, 'pt', root).subtitle);
+    const es = renderHeritageMap(data, options({ lang: 'es', ...texts, show: { ...options().show, flags: 'both' } }), { topology, flags, fontCss: '' });
+    expect(es.svg).toContain('Familia Costa');
+    expect(es.svg).toMatch(/Leyenda|LEYENDA/);
+    expect(es.svg).toMatch(/Lugar de nacimiento|LUGAR DE NACIMIENTO/);
+    expect(es.svg).not.toMatch(/Legenda|LEGENDA|Local de nascimento/);
+    expect(es.layout.labels.map((l) => l.text).join(' ')).toMatch(/OCÉANO ATLÁNTICO|ATLÁNTICO SUR/);
+    const pt = renderHeritageMap(data, options({ show: { ...options().show, flags: 'both' } }), { topology, flags, fontCss: '' });
+    expect(pt.svg).toMatch(/Legenda|LEGENDA/);
+  });
+
+  it('reports what it left out as data, alongside the English warnings', () => {
+    const res = renderHeritageMap(data, options({ area: 'iberia', show: { ...options().show, flags: 'all' } }), { topology, flags: { pt: flags.pt }, fontCss: '' });
+    expect(res.notices.outsideArea).toBeGreaterThan(0);
+    expect(res.notices.missingFlags).toContain('br');
+    expect(res.warnings).toContain(`${res.notices.outsideArea} people are born outside the chosen area and not shown.`);
+  });
+
   it('draws flags at both ends of the moves when asked, scaled by the flag size', () => {
     const origins = renderHeritageMap(data, options({ show: { ...options().show, flags: 'origins' } }), { topology, flags, fontCss: '' });
     const both = renderHeritageMap(data, options({ show: { ...options().show, flags: 'both' }, flagScale: 1.5 }), { topology, flags, fontCss: '' });

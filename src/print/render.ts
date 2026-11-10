@@ -32,7 +32,7 @@ import { projectRoutes, ribbon, type RouteStroke } from './routes';
 import { sized, type PrintStyle } from './style';
 import { el, esc, flagSymbol, fontAttrs, linePath, n, polygonPath, roman } from './svg';
 import { STRINGS, WATERS } from './text';
-import type { Box, FontRef, MeasureText, PrintAssets, PrintData, PrintOptions, PrintPerson, Pt } from './types';
+import type { Box, FontRef, Lang, MeasureText, PrintAssets, PrintData, PrintOptions, PrintPerson, Pt } from './types';
 
 export interface RenderResult {
   svg: string;
@@ -56,7 +56,10 @@ export interface RenderResult {
     medallions: Medallion[];
     droppedLabels: string[];
   };
+  /** Problems worth telling the designer about, in English (for logs and the server). */
   warnings: string[];
+  /** The same problems as data, so a page can word them in its own language. */
+  notices: { missingFlags: string[]; outsideArea: number };
 }
 
 // Country polygons and land/borders take a moment to build from the topology; keep them per topology.
@@ -106,7 +109,7 @@ const yearSpan = (years: number[]) => {
 };
 
 /** Defaults for the cartouche from the people on the map. */
-export function defaultTexts(data: PrintData, lang: 'pt' | 'en', rootId?: string): { title: string; subtitle: string } {
+export function defaultTexts(data: PrintData, lang: Lang, rootId?: string): { title: string; subtitle: string } {
   const people = data.people;
   const root = people.find((p) => p.id === rootId) ?? [...people].sort((a, b) => a.gen - b.gen)[0];
   // Luso-Brazilian names put the father's surname last ("Almeida Costa" → Costa).
@@ -143,6 +146,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   const measure = assets.measure ?? estimateText;
   const T = STRINGS[o.lang];
   const warnings: string[] = [];
+  const missingFlags: string[] = [];
   const { locator, land, borders } = geoFor(assets.topology);
   const upper = (s: string) => (S.uppercaseTitles ? s.toLocaleUpperCase(o.lang) : s);
 
@@ -236,6 +240,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   if (flagMode === 'all') for (const p of data.people) flagSources.push({ code: locator.locate(p), p, count: 1 });
   const flagCodes = [...new Set(flagSources.map((f) => f.code).filter(Boolean))].filter((c) => {
     if (assets.flags[c]) return true;
+    missingFlags.push(c);
     warnings.push(`No flag available for country code "${c}".`);
     return false;
   });
@@ -768,6 +773,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
       droppedLabels: dropped,
     },
     warnings,
+    notices: { missingFlags, outsideArea: off },
   };
 }
 
@@ -866,7 +872,7 @@ function roundelSvg(
   ringOut: number,
   labelSize: number,
   name: string,
-  lang: 'pt' | 'en',
+  lang: Lang,
   k: number,
 ): string {
   const [cx, cy] = f.center;

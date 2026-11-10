@@ -20,6 +20,9 @@ body { display: flex; overflow: hidden; background: var(--bg); }
 #controls h1 { font-size: 16px; font-weight: 650; margin: 0; }
 .back { color: var(--muted); text-decoration: none; font-size: 13px; }
 .back:hover { color: var(--accent); }
+/* The site's language picker (src/i18n/switcher.ts), at the right of the header. */
+#lang-switch { margin-left: auto; flex: none; }
+#lang-switch .lang-switcher { display: inline-block; width: auto; margin-top: 0; }
 h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 20px 0 8px; font-weight: 600; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 fieldset:disabled { opacity: 0.45; }

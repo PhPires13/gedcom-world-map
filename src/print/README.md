@@ -18,10 +18,17 @@ routes between birthplaces, flag roundels, a cartouche and a legend. Open `print
 | `borders.ts` | Decorative borders and paper finishes. |
 | `curvelabel.ts` | Surnames and years lettered along the routes. |
 | `simplify.ts` | Essential routes: the few main moves, merged and ranked (pure; reusable by the map). |
-| `countries.ts` | Which country a place is in (Natural Earth polygons, then the place name) and country names in pt/en. |
+| `countries.ts` | Which country a place is in (Natural Earth polygons, then the place name) and country names in pt/en/es. |
 | `style.ts`, `styles/*.json` | Styles as data, and their validation. |
 | `designer.ts`, `assets-browser.ts` | The designer page and the browser loaders for map data, flags and fonts. |
+| `text.ts` | Words printed on the map (legend, scale, default title, oceans) in Portuguese, English and Spanish (`options.lang`). |
 | `png.ts` | Writes 300 dpi into exported PNGs (canvas doesn't). |
+
+The designer page speaks the site's language (`src/i18n/messages/print.ts`, including the names
+and descriptions of styles, layouts, borders and finishes by id; a JSON file without an entry
+there shows its own `name`/`description`). The map's language is its own choice, starting as the
+site's. `renderHeritageMap` also returns `notices` (missing flags, people outside the area) so the
+page can word its warnings; `warnings` stay in English for logs and the server.
 
 Coordinates on the sheet are millimetres. Styles are designed on A2 and scale with the paper,
 so A3 and A1 are the same design reduced or enlarged (A-series sheets share proportions).
@@ -106,7 +113,7 @@ All in the browser for now:
 | [`world-atlas`](https://github.com/topojson/world-atlas) 2.0.2 | Natural Earth as TopoJSON | ISC |
 | [`d3-geo`](https://github.com/d3/d3-geo) 3.1, [`topojson-client`](https://github.com/topojson/topojson-client) 3.1 | Projections, paths | ISC |
 | [`flag-icons`](https://github.com/lipis/flag-icons) 7.6 (1×1 SVGs) | Flag roundels | MIT |
-| [`i18n-iso-countries`](https://github.com/michaelwittig/node-i18n-iso-countries) 7.14 | Country codes and pt/en names | MIT |
+| [`i18n-iso-countries`](https://github.com/michaelwittig/node-i18n-iso-countries) 7.14 | Country codes and pt/en/es names | MIT |
 | IM Fell English, IM Fell English SC (Igino Marini) via `@fontsource` 5.3 | Antique style | SIL OFL 1.1 |
 | Cinzel, EB Garamond via `@fontsource` 5.3 | Nautical style | SIL OFL 1.1 |
 | Jost via `@fontsource` 5.3 | Modern style | SIL OFL 1.1 |

@@ -1,15 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Your heritage map order</title>
+    <title>Seu pedido do mapa de família</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
   </head>
   <body class="shop-page">
     <main>
-      <p><a href="./print.html" class="back">← Print designer</a></p>
-      <div id="order"><p class="muted">Loading your order…</p></div>
+      <header class="page-head">
+        <a href="./print.html" class="back" data-i18n="order.back">← Editor de impressão</a>
+        <span id="lang"></span>
+      </header>
+      <div id="order"><p class="muted" data-i18n="order.loading">Carregando seu pedido…</p></div>
     </main>
     <script type="module" src="/src/commerce/order-page.ts"></script>
   </body>

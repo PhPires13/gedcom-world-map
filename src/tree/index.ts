@@ -7,8 +7,9 @@
 // - without it, read-only, on the GEDCOM currently open on the map (every link Unsupported).
 
 import type { Tree as GedTree } from '../gedcom';
+import { formatNumber, onLocaleChange, translateStatic } from '../i18n/core';
+import { mountLanguageSwitcher } from '../i18n/switcher';
 import {
-  CONFIDENCE_LABELS,
   CONFIDENCE_LEVELS,
   localTreeDetail,
   toGedcomTree,
@@ -19,6 +20,7 @@ import {
 import { api, serverAvailable } from './api';
 import { createChartView, type ChartView, type Selection } from './chart';
 import { esc, lifespan, percent } from './format';
+import { errorText, levelLabel, t } from './i18n';
 import { indexFamily, layoutChart, type FamilyIndex } from './layout';
 import { renderLinkPanel, renderPersonPanel, type PanelContext } from './panels';
 import './tree.css';
@@ -39,12 +41,16 @@ type Current = { kind: 'server'; id: string } | { kind: 'local' };
 const STORE_KEY = 'gedcom-world-map:tree-view';
 const LOCAL = 'local';
 
+/** Options for the ancestors / descendants pickers (generation counts, in local digits). */
+const generations = (counts: number[], selected: number) =>
+  counts.map((n) => `<option value="${n}"${n === selected ? ' selected' : ''}>${formatNumber(n)}</option>`).join('');
+
 export function mountTreeView(root: HTMLElement, map: MapBridge) {
   document.body.insertAdjacentHTML(
     'beforeend',
-    `<div class="view-switch" role="tablist" aria-label="View">
-      <button role="tab" data-mode="map" aria-selected="true">Map</button>
-      <button role="tab" data-mode="tree" aria-selected="false">Tree</button>
+    `<div class="view-switch" role="tablist" data-i18n-attr="aria-label:switch.label">
+      <button role="tab" data-mode="map" aria-selected="true" data-i18n="switch.map"></button>
+      <button role="tab" data-mode="tree" aria-selected="false" data-i18n="switch.tree"></button>
     </div>
     <div class="tv-toast" role="status" hidden></div>`,
   );
@@ -52,26 +58,29 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
     <section class="tree-view" hidden>
       <header class="tv-header">
         <div class="tv-pick">
-          <select class="tv-tree-select" aria-label="Tree"></select>
+          <select class="tv-tree-select" data-i18n-attr="aria-label:picker.label; title:picker.label"></select>
           <input type="file" class="tv-import-file" accept=".ged,.gedcom,text/plain" hidden />
         </div>
-        <div class="tv-health" hidden></div>
+        <div class="tv-header-end">
+          <div class="tv-health" hidden></div>
+          <div class="tv-lang"></div>
+        </div>
       </header>
       <div class="tv-body">
         <div class="tv-chart-wrap">
           <div class="tv-toolbar">
-            <input class="tv-search" type="search" list="tv-people" placeholder="Find a person…" aria-label="Find a person" />
+            <input class="tv-search" type="search" list="tv-people" data-i18n-attr="placeholder:search.placeholder; aria-label:search.label" />
             <datalist id="tv-people"></datalist>
-            <label>Ancestors <select class="tv-up">${[1, 2, 3, 4, 5, 6].map((n) => `<option${n === 3 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
-            <label>Descendants <select class="tv-down">${[0, 1, 2, 3, 4].map((n) => `<option${n === 2 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
-            <span class="tv-zoom"><button class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button><button class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button><button class="small-btn" data-zoom="fit">Fit</button></span>
+            <label data-i18n-attr="title:toolbar.ancestorsTitle"><span data-i18n="toolbar.ancestors"></span> <select class="tv-up">${generations([1, 2, 3, 4, 5, 6], 3)}</select></label>
+            <label data-i18n-attr="title:toolbar.descendantsTitle"><span data-i18n="toolbar.descendants"></span> <select class="tv-down">${generations([0, 1, 2, 3, 4], 2)}</select></label>
+            <span class="tv-zoom"><button class="icon-btn" data-zoom="in" data-i18n-attr="aria-label:zoom.in; title:zoom.in">+</button><button class="icon-btn" data-zoom="out" data-i18n-attr="aria-label:zoom.out; title:zoom.out">−</button><button class="small-btn" data-zoom="fit" data-i18n="zoom.fit" data-i18n-attr="title:zoom.fitTitle"></button></span>
           </div>
-          <div class="tv-chart" tabindex="-1"></div>
-          <div class="tv-legend">${CONFIDENCE_LEVELS.map((l) => `<span><svg width="34" height="8"><path class="edge-line conf-${l}" d="M2,4 H32"/></svg>${CONFIDENCE_LABELS[l]}</span>`).join('')}</div>
+          <div class="tv-chart" tabindex="-1" role="group" data-i18n-attr="aria-label:chart.label"></div>
+          <div class="tv-legend" role="group" data-i18n-attr="aria-label:legend.label">${CONFIDENCE_LEVELS.map((l) => `<span><svg width="34" height="8" aria-hidden="true"><path class="edge-line conf-${l}" d="M2,4 H32"/></svg><span data-i18n="level.${l}"></span></span>`).join('')}</div>
           <div class="tv-empty" hidden></div>
         </div>
-        <aside class="tv-panel" hidden>
-          <button class="icon-btn tv-close" aria-label="Close">×</button>
+        <aside class="tv-panel" hidden data-i18n-attr="aria-label:panel.label">
+          <button class="icon-btn tv-close" data-i18n-attr="aria-label:panel.close; title:panel.close">×</button>
           <div class="tv-panel-content"></div>
         </aside>
       </div>
@@ -84,9 +93,15 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
   const panelContent = $('.tv-panel-content');
   const empty = $('.tv-empty');
   const toastEl = document.querySelector<HTMLElement>('.tv-toast')!;
+  const switchEl = document.querySelector<HTMLElement>('.view-switch')!;
+  translateStatic(switchEl, t);
+  translateStatic(root, t);
+  mountLanguageSwitcher($('.tv-lang'));
 
   const st = {
     mode: 'map' as Mode,
+    /** Whether the tree picker has been filled (the Tree view was opened at least once). */
+    picked: false,
     server: null as boolean | null,
     trees: [] as TreeSummary[],
     current: null as Current | null,
@@ -177,13 +192,14 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
   function renderPicker(want: Current | null) {
     const local = localOnMap();
     const opts: string[] = [];
-    if (local) opts.push(`<option value="${LOCAL}">${esc(local.name)} (on the map, read-only)</option>`);
-    for (const t of st.trees) opts.push(`<option value="${t.id}">${esc(t.name)} · ${t.peopleCount} people</option>`);
+    if (local) opts.push(`<option value="${LOCAL}">${esc(t('picker.local', { name: local.name }))}</option>`);
+    for (const tree of st.trees) opts.push(`<option value="${tree.id}">${esc(t('picker.server', { name: tree.name, count: tree.peopleCount }))}</option>`);
     if (st.server) {
-      opts.push('<option value="import">＋ New tree from a GEDCOM file…</option>');
-      opts.push('<option value="sample">＋ New tree from the sample family</option>');
+      opts.push(`<option value="import">${esc(t('picker.import'))}</option>`);
+      opts.push(`<option value="sample">${esc(t('picker.sample'))}</option>`);
     }
-    if (!want) opts.unshift('<option value="" disabled>Choose a tree…</option>');
+    if (!want) opts.unshift(`<option value="" disabled>${esc(t('picker.choose'))}</option>`);
+    st.picked = true;
     select.innerHTML = opts.join('');
     select.hidden = !local && !st.server && !st.trees.length;
     select.value = want ? (want.kind === 'local' ? LOCAL : want.id) : '';
@@ -197,8 +213,11 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
       $<HTMLInputElement>('.tv-import-file').click();
     } else if (v === 'sample') {
       renderPicker(st.current);
-      const res = await fetch(`${import.meta.env.BASE_URL}sample.ged`);
-      await importTree('Sample family', () => res.blob().then((b) => new File([b], 'sample.ged', { type: 'text/plain' })));
+      await importTree(t('sample.name'), async () => {
+        const res = await fetch(`${import.meta.env.BASE_URL}sample.ged`);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return new File([await res.blob()], 'sample.ged', { type: 'text/plain' });
+      });
     } else if (v === LOCAL) await open({ kind: 'local' }, true);
     else if (v) await open({ kind: 'server', id: v }, true);
   });
@@ -210,15 +229,15 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
 
   async function importTree(name: string, file: () => Promise<File>) {
     try {
-      toast('Importing…');
+      toast(t('import.progress'));
       const tree = await api.createTree(name);
       const res = await api.importGedcom(tree.id, await file());
       st.trees = await api.listTrees();
       renderPicker({ kind: 'server', id: tree.id });
       await open({ kind: 'server', id: tree.id }, true);
-      toast(`Imported ${res.peopleCreated} people and ${res.relationshipsCreated} links, all Unsupported until documents back them.`);
+      toast(t('import.done', { people: res.peopleCreated, links: res.relationshipsCreated }));
     } catch (e) {
-      toast(`Import failed: ${e instanceof Error ? e.message : String(e)}`);
+      toast(t('import.failed', { message: errorText(e) }));
     }
   }
 
@@ -231,7 +250,15 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
   }
 
   async function open(cur: Current, fresh: boolean) {
-    const detail = await load(cur);
+    let detail: TreeDetail | null;
+    try {
+      detail = await load(cur);
+    } catch (e) {
+      toast(t('error.openTree', { detail: errorText(e) }));
+      if (!st.detail) showEmpty();
+      else renderPicker(st.current);
+      return;
+    }
     if (!detail) return showEmpty();
     st.current = cur;
     if (cur.kind === 'server') {
@@ -251,8 +278,12 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
 
   async function refresh() {
     if (!st.current) return;
-    const detail = await load(st.current);
-    if (detail) setDetail(detail);
+    try {
+      const detail = await load(st.current);
+      if (detail) setDetail(detail);
+    } catch (e) {
+      toast(t('error.openTree', { detail: errorText(e) }));
+    }
     draw();
   }
 
@@ -283,16 +314,21 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
     st.current = null;
     st.detail = null;
     $('.tv-health').hidden = true;
+    st.selection = null;
     panel.hidden = true;
     empty.hidden = false;
+    renderEmpty();
+  }
+
+  function renderEmpty() {
     empty.innerHTML = st.server
-      ? `<h2>Start a family tree</h2>
-         <p>Import a GEDCOM file. Every person and link starts as <b>Unsupported</b>; attach baptism, marriage and death records to prove them.</p>
-         <div class="tv-empty-actions"><button class="btn primary" data-act="import">Import a GEDCOM file</button><button class="btn" data-act="sample">Use the sample family</button></div>`
-      : `<h2>No tree to show</h2>
-         <p>Load a GEDCOM file on the map to see it here as a family tree (read-only).</p>
-         <p class="muted">To keep documents and evidence, start the server with <code>npm run dev:all</code>.</p>
-         <div class="tv-empty-actions"><button class="btn" data-act="map">Go to the map</button><button class="btn" data-act="retry">Check for the server again</button></div>`;
+      ? `<h2>${t('empty.server.title')}</h2>
+         <p>${t('empty.server.text')}</p>
+         <div class="tv-empty-actions"><button class="btn primary" data-act="import">${t('empty.server.import')}</button><button class="btn" data-act="sample">${t('empty.server.sample')}</button></div>`
+      : `<h2>${t('empty.local.title')}</h2>
+         <p>${t('empty.local.text')}</p>
+         <p class="muted">${t('empty.local.server')}</p>
+         <div class="tv-empty-actions"><button class="btn" data-act="map">${t('empty.local.map')}</button><button class="btn" data-act="retry">${t('empty.local.retry')}</button></div>`;
   }
 
   empty.addEventListener('click', async (e) => {
@@ -314,15 +350,16 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
 
   function renderHealth() {
     const h = st.detail!.health;
+    const segment = (l: (typeof CONFIDENCE_LEVELS)[number]) => t('health.segment', { level: levelLabel(l), count: formatNumber(h.counts[l]) });
     const el = $('.tv-health');
     el.hidden = false;
     const segs = CONFIDENCE_LEVELS.filter((l) => h.counts[l])
-      .map((l) => `<i class="seg conf-${l}" style="flex:${h.counts[l]}" title="${CONFIDENCE_LABELS[l]}: ${h.counts[l]}"></i>`)
+      .map((l) => `<i class="seg conf-${l}" style="flex:${h.counts[l]}" title="${esc(segment(l))}"></i>`)
       .join('');
     el.innerHTML = `
-      <span class="tv-health-label">Tree health <b>${percent(h.provenShare)}</b> <span class="muted">proven (${h.counts.proven} of ${h.total} links)</span></span>
+      <span class="tv-health-label">${t('health.title')} <b>${percent(h.provenShare)}</b> <span class="muted">${esc(t('health.detail', { proven: h.counts.proven, total: h.total }))}</span></span>
       <span class="tv-health-bar" aria-hidden="true">${segs || '<i class="seg" style="flex:1"></i>'}</span>`;
-    el.title = CONFIDENCE_LEVELS.map((l) => `${CONFIDENCE_LABELS[l]}: ${h.counts[l]}`).join('\n');
+    el.title = CONFIDENCE_LEVELS.map(segment).join('\n');
   }
 
   function renderSearch() {
@@ -330,7 +367,7 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
     const opts: string[] = [];
     for (const p of st.idx!.people.values()) {
       let label = `${p.name}${lifespan(p) ? ` (${lifespan(p)})` : ''}`;
-      for (let n = 2; st.searchIds.has(label); n++) label = `${p.name} #${n}`;
+      for (let n = 2; st.searchIds.has(label); n++) label = t('search.duplicate', { name: p.name, n });
       st.searchIds.set(label, p.id);
       opts.push(`<option value="${esc(label)}"></option>`);
     }
@@ -395,8 +432,78 @@ export function mountTreeView(root: HTMLElement, map: MapBridge) {
     else draw();
     if (!sel) return;
     panel.scrollTop = 0;
-    void (sel.kind === 'person' ? renderPersonPanel(panelContent, ctx(), sel.id) : renderLinkPanel(panelContent, ctx(), sel.id));
+    panelRender++;
+    void renderPanel(sel);
   }
+
+  const renderPanel = (sel: NonNullable<Selection>) =>
+    sel.kind === 'person' ? renderPersonPanel(panelContent, ctx(), sel.id) : renderLinkPanel(panelContent, ctx(), sel.id);
+
+  // ---------- Language ----------
+
+  /** Bumped by every panel render, so a stale re-translation does not restore over a newer panel. */
+  let panelRender = 0;
+
+  type Kept = { open: boolean[]; fields: Map<string, { value?: string; checked?: boolean; files?: FileList }>; scroll: number };
+  type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+  const fieldId = (f: Field) =>
+    f.name ? (f instanceof HTMLInputElement && f.type === 'radio' ? `${f.name}=${f.value}` : f.name) : f.classList.contains('tv-argument') ? 'argument' : '';
+  const fields = () => [...panelContent.querySelectorAll<Field>('input, select, textarea')].filter((f) => fieldId(f) && !f.classList.contains('tv-privacy'));
+
+  /** What the visitor has open or typed in the panel, to put back after it is redrawn in another language. */
+  function keepPanel(): Kept {
+    const kept: Kept = { open: [...panelContent.querySelectorAll('details')].map((d) => d.open), fields: new Map(), scroll: panel.scrollTop };
+    for (const f of fields()) {
+      if (f instanceof HTMLInputElement && f.type === 'radio') kept.fields.set(fieldId(f), { checked: f.checked });
+      else if (f instanceof HTMLInputElement && f.type === 'file') kept.fields.set(fieldId(f), { files: f.files ?? undefined });
+      else kept.fields.set(fieldId(f), { value: f.value });
+    }
+    return kept;
+  }
+
+  function restorePanel(kept: Kept) {
+    panelContent.querySelectorAll('details').forEach((d, i) => {
+      if (i < kept.open.length) d.open = kept.open[i];
+    });
+    const changed: Field[] = [];
+    for (const f of fields()) {
+      const k = kept.fields.get(fieldId(f));
+      if (!k) continue;
+      if (k.checked !== undefined && f instanceof HTMLInputElement) {
+        if (k.checked && !f.checked) changed.push(f);
+        f.checked = k.checked;
+      } else if (k.files && f instanceof HTMLInputElement) {
+        if (k.files.length) f.files = k.files;
+      } else if (k.value !== undefined && f.value !== k.value) {
+        if (f.name === 'sourceId') f.dataset.keep = k.value;
+        f.value = k.value;
+        if (f.name === 'relationshipId') changed.push(f);
+      }
+    }
+    // Let the form show the parts that go with the restored choices.
+    for (const f of changed) f.dispatchEvent(new Event('change'));
+    panel.scrollTop = kept.scroll;
+  }
+
+  async function retranslatePanel(sel: NonNullable<Selection>) {
+    const kept = keepPanel();
+    const mine = ++panelRender;
+    await renderPanel(sel);
+    if (mine === panelRender && st.selection === sel) restorePanel(kept);
+  }
+
+  onLocaleChange(() => {
+    translateStatic(switchEl, t);
+    translateStatic(root, t);
+    if (st.picked) renderPicker(st.current);
+    if (st.detail) {
+      renderHealth();
+      renderSearch();
+      draw();
+    }
+    if (!empty.hidden) renderEmpty();
+    if (st.selection && !panel.hidden) void retranslatePanel(st.selection);
+  });
 
   $('.tv-close').addEventListener('click', () => openPanel(null));
   document.addEventListener('keydown', (e) => {

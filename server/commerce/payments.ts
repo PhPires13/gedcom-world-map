@@ -21,7 +21,7 @@ export interface CheckoutInput {
   lines: { name: string; description?: string; amount: number }[];
   successUrl: string;
   cancelUrl: string;
-  locale: 'pt-BR' | 'pt' | 'en';
+  locale: 'pt-BR' | 'pt' | 'es' | 'es-419' | 'en';
 }
 
 /** What the order logic needs from a Stripe event, already verified. */

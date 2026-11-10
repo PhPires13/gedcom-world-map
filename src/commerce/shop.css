@@ -61,3 +61,4 @@ td a { color: var(--accent); }
   .note { background: #2b2410; border-color: #6b5410; color: #f2d48a; }
   .badge { background: #1f2440; color: #a4b0ff; }
 }
+.page-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 4px; }

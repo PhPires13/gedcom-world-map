@@ -5,7 +5,7 @@ import { sized, type PrintStyle } from './style';
 import { el, fontAttrs, n, polygonPath } from './svg';
 import type { Box, Lang, Pt } from './types';
 
-const DIRS: Record<Lang, [string, string, string, string]> = { pt: ['N', 'L', 'S', 'O'], en: ['N', 'E', 'S', 'W'] };
+const DIRS: Record<Lang, [string, string, string, string]> = { pt: ['N', 'L', 'S', 'O'], en: ['N', 'E', 'S', 'W'], es: ['N', 'E', 'S', 'O'] };
 
 /** One point of a compass star: two halves, one dark and one light, like an engraved rose. */
 function starPoint(cx: number, cy: number, angle: number, len: number, half: number, dark: string, light: string, line: string, lw: number) {

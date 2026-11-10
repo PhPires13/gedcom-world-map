@@ -37,6 +37,30 @@ describe('countries', () => {
     expect(countryName('de', 'pt')).toBe('Alemanha');
   });
 
+  it('spells Portuguese country names as in Brazil where the ISO names follow Portugal', () => {
+    expect(countryName('pl', 'pt')).toBe('Polônia');
+    expect(countryName('ro', 'pt')).toBe('Romênia');
+    expect(countryName('ir', 'pt')).toBe('Irã');
+  });
+
+  it('names countries in Spanish', () => {
+    expect(countryName('br', 'es')).toBe('Brasil');
+    expect(countryName('de', 'es')).toBe('Alemania');
+    expect(countryName('es', 'es')).toBe('España');
+    expect(countryName('us', 'es')).toBe('Estados Unidos');
+    expect(countryName('gb', 'es')).toBe('Reino Unido');
+    expect(countryName('kr', 'es')).toBe('Corea del Sur');
+    expect(countryName('nl', 'es')).toBe('Países Bajos');
+    expect(countryName('', 'es', 'Desconocido')).toBe('Desconocido');
+  });
+
+  it('recognises countries written in Spanish in place names', () => {
+    expect(countryFromName('Sevilla, España')).toBe('es');
+    expect(countryFromName('Lima, Perú')).toBe('pe');
+    expect(countryFromName('Nueva York, EE.UU.')).toBe('us');
+    expect(countryFromName('Liverpool, Inglaterra')).toBe('gb');
+  });
+
   it('places country names on the largest piece of the country', () => {
     const [lon, lat] = locator.labelPoint('pt')!;
     expect(lon).toBeGreaterThan(-9.5);

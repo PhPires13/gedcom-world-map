@@ -12,6 +12,11 @@ import { DOT, DOTS_FROM_ZOOM, layoutSpot, spreadBox, spreadScale, type SpotLayou
 import { DENSITY_LEVELS, densityLevel, hexCorners, hexDensity } from './hexbin';
 import { arrowHead, bundleFlows, bundleGeometry, computeFlows, cutPath, laneBend, trimEnd, type BundlePath } from './flows';
 import { mountTreeView } from './tree';
+import { formatDate, formatNumber, makeT, onLocaleChange, translateStatic } from './i18n/core';
+import { mountLanguageSwitcher } from './i18n/switcher';
+import { mapMessages } from './i18n/messages/map';
+
+const t = makeT(mapMessages);
 
 // ---------- Types & state ----------
 
@@ -78,7 +83,13 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySe
 // ---------- Map setup ----------
 
 const map = L.map('map', { worldCopyJump: true, zoomControl: false }).setView([30, 0], 2);
-L.control.zoom({ position: 'topright' }).addTo(map);
+let zoomControl: L.Control.Zoom | null = null;
+/** Leaflet's zoom buttons, with their hover titles in the current language. */
+function addZoomControl() {
+  zoomControl?.remove();
+  zoomControl = L.control.zoom({ position: 'topright', zoomInTitle: t('map.zoomIn'), zoomOutTitle: t('map.zoomOut') }).addTo(map);
+}
+addZoomControl();
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   maxZoom: 19,
@@ -153,9 +164,9 @@ function renderDensity() {
     if (total) {
       const rows = [...hex.people.entries()]
         .sort((a, b) => a[0] - b[0])
-        .map(([g, n]) => `<i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>${genLabel(g)}: ${n}`)
+        .map(([g, n]) => `<i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>${genLabel(g)}: ${formatNumber(n)}`)
         .join('<br>');
-      polygon.bindTooltip(`<b>${total} ${total === 1 ? 'person' : 'people'} born here</b><br>${rows}`, { sticky: true });
+      polygon.bindTooltip(`<b>${t('density.bornHere', { count: total, n: formatNumber(total) })}</b><br>${rows}`, { sticky: true });
     }
     const centre = toLatLng([hex.cx, hex.cy]);
     polygon.on('click', () => map.flyTo(centre, Math.min(map.getMaxZoom(), zoom + 2)));
@@ -238,11 +249,17 @@ function renderFlows() {
   const moveLines = (fs: (typeof flows)[number][]) => {
     const lines = fs.map(
       (f) =>
-        `<b>${f.parents.map(nameOf).join(' &amp; ')}</b> <span class="muted">→ had ${f.children.map((c) => nameOf(c) + born(c)).join(', ')}</span>`,
+        `<b>${f.parents.map(nameOf).join(esc(t('flows.and')))}</b> <span class="muted">→ ${t('flows.had', {
+          parents: f.parents.length,
+          children: f.children.map((c) => nameOf(c) + born(c)).join(', '),
+        })}</span>`,
     );
-    return lines.slice(0, 6).join('<br>') + (lines.length > 6 ? `<br><span class="muted">and ${lines.length - 6} more</span>` : '');
+    return (
+      lines.slice(0, 6).join('<br>') +
+      (lines.length > 6 ? `<br><span class="muted">${t('flows.more', { n: formatNumber(lines.length - 6) })}</span>` : '')
+    );
   };
-  const moved = (n: number) => `${n} ${n === 1 ? 'person' : 'people'} moved`;
+  const moved = (n: number) => t('flows.moved', { count: n, n: formatNumber(n) });
 
   // The selected person's moves are traced along the bundles they belong to: their own (as the one who
   // moved) solid, and their parents' move to where they were born dashed. Everything else fades back.
@@ -299,9 +316,9 @@ function renderFlows() {
         const from = [...new Set(b.origins.map((e) => placeOf(e.flows[0].parents[0])))];
         const to = [...new Set(b.dests.map((e) => placeOf(e.flows[0].children[0])))];
         const list = (xs: string[]) => esc(xs.slice(0, 4).join(', ') + (xs.length > 4 ? `, +${xs.length - 4}` : ''));
-        tip = `${header}: ${moved(b.total)}<br><b>From</b> ${list(from)}<br><b>To</b> ${list(to)}`;
+        tip = `${header}: ${moved(b.total)}<br><b>${t('flows.from')}</b> ${list(from)}<br><b>${t('flows.to')}</b> ${list(to)}`;
       } else if (path.kind === 'in') {
-        tip = `<b>From ${esc(placeOf(endFlows[0].parents[0]))}</b><br>${header}: ${moved(endMovers)}<br>${moveLines(endFlows)}`;
+        tip = `<b>${t('flows.fromPlace', { place: esc(placeOf(endFlows[0].parents[0])) })}</b><br>${header}: ${moved(endMovers)}<br>${moveLines(endFlows)}`;
       } else {
         const from = [...new Set(endFlows.map((f) => placeOf(f.parents[0])))].join(', ');
         tip = `<b>${esc(from)} → ${esc(placeOf(endFlows[0].children[0]))}</b><br>${header}: ${moved(endMovers)}<br>${moveLines(endFlows)}`;
@@ -416,7 +433,7 @@ function pieIcon(ids: string[]) {
   if (state.selected && ids.includes(state.selected)) cls.push('has-selected');
   else if (state.selected && !ids.some(isHighlighted)) cls.push('dim');
   return L.divIcon({
-    html: `<div class="pie" style="background: conic-gradient(${stops})"><span>${total}</span></div>`,
+    html: `<div class="pie" style="background: conic-gradient(${stops})"><span>${formatNumber(total)}</span></div>`,
     className: cls.join(' '),
     iconSize: [size, size],
   });
@@ -434,7 +451,45 @@ function lifespan(p: Person): string {
   return `${b ?? '?'}–${d ?? ''}`;
 }
 
-const genLabel = (g: number) => `Generation ${g + 1}`;
+const genLabel = (g: number) => t('gens.label', { n: formatNumber(g + 1) });
+
+const GEDCOM_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/**
+ * A date as written in the GEDCOM file ("12 MAR 1890", "ABT 1850", "BET 1840 AND 1845"…) in the
+ * visitor's language. Anything it doesn't recognise (other calendars, free text) is shown as written.
+ */
+function formatGedcomDate(raw: string): string {
+  const s = raw.trim().toUpperCase().replace(/\s+/g, ' ');
+  const simple = (d: string): string | null => {
+    const m = /^(?:(\d{1,2}) )?(?:([A-Z]{3}) )?(\d{1,4})$/.exec(d);
+    if (!m) return null;
+    const [, day, mon, year] = m;
+    if (!mon) return day ? null : year;
+    const month = GEDCOM_MONTHS.indexOf(mon);
+    if (month < 0) return null;
+    const date = new Date(2000, 0, 1);
+    date.setFullYear(Number(year), month, day ? Number(day) : 1);
+    if (day && date.getDate() !== Number(day)) return null;
+    return formatDate(date, day ? { day: 'numeric', month: 'short', year: 'numeric' } : { month: 'short', year: 'numeric' });
+  };
+  let m: RegExpExecArray | null;
+  let out: string | null = null;
+  if ((m = /^BET (.+) AND (.+)$/.exec(s))) {
+    const [a, b] = [simple(m[1]), simple(m[2])];
+    if (a && b) out = t('date.between', { a, b });
+  } else if ((m = /^FROM (.+) TO (.+)$/.exec(s))) {
+    const [a, b] = [simple(m[1]), simple(m[2])];
+    if (a && b) out = t('date.fromTo', { a, b });
+  } else if ((m = /^(ABT|CAL|EST|BEF|AFT|FROM|TO) (.+)$/.exec(s))) {
+    const date = simple(m[2]);
+    const key = ({ ABT: 'date.about', CAL: 'date.about', EST: 'date.about', BEF: 'date.before', AFT: 'date.after', FROM: 'date.from', TO: 'date.to' } as const)[
+      m[1] as 'ABT'
+    ];
+    if (date) out = t(key, { date });
+  } else out = simple(s);
+  return out ?? raw;
+}
 
 function isHighlighted(id: string) {
   return id === state.selected || state.related.has(id);
@@ -493,7 +548,7 @@ async function loadTree(tree: Tree, fileName: string) {
   state.lookupActive = false;
   state.pendingPlaces = new Set();
   if (tree.people.size === 0) {
-    alert(`No people found in “${fileName}”. Is it a GEDCOM file?`);
+    alert(t('upload.noPeople', { file: fileName }));
     return;
   }
 
@@ -565,6 +620,13 @@ function setGeocoded(id: string, place: string, kind: Located['kind'], c: { lat:
   });
 }
 
+/** The lookup progress line, kept as a function so it can be re-said in another language. */
+let progressText: () => string = () => '';
+function setProgress(text: () => string) {
+  progressText = text;
+  $('#progress-label').textContent = text();
+}
+
 async function geocodeAll(pending: Map<string, string[]>) {
   const abort = new AbortController();
   state.geocodeAbort = abort;
@@ -577,7 +639,13 @@ async function geocodeAll(pending: Map<string, string[]>) {
   for (let i = 0; i < places.length; i++) {
     if (abort.signal.aborted) break;
     const remaining = places.length - i;
-    $('#progress-label').textContent = `Finding places… ${i}/${places.length} (~${Math.ceil(remaining * 1.2)}s left)`;
+    setProgress(() =>
+      t('progress.finding', {
+        done: formatNumber(i),
+        total: formatNumber(places.length),
+        seconds: formatNumber(Math.ceil(remaining * 1.2)),
+      }),
+    );
     $<HTMLDivElement>('#progress-fill').style.width = `${(i / places.length) * 100}%`;
 
     const place = places[i];
@@ -598,7 +666,7 @@ async function geocodeAll(pending: Map<string, string[]>) {
       failed++;
       console.warn('Geocoding error for', place, e);
       if (failed >= 5) {
-        $('#progress-label').textContent = 'Place lookup is failing — check your connection.';
+        setProgress(() => t('progress.failing'));
         state.geocodeAbort = null;
         state.lookupActive = false;
         if (state.selected) renderPerson();
@@ -957,16 +1025,17 @@ function personLink(id: string, liAttrs = '') {
   const p = state.tree!.people.get(id);
   if (!p) return '';
   const g = state.gens.get(id) ?? 0;
-  const noLoc = state.located.has(id) ? '' : ' <em class="muted">· no location</em>';
+  const noLoc = state.located.has(id) ? '' : ` <em class="muted">· ${t('person.noLocation')}</em>`;
   return `<li${liAttrs}><a href="#" data-person="${esc(id)}" tabindex="-1"><i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>${esc(p.name)}</a> <span class="muted">${lifespan(p)}</span>${noLoc}</li>`;
 }
 
 function eventRow(label: string, ev: Person['birth']) {
   if (!ev || (!ev.date && !ev.place)) return '';
-  return `<tr><th>${label}</th><td>${esc(ev.date ?? '')}${ev.date && ev.place ? '<br>' : ''}${esc(ev.place ?? '')}</td></tr>`;
+  const date = ev.date ? formatGedcomDate(ev.date) : '';
+  return `<tr><th>${label}</th><td>${esc(date)}${date && ev.place ? '<br>' : ''}${esc(ev.place ?? '')}</td></tr>`;
 }
 
-function renderPerson() {
+function renderPerson(keepScroll = false) {
   const panel = $('#person-panel');
   const id = state.selected;
   if (!id) {
@@ -984,16 +1053,16 @@ function renderPerson() {
     const origin = originEvent(p);
     const waiting = origin?.event.place !== undefined && state.pendingPlaces.has(origin.event.place);
     locNote = !origin
-      ? `<p class="note">No birth place recorded — not shown on the map.</p>`
+      ? `<p class="note">${t('person.noOrigin')}</p>`
       : waiting && state.lookupActive
-        ? `<p class="note">Still looking up this place — it will appear on the map once found.</p>`
+        ? `<p class="note">${t('person.lookingUp')}</p>`
         : waiting
-          ? `<p class="note">The place lookup stopped before reaching this place. Load the file again to continue.</p>`
-          : `<p class="note">Birth place couldn’t be found on the map.</p>`;
+          ? `<p class="note">${t('person.lookupStopped')}</p>`
+          : `<p class="note">${t('person.notFound')}</p>`;
   } else {
     const notes: string[] = [];
-    if (loc.kind === 'baptism') notes.push('Placed at baptism location (no birth place recorded).');
-    if (loc.approximate) notes.push(`Approximate: matched “${esc(loc.approximate)}”.`);
+    if (loc.kind === 'baptism') notes.push(t('person.atBaptism'));
+    if (loc.approximate) notes.push(t('person.approximate', { place: esc(loc.approximate) }));
     if (notes.length) locNote = `<p class="note">${notes.join(' ')}</p>`;
   }
 
@@ -1003,39 +1072,43 @@ function renderPerson() {
   $('#person-content').innerHTML = `
     <div class="gen-badge" style="background:${generationColor(g, state.maxGen)}">${genLabel(g)}</div>
     <h2>${esc(p.name)}</h2>
-    <p class="muted">${[lifespan(p), p.sex === 'M' ? 'Male' : p.sex === 'F' ? 'Female' : ''].filter(Boolean).join(' · ')}</p>
+    <p class="muted">${[lifespan(p), p.sex === 'M' ? t('person.male') : p.sex === 'F' ? t('person.female') : ''].filter(Boolean).join(' · ')}</p>
     ${locNote}
     <table class="events">
-      ${eventRow('Born', p.birth)}
-      ${p.birth?.place ? '' : eventRow('Baptised', p.baptism)}
-      ${eventRow('Died', p.death)}
-      ${eventRow('Buried', p.burial)}
-      ${p.occupation ? `<tr><th>Occupation</th><td>${esc(p.occupation)}</td></tr>` : ''}
+      ${eventRow(t('person.born'), p.birth)}
+      ${p.birth?.place ? '' : eventRow(t('person.baptised'), p.baptism)}
+      ${eventRow(t('person.died'), p.death)}
+      ${eventRow(t('person.buried'), p.burial)}
+      ${p.occupation ? `<tr><th>${t('person.occupation')}</th><td>${esc(p.occupation)}</td></tr>` : ''}
     </table>
-    ${section('Parents', p.parents)}
-    ${section(p.spouses.length > 1 ? 'Spouses' : 'Spouse', p.spouses)}
-    ${section('Children', p.children)}
-    ${section('Siblings', [...siblings])}
-    ${loc ? '<button id="zoom-person" class="btn">Zoom to family</button>' : ''}
+    ${section(t('person.parents'), p.parents)}
+    ${section(t('person.spouses', { count: p.spouses.length }), p.spouses)}
+    ${section(t('person.children'), p.children)}
+    ${section(t('person.siblings'), [...siblings])}
+    ${loc ? `<button id="zoom-person" class="btn">${t('person.zoom')}</button>` : ''}
   `;
   panel.hidden = false;
-  panel.scrollTop = 0;
+  if (!keepScroll) panel.scrollTop = 0;
   $('#zoom-person')?.addEventListener('click', () => select(id));
 }
 
 // ---------- Sidebar ----------
 
 function renderStats() {
-  const t = state.tree!;
-  const total = t.people.size;
+  const tree = state.tree!;
+  const total = tree.people.size;
   const onMap = state.located.size;
-  const stat = (n: number, label: string) => `<div class="stat"><b>${n.toLocaleString()}</b><span>${label}</span></div>`;
-  $('#stats').innerHTML = stat(total, 'people') + stat(onMap, 'on the map') + stat(state.maxGen + 1, 'generations');
+  const stat = (n: number, label: string) => `<div class="stat"><b>${formatNumber(n)}</b><span>${label}</span></div>`;
+  const gens = state.maxGen + 1;
+  $('#stats').innerHTML =
+    stat(total, t('stats.people', { count: total })) +
+    stat(onMap, t('stats.onMap')) +
+    stat(gens, t('stats.generations', { count: gens }));
 
-  const missing = [...t.people.values()].filter((p) => !state.located.has(p.id));
+  const missing = [...tree.people.values()].filter((p) => !state.located.has(p.id));
   const details = $<HTMLDetailsElement>('#unmapped');
   details.hidden = missing.length === 0;
-  details.querySelector('summary')!.textContent = `${missing.length} not on the map`;
+  details.querySelector('summary')!.textContent = t('unmapped.summary', { n: formatNumber(missing.length) });
   details.querySelector('ul')!.innerHTML = missing
     .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, 500)
@@ -1057,15 +1130,15 @@ function renderLegend() {
     const e = byGen.get(g);
     if (!e) continue;
     const ys = e.years.sort((a, b) => a - b);
-    const median = ys.length ? `born ≈ ${ys[Math.floor(ys.length / 2)]}` : '';
+    const median = ys.length ? t('gens.born', { year: ys[Math.floor(ys.length / 2)] }) : '';
     const shown = !state.hiddenGens.has(g);
     rows.push(
       `<li class="${shown ? '' : 'off'}" data-gen="${g}">
-        <input type="checkbox" class="gen-check" ${shown ? 'checked' : ''} aria-label="Show ${genLabel(g)}" />
+        <input type="checkbox" class="gen-check" ${shown ? 'checked' : ''} aria-label="${esc(t('gens.showAria', { gen: genLabel(g) }))}" />
         <i class="dot" style="background:${generationColor(g, state.maxGen)}"></i>
-        <button type="button" class="gen-name" title="Show only this generation">${genLabel(g)}</button>
+        <button type="button" class="gen-name" title="${esc(t('gens.only'))}">${genLabel(g)}</button>
         <span class="muted">${median}</span>
-        <span class="count">${e.count}</span>
+        <span class="count">${formatNumber(e.count)}</span>
       </li>`,
     );
   }
@@ -1077,7 +1150,9 @@ function renderLegend() {
   const all = $<HTMLInputElement>('#gen-all');
   all.checked = hidden === 0;
   all.indeterminate = hidden > 0 && hidden < total;
-  $('#gen-summary').textContent = hidden ? `(${total - hidden} of ${total} shown)` : '';
+  $('#gen-summary').textContent = hidden
+    ? t('gens.summary', { shown: formatNumber(total - hidden), total: formatNumber(total) })
+    : '';
 }
 
 /** Generations that exist in this tree. */
@@ -1140,15 +1215,17 @@ function renderSearch(q: string) {
   }
   const all = [...state.tree.people.values()].filter((p) => {
     const name = fold(p.name);
-    return terms.every((t) => name.includes(t));
+    return terms.every((term) => name.includes(term));
   });
   const hits = all.slice(0, MAX_RESULTS);
   const count = !all.length
-    ? 'No matches'
+    ? t('search.none')
     : all.length > hits.length
-      ? `Showing ${hits.length} of ${all.length} matches`
-      : `${all.length} ${all.length === 1 ? 'match' : 'matches'}`;
-  const keys = all.length ? '<span class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open</span>' : '';
+      ? t('search.capped', { shown: formatNumber(hits.length), total: formatNumber(all.length) })
+      : t('search.count', { count: all.length, n: formatNumber(all.length) });
+  const keys = all.length
+    ? `<span class="keys"><kbd>↑</kbd><kbd>↓</kbd> ${t('search.keyMove')} · <kbd>Enter</kbd> ${t('search.keyOpen')}</span>`
+    : '';
   $('#search-count').innerHTML = `<span>${count}</span>${keys}`;
   list.innerHTML = hits.map((p, i) => personLink(p.id, ` id="result-${i}" role="option" data-result="${esc(p.id)}"`)).join('');
   setSearchOpen(true);
@@ -1272,6 +1349,23 @@ function genMedianYear(g: number): number | undefined {
  * Show the map up to generation `g` (null turns the timeline off and shows everyone again). With
  * `animate`, generation g's arrows grow out first and its people appear once they arrive.
  */
+/** The timeline bar's "Generation N · born ≈ year" label. */
+function renderTimelineLabel() {
+  const g = state.timeline;
+  if (g === null || !state.tree) return;
+  $('#timeline-gen').textContent = genLabel(g);
+  const year = genMedianYear(g);
+  $('#timeline-year').textContent = year ? t('gens.born', { year }) : '';
+  $('#timeline-dot').style.background = generationColor(g, state.maxGen);
+}
+
+/** The play button says what it will do: play, or pause while playing. */
+function renderPlayLabel() {
+  const label = t(timelineTimer ? 'timeline.pause' : 'timeline.play');
+  $('#timeline-play').setAttribute('aria-label', label);
+  $('#timeline-play').title = label;
+}
+
 function setTimeline(g: number | null, animate = false) {
   cancelAnimationFrame(growFrame);
   state.arriving = null;
@@ -1282,10 +1376,7 @@ function setTimeline(g: number | null, animate = false) {
     // The slider runs oldest (left) to newest (right); generation numbers run the other way.
     timelineRange.max = String(state.maxGen);
     timelineRange.value = String(state.maxGen - g);
-    $('#timeline-gen').textContent = genLabel(g);
-    const year = genMedianYear(g);
-    $('#timeline-year').textContent = year ? `born ≈ ${year}` : '';
-    $('#timeline-dot').style.background = generationColor(g, state.maxGen);
+    renderTimelineLabel();
   }
   if (g === null || !animate) {
     rebuildMarkers();
@@ -1316,7 +1407,7 @@ function stopTimeline() {
   clearInterval(timelineTimer);
   timelineTimer = 0;
   $('#timeline').classList.remove('playing');
-  $('#timeline-play').setAttribute('aria-label', 'Play');
+  renderPlayLabel();
 }
 
 /** Step from the oldest generation to the newest, one generation every TIMELINE_STEP_MS. */
@@ -1324,12 +1415,12 @@ function playTimeline() {
   stopTimeline();
   if (state.timeline === null || state.timeline === 0) setTimeline(state.maxGen, true);
   $('#timeline').classList.add('playing');
-  $('#timeline-play').setAttribute('aria-label', 'Pause');
   timelineTimer = window.setInterval(() => {
     if (state.timeline === null || state.timeline <= 0) return stopTimeline();
     setTimeline(state.timeline - 1, true);
     if (state.timeline === 0) stopTimeline();
   }, TIMELINE_STEP_MS);
+  renderPlayLabel();
 }
 
 $('#timeline-open').addEventListener('click', () => state.tree && playTimeline());
@@ -1453,4 +1544,42 @@ mountTreeView($('#tree-root'), {
     if (personId && state.tree?.people.has(personId)) select(personId);
   },
   shown: () => map.invalidateSize(),
+});
+
+// ---------- Language ----------
+
+/** The parts of the page that belong to the map (the tree view translates its own). */
+const STATIC_ROOTS = ['#sidebar', '#timeline', '#person-panel', '#line-legend'];
+const showSidebarBtn = $('#show-sidebar');
+
+function translatePage() {
+  for (const sel of STATIC_ROOTS) translateStatic($(sel), t);
+  showSidebarBtn.title = t('header.show');
+  showSidebarBtn.setAttribute('aria-label', t('header.show'));
+  renderPlayLabel();
+}
+
+mountLanguageSwitcher($('#brand-tools'));
+translatePage();
+
+// A new language re-says everything on screen, keeping what was loaded, selected, filtered and played.
+onLocaleChange(() => {
+  translatePage();
+  addZoomControl();
+  if (!state.tree) return;
+  renderStats();
+  renderLegend();
+  renderRecent();
+  renderTimelineLabel();
+  if (!$('#progress').hidden) setProgress(progressText);
+  if (state.selected) renderPerson(true);
+  const popup = $('#search-popup');
+  if (!popup.hidden) {
+    const active = searchActive;
+    renderSearch(searchInput.value);
+    setSearchActive(active);
+  }
+  refreshIcons();
+  renderDensity();
+  renderFlows();
 });

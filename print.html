@@ -1,26 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Heritage Map Print Designer</title>
+    <title>Mapa da família para imprimir</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
   </head>
   <body>
+    <!-- Words come from src/i18n/messages/print.ts (data-i18n keys); the Portuguese here is only what shows before the script runs. -->
     <aside id="controls">
       <header>
-        <a href="./" class="back" title="Back to the map">← Map</a>
-        <h1>Heritage map print</h1>
+        <a href="./" class="back" data-i18n="header.back" data-i18n-attr="title:header.backTitle">← Mapa</a>
+        <h1 data-i18n="header.title">Mapa para imprimir</h1>
+        <span id="lang-switch"></span>
       </header>
 
       <section>
-        <h2>Family tree</h2>
+        <h2 data-i18n="tree.heading">Árvore genealógica</h2>
         <div class="row">
-          <label class="btn file-btn">Open .ged file<input type="file" id="file" accept=".ged,.gedcom,text/plain" hidden /></label>
-          <button id="sample" class="btn">Use the sample</button>
+          <label class="btn file-btn"><span data-i18n="tree.open">Abrir arquivo .ged</span><input type="file" id="file" accept=".ged,.gedcom,text/plain" hidden /></label>
+          <button id="sample" class="btn" data-i18n="tree.sample">Usar o exemplo</button>
         </div>
-        <select id="saved-tree" hidden></select>
-        <p id="tree-status" class="muted small">No tree loaded yet.</p>
+        <select id="saved-tree" data-i18n-attr="aria-label:tree.savedLabel" hidden></select>
+        <p id="tree-status" class="muted small"></p>
         <div id="geocode-box" hidden>
           <button id="geocode" class="btn wide"></button>
           <div class="bar"><div id="geocode-fill"></div></div>
@@ -29,133 +31,134 @@
 
       <fieldset id="design" disabled>
         <section>
-          <h2>Style</h2>
-          <select id="style"></select>
+          <h2 id="style-heading" data-i18n="style.heading">Estilo</h2>
+          <select id="style" aria-labelledby="style-heading"></select>
           <p id="style-desc" class="muted small"></p>
         </section>
 
         <section>
-          <h2>Map layout</h2>
+          <h2 data-i18n="layout.heading">Composição do mapa</h2>
           <div class="grid2">
-            <label>Layout<select id="layout"></select></label>
-            <label>Area<select id="area">
-            <option value="family">Fit to the family</option>
-            <option value="world">World</option>
-            <option value="atlantic">Atlantic</option>
-            <option value="europe">Europe</option>
-            <option value="iberia">Iberia</option>
-            <option value="south-america">South America</option>
-            <option value="north-america">North America</option>
-            <option value="africa">Africa</option>
+            <label><span data-i18n="layout.label">Composição</span><select id="layout"></select></label>
+            <label><span data-i18n="area.label">Área</span><select id="area">
+            <option value="family" data-i18n="area.family">Ajustar à família</option>
+            <option value="world" data-i18n="area.world">Mundo</option>
+            <option value="atlantic" data-i18n="area.atlantic">Atlântico</option>
+            <option value="europe" data-i18n="area.europe">Europa</option>
+            <option value="iberia" data-i18n="area.iberia">Península Ibérica</option>
+            <option value="south-america" data-i18n="area.south-america">América do Sul</option>
+            <option value="north-america" data-i18n="area.north-america">América do Norte</option>
+            <option value="africa" data-i18n="area.africa">África</option>
             </select></label>
           </div>
         </section>
 
         <section>
-          <h2>Border &amp; finish</h2>
+          <h2 data-i18n="border.heading">Borda e acabamento</h2>
           <div class="grid2">
-            <label>Border<select id="border"></select></label>
-            <label>Paper finish<select id="finish"></select></label>
-            <label>Shown framed in<select id="mockup">
-              <option value="black">Black frame</option>
-              <option value="oak">Oak frame</option>
-              <option value="gold">Gilt frame</option>
-              <option value="white">White frame</option>
-              <option value="none">No frame</option>
+            <label><span data-i18n="border.label">Borda</span><select id="border"></select></label>
+            <label><span data-i18n="finish.label">Acabamento do papel</span><select id="finish"></select></label>
+            <label><span data-i18n="mockup.label">Visto com moldura</span><select id="mockup">
+              <option value="black" data-i18n="mockup.black">Moldura preta</option>
+              <option value="oak" data-i18n="mockup.oak">Moldura de carvalho</option>
+              <option value="gold" data-i18n="mockup.gold">Moldura dourada</option>
+              <option value="white" data-i18n="mockup.white">Moldura branca</option>
+              <option value="none" data-i18n="mockup.none">Sem moldura</option>
             </select></label>
           </div>
         </section>
 
         <section class="grid2">
-          <label>Language<select id="lang"><option value="pt">Português</option><option value="en">English</option></select></label>
-          <label>Paper<select id="paper"><option>A3</option><option selected>A2</option><option>A1</option></select></label>
-          <label>Orientation<select id="orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+          <!-- The language printed on the map (its own choice; it starts as the site's language). -->
+          <label><span data-i18n="sheet.lang">Idioma do mapa</span><select id="lang"><option value="pt">Português</option><option value="en">English</option><option value="es">Español</option></select></label>
+          <label><span data-i18n="sheet.paper">Papel</span><select id="paper"><option>A3</option><option selected>A2</option><option>A1</option></select></label>
+          <label><span data-i18n="sheet.orientation">Orientação</span><select id="orientation"><option value="landscape" data-i18n="sheet.landscape">Horizontal</option><option value="portrait" data-i18n="sheet.portrait">Vertical</option></select></label>
         </section>
 
         <section>
-          <h2>Who's on the map</h2>
+          <h2 data-i18n="who.heading">Quem está no mapa</h2>
           <div class="grid2">
-            <label>Branch<select id="branch">
-              <option value="all">Everyone in the file</option>
-              <option value="ancestors">Ancestors of…</option>
-              <option value="paternal">Father's side of…</option>
-              <option value="maternal">Mother's side of…</option>
+            <label><span data-i18n="who.branch">Ramo</span><select id="branch">
+              <option value="all" data-i18n="who.all">Todos do arquivo</option>
+              <option value="ancestors" data-i18n="who.ancestors">Antepassados de…</option>
+              <option value="paternal" data-i18n="who.paternal">Lado paterno de…</option>
+              <option value="maternal" data-i18n="who.maternal">Lado materno de…</option>
             </select></label>
-            <label>Person<select id="root"></select></label>
+            <label><span data-i18n="who.person">Pessoa</span><select id="root"></select></label>
           </div>
           <div id="gens" class="checks"></div>
         </section>
 
         <section>
-          <h2>Cartouche</h2>
-          <label>Title<input id="title" type="text" /></label>
-          <label>Years<input id="subtitle" type="text" /></label>
-          <label>Dedication<textarea id="dedication" rows="3" placeholder="e.g. Para os meus avós, que atravessaram o mar."></textarea></label>
+          <h2 data-i18n="cartouche.heading">Título e dedicatória</h2>
+          <label><span data-i18n="cartouche.title">Título</span><input id="title" type="text" /></label>
+          <label><span data-i18n="cartouche.years">Anos</span><input id="subtitle" type="text" /></label>
+          <label><span data-i18n="cartouche.dedication">Dedicatória</span><textarea id="dedication" rows="3" data-i18n-attr="placeholder:cartouche.dedicationPlaceholder"></textarea></label>
         </section>
 
         <section>
-          <h2>On the map</h2>
+          <h2 data-i18n="onmap.heading">No mapa</h2>
           <div class="grid2">
-          <label>Flags<select id="flags">
-            <option value="both" selected>Both ends of each move</option>
-            <option value="origins">Countries people left</option>
-            <option value="all">Every country with a birth</option>
-            <option value="none">No flags</option>
+          <label><span data-i18n="flags.label">Bandeiras</span><select id="flags">
+            <option value="both" selected data-i18n="flags.both">Na origem e no destino de cada mudança</option>
+            <option value="origins" data-i18n="flags.origins">Países de onde saíram</option>
+            <option value="all" data-i18n="flags.all">Todo país com um nascimento</option>
+            <option value="none" data-i18n="flags.none">Sem bandeiras</option>
           </select></label>
-          <label>Routes<select id="routes">
-            <option value="essential" selected>Essential</option>
-            <option value="detailed">Detailed</option>
+          <label><span data-i18n="routes.label">Rotas</span><select id="routes">
+            <option value="essential" selected data-i18n="routes.essential">Essenciais</option>
+            <option value="detailed" data-i18n="routes.detailed">Detalhadas</option>
           </select></label>
-          <label>Flag size<select id="flag-size">
-            <option value="0.75">Small</option>
-            <option value="1" selected>Medium</option>
-            <option value="1.3">Large</option>
-            <option value="1.6">Extra large</option>
+          <label><span data-i18n="flagSize.label">Tamanho das bandeiras</span><select id="flag-size">
+            <option value="0.75" data-i18n="flagSize.small">Pequenas</option>
+            <option value="1" selected data-i18n="flagSize.medium">Médias</option>
+            <option value="1.3" data-i18n="flagSize.large">Grandes</option>
+            <option value="1.6" data-i18n="flagSize.xlarge">Muito grandes</option>
           </select></label>
           </div>
           <div class="checks">
-            <label><input type="checkbox" id="show-surnames" checked /> Surnames on routes</label>
-            <label><input type="checkbox" id="show-dates" checked /> Years on routes</label>
-            <label><input type="checkbox" id="show-placeNames" checked /> Town names</label>
-            <label><input type="checkbox" id="show-countryNames" checked /> Country names</label>
-            <label><input type="checkbox" id="show-oceanNames" checked /> Ocean names</label>
-            <label><input type="checkbox" id="show-legend" checked /> Legend</label>
-            <label><input type="checkbox" id="show-compass" checked /> Compass rose</label>
-            <label><input type="checkbox" id="show-scaleBar" checked /> Scale bar</label>
-            <label><input type="checkbox" id="show-graticule" checked /> Meridians &amp; parallels</label>
+            <label><input type="checkbox" id="show-surnames" checked /> <span data-i18n="show.surnames">Sobrenomes nas rotas</span></label>
+            <label><input type="checkbox" id="show-dates" checked /> <span data-i18n="show.dates">Anos nas rotas</span></label>
+            <label><input type="checkbox" id="show-placeNames" checked /> <span data-i18n="show.placeNames">Nomes das localidades</span></label>
+            <label><input type="checkbox" id="show-countryNames" checked /> <span data-i18n="show.countryNames">Nomes dos países</span></label>
+            <label><input type="checkbox" id="show-oceanNames" checked /> <span data-i18n="show.oceanNames">Nomes dos oceanos</span></label>
+            <label><input type="checkbox" id="show-legend" checked /> <span data-i18n="show.legend">Legenda</span></label>
+            <label><input type="checkbox" id="show-compass" checked /> <span data-i18n="show.compass">Rosa dos ventos</span></label>
+            <label><input type="checkbox" id="show-scaleBar" checked /> <span data-i18n="show.scaleBar">Escala gráfica</span></label>
+            <label><input type="checkbox" id="show-graticule" checked /> <span data-i18n="show.graticule">Meridianos e paralelos</span></label>
           </div>
         </section>
 
         <section>
-          <h2>Export</h2>
+          <h2 data-i18n="export.heading">Exportar</h2>
           <div class="row">
             <button class="btn" data-export="svg">SVG</button>
             <button class="btn" data-export="png">PNG 300 dpi</button>
             <button class="btn primary" data-export="pdf">PDF</button>
           </div>
           <p id="export-status" class="muted small"></p>
-          <p class="muted small">Exports are made in your browser at 300 dpi for the chosen paper size. Very large sizes (A1) need a desktop browser with plenty of memory; Safari and phones may refuse them.</p>
+          <p class="muted small" data-i18n="export.hint"></p>
         </section>
 
         <section id="shop">
-          <h2>Order</h2>
+          <h2 data-i18n="shop.heading">Comprar</h2>
           <p id="shop-placeholder" class="note small" hidden></p>
           <div id="shop-form" hidden>
-            <label>Product<select id="shop-product"></select></label>
+            <label><span data-i18n="shop.product">Produto</span><select id="shop-product"></select></label>
             <p id="shop-desc" class="muted small"></p>
             <div class="grid2">
-              <label>Size<select id="shop-size"></select></label>
-              <label id="shop-frame-wrap" hidden>Frame<select id="shop-frame"></select></label>
+              <label><span data-i18n="shop.size">Tamanho</span><select id="shop-size"></select></label>
+              <label id="shop-frame-wrap" hidden><span data-i18n="shop.frame">Moldura</span><select id="shop-frame"></select></label>
             </div>
             <div class="grid2">
-              <label>Country<select id="shop-country" autocomplete="country"></select></label>
-              <label>Currency<select id="shop-currency"></select></label>
+              <label><span data-i18n="shop.country">País</span><select id="shop-country" autocomplete="country"></select></label>
+              <label><span data-i18n="shop.currency">Moeda</span><select id="shop-currency"></select></label>
             </div>
             <p id="shop-price" class="price"></p>
-            <label>Email<input type="email" id="shop-email" autocomplete="email" placeholder="for the receipt and download" /></label>
+            <label><span data-i18n="shop.email">E-mail</span><input type="email" id="shop-email" autocomplete="email" data-i18n-attr="placeholder:shop.emailPlaceholder" /></label>
             <div id="shop-address" hidden></div>
-            <button id="shop-buy" class="btn primary wide">Buy</button>
-            <p class="muted small">Payment on Stripe’s secure page. The print is made from your tree’s public view: people presumed living stay off it.</p>
+            <button id="shop-buy" class="btn primary wide" data-i18n="shop.buy">Comprar</button>
+            <p class="muted small" data-i18n="shop.note"></p>
           </div>
           <p id="shop-status" class="muted small"></p>
         </section>
@@ -163,7 +166,7 @@
     </aside>
 
     <main id="stage" data-frame="black">
-      <div id="sheet"><p class="empty">Open a GEDCOM file or use the sample to design a print.</p></div>
+      <div id="sheet"><p class="empty" data-i18n="sheet.empty"></p></div>
       <ul id="warnings" hidden></ul>
     </main>
 

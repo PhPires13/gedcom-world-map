@@ -1,9 +1,10 @@
-// Which country a place is in, and what it's called, from the Natural Earth countries in world-atlas.
+// Which country a place is in, and what it's called (pt/en/es), from the Natural Earth countries in world-atlas.
 
 import { geoBounds, geoCentroid, geoContains, geoArea } from 'd3-geo';
 import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from 'geojson';
 import isoCountries from 'i18n-iso-countries';
 import en from 'i18n-iso-countries/langs/en.json';
+import es from 'i18n-iso-countries/langs/es.json';
 import pt from 'i18n-iso-countries/langs/pt.json';
 import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
@@ -11,6 +12,7 @@ import type { Lang } from './types';
 
 isoCountries.registerLocale(en);
 isoCountries.registerLocale(pt);
+isoCountries.registerLocale(es);
 
 export interface Country {
   /** ISO 3166-1 alpha-2, lower case (as flag-icons names its files); '' if it has none. */
@@ -23,10 +25,21 @@ export interface Country {
 /** Natural Earth units without an ISO numeric code. */
 const NAME_CODES: Record<string, string> = { Kosovo: 'xk', 'N. Cyprus': 'cy', Somaliland: 'so' };
 
-/** Shorter or more familiar names than the ISO ones. */
+/**
+ * Shorter or more familiar names than the ISO ones. The ISO Portuguese names are spelled as in
+ * Portugal; the Brazilian spelling is used where the two differ (Polônia, Romênia, Irã…).
+ */
 const SHORT_NAMES: Record<Lang, Record<string, string>> = {
   en: { us: 'United States', gb: 'United Kingdom', ru: 'Russia', kr: 'South Korea', kp: 'North Korea', ir: 'Iran', sy: 'Syria', bo: 'Bolivia', ve: 'Venezuela', tz: 'Tanzania', cd: 'DR Congo', la: 'Laos', vn: 'Vietnam', md: 'Moldova', mk: 'North Macedonia', cv: 'Cabo Verde', tw: 'Taiwan' },
-  pt: { us: 'Estados Unidos', gb: 'Reino Unido', ru: 'Rússia', cd: 'RD Congo', cv: 'Cabo Verde' },
+  pt: {
+    us: 'Estados Unidos', gb: 'Reino Unido', ru: 'Rússia', cd: 'RD Congo', cv: 'Cabo Verde',
+    pl: 'Polônia', ro: 'Romênia', ee: 'Estônia', lv: 'Letônia', si: 'Eslovênia', am: 'Armênia', mk: 'Macedônia do Norte',
+    mc: 'Mônaco', ke: 'Quênia', ir: 'Irã', vn: 'Vietnã', gl: 'Groenlândia', ye: 'Iêmen', bj: 'Benin', nc: 'Nova Caledônia',
+  },
+  es: {
+    us: 'Estados Unidos', gb: 'Reino Unido', kr: 'Corea del Sur', kp: 'Corea del Norte', sy: 'Siria', cd: 'RD del Congo',
+    la: 'Laos',
+  },
 };
 
 /** Country name for a code in the chosen language. */
@@ -76,7 +89,8 @@ const inBounds = (c: Country, lon: number, lat: number) => {
 const ALIASES: Record<string, string> = {
   usa: 'us', 'u.s.a.': 'us', 'united states': 'us', eua: 'us', 'estados unidos': 'us', england: 'gb', scotland: 'gb',
   wales: 'gb', 'northern ireland': 'gb', uk: 'gb', 'great britain': 'gb', brasil: 'br', holland: 'nl', azores: 'pt',
-  açores: 'pt', madeira: 'pt',
+  açores: 'pt', madeira: 'pt', inglaterra: 'gb', escocia: 'gb', escócia: 'gb', holanda: 'nl', eeuu: 'us', 'ee.uu.': 'us',
+  'ee. uu.': 'us', canarias: 'es',
 };
 
 /** Country from the last part of a place name ("Braga, Portugal" → pt), if it's recognisable. */
@@ -84,7 +98,7 @@ export function countryFromName(place: string): string {
   const last = place.split(',').map((s) => s.trim()).filter(Boolean).pop()?.toLowerCase();
   if (!last) return '';
   if (ALIASES[last]) return ALIASES[last];
-  const code = isoCountries.getAlpha2Code(last, 'en') ?? isoCountries.getAlpha2Code(last, 'pt');
+  const code = isoCountries.getAlpha2Code(last, 'en') ?? isoCountries.getAlpha2Code(last, 'pt') ?? isoCountries.getAlpha2Code(last, 'es');
   return code?.toLowerCase() ?? '';
 }
 

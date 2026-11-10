@@ -4,6 +4,10 @@
 //
 // The preview is the tree's PUBLIC view: people presumed living (or marked private) are left off,
 // exactly as on the print the server makes for an order.
+//
+// The page speaks the site's language (src/i18n/messages/print.ts) and switches without a reload.
+// The map's own language (`#lang`) is a separate choice: it starts as the site's language and
+// follows it until the visitor picks one for the map.
 
 import './designer.css';
 import { originEvent, parseGedcom, decodeGedcom, type Tree } from '../gedcom';
@@ -11,8 +15,11 @@ import { localTreeDetail, toGedcomTree } from '../model';
 import { api, serverAvailable } from '../tree/api';
 import { computeGenerations } from '../generations';
 import { Geocoder } from '../geocode';
+import { currentLocale, formatNumber, makeT, onLocaleChange, translateStatic, type Locale } from '../i18n/core';
+import { hasPrintKey, printMessages } from '../i18n/messages/print';
+import { mountLanguageSwitcher } from '../i18n/switcher';
 import { loadFlags, loadStyleFonts, loadTopology } from './assets-browser';
-import { CountryLocator } from './countries';
+import { CountryLocator, countryName } from './countries';
 import { buildPrintData, defaultRoot, type Branch, type Located } from './data';
 import { BORDERS, FINISHES, LAYOUTS, borderById, finishById, layoutById } from './catalog';
 import { mmToPx, pageSize } from './geo';
@@ -22,6 +29,8 @@ import { defaultTexts, renderHeritageMap, topologyDetailFor } from './render';
 import { STYLES, styleById } from './styles';
 import type { AreaId, Lang, Orientation, PaperSize, PrintAssets, PrintData, PrintOptions } from './types';
 import type { Topology } from 'topojson-specification';
+
+const t = makeT(printMessages);
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const val = (id: string) => $<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`#${id}`).value;
@@ -46,14 +55,23 @@ const state = {
   serverIds: new Map<string, string>(),
   /** People kept off the map because they are presumed living or marked private. */
   privateCount: 0,
+  /** The visitor chose the map's language themselves (otherwise it follows the site's). */
+  langTouched: false,
+  /** Trees saved on the server, for the "open a saved tree" list. */
+  savedTrees: [] as { id: string; name: string; peopleCount: number }[],
+  /** What the last preview had to warn about, kept so a language change can reword it. */
+  lastWarnings: null as { people: number; missingFlags: string[]; outsideArea: number } | null,
 };
+
+/** The map language for a site language (they are the same three). */
+const mapLangFor = (l: Locale): Lang => l;
 
 // ---------- Loading a tree ----------
 
 function loadText(text: string, fileName: string) {
   const tree = parseGedcom(text);
   if (!tree.people.size) {
-    alert(`No people found in “${fileName}”. Is it a GEDCOM file?`);
+    alert(t('tree.noPeople', { file: fileName }));
     return;
   }
   // The living rule, as the server applies it: these people never reach the print.
@@ -103,15 +121,17 @@ function loadTree(tree: Tree, fileName: string, hidden: Set<string>, from: { ged
 }
 
 function updateStatus() {
-  const t = state.tree;
-  if (!t) return;
-  const placed = state.located.size;
+  const tree = state.tree;
+  if (!tree) {
+    $('#tree-status').textContent = t('tree.none');
+    return;
+  }
   $('#tree-status').textContent =
-    `${state.fileName}: ${t.people.size} people, ${placed} placed on the map.` +
-    (state.privateCount ? ` ${state.privateCount} presumed living or private ${state.privateCount === 1 ? 'is' : 'are'} left off, as on the printed map.` : '');
+    t('tree.status', { file: state.fileName, people: tree.people.size, placed: state.located.size }) +
+    (state.privateCount ? ` ${t('tree.private', { count: state.privateCount })}` : '');
   const n = state.pending.size;
   $('#geocode-box').hidden = !n && !state.geocoding;
-  if (!state.geocoding) $('#geocode').textContent = `Find ${n} more place${n === 1 ? '' : 's'} (about ${Math.ceil(n * 1.2)} s)`;
+  if (!state.geocoding) $('#geocode').textContent = t('geocode.find', { count: n, seconds: Math.ceil(n * 1.2) });
 }
 
 async function geocodePending() {
@@ -125,7 +145,7 @@ async function geocodePending() {
   let failed = 0;
   for (const [i, place] of places.entries()) {
     if (abort.signal.aborted) break;
-    $('#geocode').textContent = `Finding places… ${i}/${places.length} (stop)`;
+    $('#geocode').textContent = t('geocode.progress', { done: formatNumber(i), total: formatNumber(places.length) });
     $('#geocode-fill').style.width = `${(i / places.length) * 100}%`;
     try {
       const c = await geocoder.geocode(place, abort.signal);
@@ -160,10 +180,14 @@ function fillPeople() {
     .join('');
 }
 
-function fillGenerations() {
-  const t = state.tree!;
+function fillGenerations(keepChoice = false) {
+  const tree = state.tree!;
+  // On a language change, keep which generations were ticked.
+  const unticked = keepChoice
+    ? new Set([...document.querySelectorAll<HTMLInputElement>('#gens input')].filter((b) => !b.checked).map((b) => b.dataset.gen))
+    : new Set<string | undefined>();
   const byGen = new Map<number, number[]>();
-  for (const p of t.people.values()) {
+  for (const p of tree.people.values()) {
     const g = state.gens.get(p.id) ?? 0;
     const list = byGen.get(g) ?? [];
     if (p.birth?.year) list.push(p.birth.year);
@@ -173,7 +197,8 @@ function fillGenerations() {
     .sort((a, b) => b - a)
     .map((g) => {
       const span = yearSpan(byGen.get(g)!);
-      return `<label title="Generation ${g + 1} counting from the youngest"><input type="checkbox" data-gen="${g}" checked /> ${span ? `Born ${span}` : `Generation ${g + 1}`}</label>`;
+      const label = span ? t('gen.born', { span }) : t('gen.number', { n: g + 1 });
+      return `<label title="${escapeHtml(t('gen.title', { n: g + 1 }))}"><input type="checkbox" data-gen="${g}"${unticked.has(String(g)) ? '' : ' checked'} /> ${escapeHtml(label)}</label>`;
     })
     .join('');
 }
@@ -257,7 +282,7 @@ async function render() {
   try {
     const data = currentData();
     const o = currentOptions(data);
-    $('#style-desc').textContent = o.style.description ?? '';
+    $('#style-desc').textContent = named('style', o.style).description;
     // Only the geographic layout uses the chosen area; the others always fit the family.
     $<HTMLSelectElement>('#area').disabled = !!o.layout && (o.layout.kind !== 'accurate' || !!o.layout.fitFamily);
     const assets = await assetsFor(data, o, false);
@@ -267,17 +292,29 @@ async function render() {
     console.debug(`Rendered print in ${Math.round(performance.now() - t0)} ms (${Math.round(res.svg.length / 1024)} kB)`);
     sheet.style.setProperty('--aspect', String(res.width / res.height));
     sheet.innerHTML = res.svg;
-    const warnings = [...res.warnings];
-    if (!data.people.length) warnings.push('Nobody in this selection has a known place of birth yet.');
-    if (state.pending.size) warnings.push(`${state.pending.size} places haven't been looked up yet, so some people are missing.`);
-    $('#warnings').hidden = !warnings.length;
-    $('#warnings').innerHTML = warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('');
+    state.lastWarnings = { people: data.people.length, ...res.notices };
+    showWarnings();
   } catch (e) {
     console.error(e);
-    sheet.innerHTML = `<p class="empty">Couldn't draw the print: ${escapeHtml(String(e))}</p>`;
+    sheet.innerHTML = `<p class="empty">${escapeHtml(t('render.failed', { error: String(e) }))}</p>`;
   } finally {
     if (seq === renderSeq) sheet.classList.remove('busy');
   }
+}
+
+/** The preview's warnings, in the page's language. */
+function showWarnings() {
+  const w = state.lastWarnings;
+  const warnings: string[] = [];
+  if (w) {
+    const lang = mapLangFor(currentLocale());
+    for (const code of w.missingFlags) warnings.push(t('warn.noFlag', { country: countryName(code, lang, code.toUpperCase()) }));
+    if (w.outsideArea) warnings.push(t('warn.outsideArea', { count: w.outsideArea }));
+    if (!w.people) warnings.push(t('warn.noBirthplaces'));
+  }
+  if (state.pending.size) warnings.push(t('warn.pending', { count: state.pending.size }));
+  $('#warnings').hidden = !warnings.length;
+  $('#warnings').innerHTML = warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join('');
 }
 
 // ---------- Export ----------
@@ -307,7 +344,7 @@ async function rasterize(svg: string, width: number, height: number): Promise<HT
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error(`The browser can't make an image this large (${width}×${height} px).`);
+    if (!ctx) throw new Error(t('export.tooLarge', { width, height }));
     ctx.drawImage(img, 0, 0, width, height);
     return canvas;
   } finally {
@@ -316,7 +353,7 @@ async function rasterize(svg: string, width: number, height: number): Promise<HT
 }
 
 const canvasBlob = (canvas: HTMLCanvasElement, type: string, quality?: number) =>
-  new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Image encoding failed'))), type, quality));
+  new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t('export.encodingFailed')))), type, quality));
 
 /** The print as a file: SVG, PNG at 300 dpi, or PDF (the 300 dpi image on a page of the paper size). */
 export async function exportBlob(kind: 'svg' | 'png' | 'pdf'): Promise<{ blob: Blob; name: string }> {
@@ -337,7 +374,7 @@ export async function exportBlob(kind: 'svg' | 'png' | 'pdf'): Promise<{ blob: B
   const doc = new jsPDF({ orientation: o.orientation, unit: 'mm', format: [w, h], compress: true });
   const jpeg = new Uint8Array(await (await canvasBlob(canvas, 'image/jpeg', 0.93)).arrayBuffer());
   doc.addImage(jpeg, 'JPEG', 0, 0, w, h, undefined, 'NONE');
-  doc.setProperties({ title: o.title || 'Heritage map', creator: 'GEDCOM World Map' });
+  doc.setProperties({ title: o.title || t('export.pdfTitle'), creator: 'GEDCOM World Map' });
   return { blob: doc.output('blob'), name: `${name}.pdf` };
 }
 
@@ -345,15 +382,20 @@ async function exportFile(kind: 'svg' | 'png' | 'pdf') {
   const status = $('#export-status');
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-export]')];
   buttons.forEach((b) => (b.disabled = true));
-  status.textContent = kind === 'svg' ? 'Preparing SVG…' : `Drawing at ${DPI} dpi… this can take a little while.`;
+  status.textContent = kind === 'svg' ? t('export.preparingSvg') : t('export.drawing', { dpi: DPI });
   try {
     const t0 = performance.now();
     const { blob, name } = await exportBlob(kind);
     download(blob, name);
-    status.textContent = `Saved ${name} (${(blob.size / 1024 / 1024).toFixed(1)} MB, ${((performance.now() - t0) / 1000).toFixed(1)} s).`;
+    const oneDecimal = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+    status.textContent = t('export.saved', {
+      name,
+      size: formatNumber(blob.size / 1024 / 1024, oneDecimal),
+      seconds: formatNumber((performance.now() - t0) / 1000, oneDecimal),
+    });
   } catch (e) {
     console.error(e);
-    status.textContent = `Export failed: ${String(e)}`;
+    status.textContent = t('export.failed', { error: e instanceof Error ? e.message : String(e) });
   } finally {
     buttons.forEach((b) => (b.disabled = false));
   }
@@ -361,13 +403,74 @@ async function exportFile(kind: 'svg' | 'png' | 'pdf') {
 
 // ---------- Wiring ----------
 
-$('#style').innerHTML = STYLES.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-const optionList = (items: { id: string; name: string; description?: string }[], none?: string) =>
+/**
+ * Name and description of a style, layout, border or finish in the page's language: translated by
+ * id in messages/print.ts, else the JSON file's own words.
+ */
+function named(kind: 'style' | 'layout' | 'border' | 'finish', x: { id: string; name: string; description?: string }) {
+  const nameKey = `${kind}.${x.id}.name`;
+  const descKey = `${kind}.${x.id}.desc`;
+  return {
+    name: hasPrintKey(nameKey) ? t(nameKey) : x.name,
+    description: hasPrintKey(descKey) ? t(descKey) : (x.description ?? ''),
+  };
+}
+
+const optionList = (kind: 'style' | 'layout' | 'border' | 'finish', items: { id: string; name: string; description?: string }[], none?: string) =>
   (none ? `<option value="">${escapeHtml(none)}</option>` : '') +
-  items.map((x) => `<option value="${x.id}" title="${escapeHtml(x.description ?? '')}">${escapeHtml(x.name)}</option>`).join('');
-$('#layout').innerHTML = optionList(LAYOUTS);
-$('#border').innerHTML = optionList(BORDERS, "The style's own frame");
-$('#finish').innerHTML = optionList(FINISHES, "The style's own paper");
+  items
+    .map((x) => {
+      const { name, description } = named(kind, x);
+      return `<option value="${x.id}"${description ? ` title="${escapeHtml(description)}"` : ''}>${escapeHtml(name)}</option>`;
+    })
+    .join('');
+
+/** Fills a select's options again, keeping the chosen one. */
+function refill(id: string, html: string) {
+  const sel = $<HTMLSelectElement>(`#${id}`);
+  const value = sel.value;
+  sel.innerHTML = html;
+  if (value && [...sel.options].some((o) => o.value === value)) sel.value = value;
+}
+
+function fillSavedTrees() {
+  if (!state.savedTrees.length) return;
+  refill(
+    'saved-tree',
+    `<option value="">${escapeHtml(t('tree.saved'))}</option>` +
+      state.savedTrees.map((tr) => `<option value="${tr.id}">${escapeHtml(t('tree.savedOption', { name: tr.name, count: tr.peopleCount }))}</option>`).join(''),
+  );
+}
+
+/** Every word on the page in the current language (kept choices, loaded tree and preview stay as they are). */
+function translatePage() {
+  document.title = t('page.title');
+  translateStatic(document, t);
+  refill('style', optionList('style', STYLES));
+  refill('layout', optionList('layout', LAYOUTS));
+  refill('border', optionList('border', BORDERS, t('border.none')));
+  refill('finish', optionList('finish', FINISHES, t('finish.none')));
+  fillSavedTrees();
+  updateStatus();
+  if (state.tree) {
+    fillGenerations(true);
+    $('#style-desc').textContent = named('style', styleById(val('style'))).description;
+    showWarnings();
+  }
+}
+
+mountLanguageSwitcher($('#lang-switch'));
+$<HTMLSelectElement>('#lang').value = mapLangFor(currentLocale());
+translatePage();
+onLocaleChange((locale) => {
+  translatePage();
+  // The map follows the site's language until the visitor picks the map's own.
+  if (!state.langTouched && val('lang') !== mapLangFor(locale)) {
+    $<HTMLSelectElement>('#lang').value = mapLangFor(locale);
+    scheduleRender(0);
+  }
+});
+$('#lang').addEventListener('change', () => (state.langTouched = true));
 // The frame around the preview is only a mock-up of the finished object; it isn't exported.
 $('#mockup').addEventListener('change', () => ($('#stage').dataset.frame = val('mockup')));
 
@@ -381,7 +484,8 @@ void serverAvailable().then(async (up) => {
   const trees = await api.listTrees().catch(() => []);
   if (!trees.length) return;
   const sel = $<HTMLSelectElement>('#saved-tree');
-  sel.innerHTML = `<option value="">Open a saved tree…</option>` + trees.map((t) => `<option value="${t.id}">${escapeHtml(t.name)} (${t.peopleCount} people)</option>`).join('');
+  state.savedTrees = trees.map((tr) => ({ id: tr.id, name: tr.name, peopleCount: tr.peopleCount }));
+  fillSavedTrees();
   sel.hidden = false;
   const wanted = new URLSearchParams(location.search).get('tree');
   if (wanted && trees.some((t) => t.id === wanted)) {
@@ -391,7 +495,7 @@ void serverAvailable().then(async (up) => {
 });
 $<HTMLSelectElement>('#saved-tree').addEventListener('change', (e) => {
   const id = (e.target as HTMLSelectElement).value;
-  if (id) void loadServerTree(id).catch((err) => alert(`Couldn't open the tree: ${String(err)}`));
+  if (id) void loadServerTree(id).catch((err) => alert(t('tree.openFailed', { error: String(err) })));
 });
 
 initShop({
@@ -424,8 +528,8 @@ initShop({
   },
   async serverTree() {
     if (!state.serverTreeId) {
-      if (!state.gedText) throw new Error('No tree loaded');
-      const tree = await api.createTree(state.fileName.replace(/\.(ged|gedcom)$/i, '') || 'Family tree');
+      if (!state.gedText) throw new Error(t('tree.none'));
+      const tree = await api.createTree(state.fileName.replace(/\.(ged|gedcom)$/i, '') || t('tree.defaultName'));
       await api.importGedcomText(tree.id, state.fileName, state.gedText);
       const detail = await api.getTree(tree.id);
       state.serverIds = new Map(detail.people.filter((p) => p.originRef).map((p) => [p.originRef!, p.id]));

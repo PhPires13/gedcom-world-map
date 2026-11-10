@@ -36,7 +36,8 @@ export interface PrintData {
 export type PaperSize = 'A3' | 'A2' | 'A1';
 export type Orientation = 'landscape' | 'portrait';
 export type AreaId = 'family' | 'world' | 'atlantic' | 'europe' | 'iberia' | 'south-america' | 'north-america' | 'africa';
-export type Lang = 'pt' | 'en';
+/** Language of the words printed on the map. */
+export type Lang = 'pt' | 'en' | 'es';
 
 export interface PrintOptions {
   style: PrintStyle;

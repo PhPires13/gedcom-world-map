@@ -1,13 +1,19 @@
 // The "Order" panel of the print designer: choose a product and size, see the price in the
 // visitor's currency, enter the delivery address, then pay on Stripe Checkout. The order carries
 // the design (choices only); the server re-renders the print from the tree's public view.
+//
+// The panel's static labels are in print.html (translated with the designer); everything written
+// here (products, countries, address fields, price, messages) comes from src/i18n/messages/shop.ts
+// and is written again when the language changes, keeping what the visitor chose and typed.
 
-import { formatMoney, type Currency } from '../commerce/catalogue';
+import type { Currency } from '../commerce/catalogue';
 import { guessCountry, shop, type ShopCatalogue } from '../commerce/client';
 import type { DesignSpec } from '../commerce/design';
 import type { Address } from '../commerce/order';
+import { esc, frameColourName, inLocale, money, t } from '../commerce/words';
+import { localeTag, onLocaleChange } from '../i18n/core';
+import { shopMessages, type ShopKey } from '../i18n/messages/shop';
 import isoCountries from 'i18n-iso-countries';
-import { countryName } from './countries';
 import type { PaperSize } from './types';
 
 export interface ShopHost {
@@ -24,39 +30,132 @@ export interface ShopHost {
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const val = (id: string) => $<HTMLInputElement | HTMLSelectElement>(`#${id}`).value.trim();
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-const ADDRESS_FIELDS: [keyof Address, string, string?][] = [
-  ['name', 'Full name'],
-  ['line1', 'Address'],
-  ['line2', 'Address line 2 (optional)'],
-  ['city', 'City'],
-  ['state', 'State / region'],
-  ['postalCode', 'Postcode'],
-  ['phone', 'Phone (for the courier)'],
-  ['taxId', 'CPF or CNPJ', 'BR'],
-];
+type AddressField = Exclude<keyof Address, 'country'>;
+const ADDRESS_FIELDS: AddressField[] = ['name', 'line1', 'line2', 'city', 'state', 'postalCode', 'phone', 'taxId'];
+const POSTCODE_HINT: Record<string, string> = { BR: '00000-000', PT: '0000-000', ES: '28001', US: '10001' };
+
+/** A country's own label for a field (addr.postalCode.BR = "CEP"), else the general one. */
+function label(field: AddressField, country: string): string {
+  const own = `addr.${field}.${country}`;
+  return own in shopMessages.pt ? t(own as ShopKey) : t(`addr.${field}` as ShopKey);
+}
+
+/**
+ * The delivery address as each country writes it: which fields show, which are required, their
+ * labels in the visitor's language and a format hint. Brazil: street and number, complement and
+ * bairro, state (UF), CEP and the recipient's CPF/CNPJ. Portugal: código postal, no state.
+ * Spain: código postal and province.
+ */
+function addressForm(country: string): { key: AddressField; label: string; required: boolean; placeholder?: string }[] {
+  const shown: Record<AddressField, boolean> = {
+    name: true,
+    line1: true,
+    line2: true,
+    city: true,
+    state: country !== 'PT',
+    postalCode: true,
+    phone: true,
+    taxId: country === 'BR',
+  };
+  const required = new Set<AddressField>(['name', 'line1', 'city', 'postalCode', ...(country === 'BR' ? (['state', 'taxId'] as const) : [])]);
+  const placeholder: Partial<Record<AddressField, string>> = {
+    postalCode: POSTCODE_HINT[country],
+    state: country === 'BR' ? 'SP' : undefined,
+    taxId: '000.000.000-00',
+  };
+  return ADDRESS_FIELDS.filter((k) => shown[k]).map((key) => ({ key, label: label(key, country), required: required.has(key), placeholder: placeholder[key] }));
+}
+
+/** Every country by its name in the visitor's language. */
+function countryList(): { code: string; name: string }[] {
+  let names: Intl.DisplayNames | undefined;
+  try {
+    names = new Intl.DisplayNames([localeTag()], { type: 'region' });
+  } catch {
+    names = undefined;
+  }
+  return Object.keys(isoCountries.getAlpha2Codes()).map((code) => {
+    let name = code;
+    try {
+      name = names?.of(code) ?? code;
+    } catch {
+      /* the code as is */
+    }
+    return { code, name };
+  });
+}
 
 export function initShop(host: ShopHost) {
   let cat: ShopCatalogue | undefined;
-  const countries = Object.keys(isoCountries.getAlpha2Codes())
-    .map((code) => ({ code, name: countryName(code.toLowerCase(), 'en', code) }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const first = ['BR', 'PT', 'IT', 'US'];
-  $('#shop-country').innerHTML =
-    first.map((c) => `<option value="${c}">${esc(countryName(c.toLowerCase(), 'en', c))}</option>`).join('') +
-    '<option disabled>──────────</option>' +
-    countries.filter((c) => !first.includes(c.code)).map((c) => `<option value="${c.code}">${esc(c.name)}</option>`).join('');
-  $<HTMLSelectElement>('#shop-country').value = countries.some((c) => c.code === guessCountry()) ? guessCountry() : 'US';
-  $('#shop-address').innerHTML = ADDRESS_FIELDS.map(
-    ([k, label, only]) => `<label data-only="${only ?? ''}">${label}<input type="text" id="addr-${k}" autocomplete="${autocomplete(k)}" /></label>`,
-  ).join('');
+  /** The current message in the status line, kept as a function so it follows the language. */
+  let statusLine: { text: () => string; error: boolean } = { text: () => '', error: false };
 
-  const status = (msg: string, error = false) => {
+  function fillCountries() {
+    const sel = $<HTMLSelectElement>('#shop-country');
+    const chosen = sel.value;
+    const countries = countryList();
+    const collator = new Intl.Collator(localeTag());
+    countries.sort((a, b) => collator.compare(a.name, b.name));
+    const first = ['BR', 'PT', 'ES', 'IT', 'US'];
+    const nameOf = (code: string) => countries.find((c) => c.code === code)?.name ?? code;
+    sel.innerHTML =
+      first.map((c) => `<option value="${c}">${esc(nameOf(c))}</option>`).join('') +
+      '<option disabled>──────────</option>' +
+      countries.filter((c) => !first.includes(c.code)).map((c) => `<option value="${c.code}">${esc(c.name)}</option>`).join('');
+    sel.value = chosen || (countries.some((c) => c.code === guessCountry()) ? guessCountry() : 'US');
+  }
+
+  /** Builds the address inputs once; `fillAddress` labels them for the country and language. */
+  function buildAddress() {
+    $('#shop-address').innerHTML = ADDRESS_FIELDS.map(
+      (k) => `<label data-field="${k}"><span></span><input type="text" id="addr-${k}" autocomplete="${autocomplete(k)}" /></label>`,
+    ).join('');
+  }
+
+  function fillAddress() {
+    const form = new Map(addressForm(val('shop-country')).map((f) => [f.key, f]));
+    for (const k of ADDRESS_FIELDS) {
+      const el = $(`#shop-address [data-field="${k}"]`);
+      const f = form.get(k);
+      el.hidden = !f;
+      if (!f) continue;
+      el.querySelector('span')!.textContent = f.label;
+      const input = el.querySelector('input')!;
+      if (f.placeholder) input.placeholder = f.placeholder;
+      else input.removeAttribute('placeholder');
+      input.required = f.required;
+    }
+  }
+
+  const status = (text: () => string, error = false) => {
+    statusLine = { text, error };
     const el = $('#shop-status');
-    el.textContent = msg;
+    el.textContent = text();
     el.classList.toggle('error', error);
   };
+  const clearStatus = () => status(() => '');
+  const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+  function fillNotice() {
+    if (!cat) return;
+    $('#shop-placeholder').hidden = !cat.placeholderPrices && cat.paymentMode !== 'test';
+    $('#shop-placeholder').textContent = [
+      cat.placeholderPrices ? t('shop.placeholderPrices') : '',
+      cat.paymentMode === 'test' ? t('shop.testMode') : '',
+      !cat.paymentsReady ? t('shop.paymentsOff') : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function fillProducts() {
+    if (!cat) return;
+    const productSel = $<HTMLSelectElement>('#shop-product');
+    const prev = productSel.value;
+    productSel.innerHTML = cat.products.map((p) => `<option value="${p.id}">${esc(inLocale(p.name))}</option>`).join('');
+    if (cat.products.some((p) => p.id === prev)) productSel.value = prev;
+  }
 
   async function loadCatalogue(keepCurrency = false) {
     const country = val('shop-country');
@@ -66,23 +165,14 @@ export function initShop(host: ShopHost) {
     } catch (e) {
       cat = undefined;
       $('#shop-form').hidden = true;
-      status(`The shop is offline (${e instanceof Error ? e.message : String(e)}). Start the API server with \`npm run server\`.`, true);
+      const error = errorText(e);
+      status(() => t('shop.offline', { error }), true);
       return;
     }
     $('#shop-form').hidden = false;
-    status('');
-    $('#shop-placeholder').hidden = !cat.placeholderPrices && cat.paymentMode !== 'test';
-    $('#shop-placeholder').textContent = [
-      cat.placeholderPrices ? 'Prices are placeholders.' : '',
-      cat.paymentMode === 'test' ? 'Payments are in Stripe test mode: no real money moves.' : '',
-      !cat.paymentsReady ? 'Payments are not set up on this server.' : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
-    const productSel = $<HTMLSelectElement>('#shop-product');
-    const prev = productSel.value;
-    productSel.innerHTML = cat.products.map((p) => `<option value="${p.id}">${esc(p.name.en)}</option>`).join('');
-    if (cat.products.some((p) => p.id === prev)) productSel.value = prev;
+    clearStatus();
+    fillNotice();
+    fillProducts();
     const curSel = $<HTMLSelectElement>('#shop-currency');
     curSel.innerHTML = (['BRL', 'EUR', 'USD'] as const).map((c) => `<option${c === cat!.currency ? ' selected' : ''}>${c}</option>`).join('');
     fillProduct();
@@ -96,14 +186,14 @@ export function initShop(host: ShopHost) {
     sizeSel.innerHTML = p.variants.map((v) => `<option>${v.size}</option>`).join('');
     if (p.variants.some((v) => v.size === prev)) sizeSel.value = prev;
     $('#shop-frame-wrap').hidden = p.kind !== 'framed';
-    $('#shop-frame').innerHTML = (p.frameColours ?? []).map((c) => `<option>${esc(c)}</option>`).join('');
-    $('#shop-desc').textContent = [p.description.en, p.material?.en].filter(Boolean).join(' · ');
-    const physical = p.kind !== 'digital';
-    $('#shop-address').hidden = !physical;
-    for (const el of document.querySelectorAll<HTMLElement>('#shop-address [data-only]')) {
-      const only = el.dataset.only;
-      el.hidden = !!only && only !== val('shop-country');
-    }
+    const frameSel = $<HTMLSelectElement>('#shop-frame');
+    const prevFrame = frameSel.value;
+    // The value stays the catalogue's colour id (sent with the order); the text is translated.
+    frameSel.innerHTML = (p.frameColours ?? []).map((c) => `<option value="${esc(c)}">${esc(frameColourName(c))}</option>`).join('');
+    if ((p.frameColours ?? []).includes(prevFrame)) frameSel.value = prevFrame;
+    $('#shop-desc').textContent = [inLocale(p.description), p.material && inLocale(p.material)].filter(Boolean).join(' · ');
+    $('#shop-address').hidden = p.kind === 'digital';
+    fillAddress();
     fillPrice();
   }
 
@@ -115,9 +205,13 @@ export function initShop(host: ShopHost) {
       return;
     }
     const cur = cat.currency as Currency;
-    $('#shop-price').innerHTML =
-      `<b>${formatMoney(v.totalAmount, cur)}</b>` +
-      (p.kind === 'digital' ? ' · download' : v.shippingAmount ? ` · incl. ${formatMoney(v.shippingAmount, cur)} shipping` : ' · shipping included');
+    const extra =
+      p.kind === 'digital'
+        ? t('shop.price.download')
+        : v.shippingAmount
+          ? t('shop.price.shippingIncl', { amount: money(v.shippingAmount, cur) })
+          : t('shop.price.shippingIncluded');
+    $('#shop-price').innerHTML = `<b>${esc(money(v.totalAmount, cur))}</b> · ${esc(extra)}`;
     if (p.kind !== 'digital') host.setPaper(v.size as PaperSize);
   }
 
@@ -127,22 +221,23 @@ export function initShop(host: ShopHost) {
     const p = cat.products.find((x) => x.id === val('shop-product'))!;
     const country = val('shop-country');
     const email = val('shop-email');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return status('Enter your email: the receipt and download link go there.', true);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return status(() => t('shop.needEmail'), true);
     let shippingAddress: Address | undefined;
     if (p.kind !== 'digital') {
-      const a = Object.fromEntries(ADDRESS_FIELDS.map(([k]) => [k, val(`addr-${k}`) || undefined])) as unknown as Address;
-      shippingAddress = { ...a, country, taxId: country === 'BR' ? a.taxId : undefined };
-      const missing = (['name', 'line1', 'city', 'postalCode'] as const).filter((k) => !shippingAddress![k]);
-      if (country === 'BR' && !shippingAddress.taxId) return status('Brazilian deliveries need the recipient’s CPF (or CNPJ).', true);
-      if (missing.length) return status(`Fill in the delivery address (${missing.join(', ')}).`, true);
+      const form = addressForm(country);
+      const a = Object.fromEntries(form.map((f) => [f.key, val(`addr-${f.key}`) || undefined])) as Partial<Address>;
+      shippingAddress = { ...(a as Address), country };
+      if (country === 'BR' && !shippingAddress.taxId) return status(() => t('shop.needTaxId'), true);
+      const missing = form.filter((f) => f.required && !a[f.key]).map((f) => f.key);
+      if (missing.length) return status(() => t('shop.needAddress', { fields: missing.map((k) => label(k, country)).join(', ') }), true);
     }
     const button = $<HTMLButtonElement>('#shop-buy');
     button.disabled = true;
     try {
-      status('Saving your tree so we can print it…');
+      status(() => t('shop.saving'));
       const { treeId, personId } = await host.serverTree();
       const selection = { ...design.selection, rootId: design.selection.rootId ? personId(design.selection.rootId) : undefined };
-      status('Creating your order…');
+      status(() => t('shop.creating'));
       const order = await shop.createOrder({
         treeId,
         productId: p.id,
@@ -155,20 +250,38 @@ export function initShop(host: ShopHost) {
         shippingAddress,
       });
       if (!cat.paymentsReady) {
-        status(`Order ${order.number} saved, but payments are not set up on this server.`, true);
+        status(() => t('shop.savedNoPayments', { number: order.number }), true);
         window.location.href = `./order.html?id=${order.id}`;
         return;
       }
-      status('Opening the secure payment page…');
+      status(() => t('shop.opening'));
       const { url } = await shop.checkout(order.id);
       window.location.href = url;
     } catch (e) {
-      status(`Couldn’t place the order: ${e instanceof Error ? e.message : String(e)}`, true);
+      // Server error messages are in English; shown as they come.
+      const error = errorText(e);
+      status(() => t('shop.orderError', { error }), true);
       button.disabled = false;
     }
   }
 
-  $('#shop-country').addEventListener('change', () => void loadCatalogue());
+  fillCountries();
+  buildAddress();
+  fillAddress();
+
+  onLocaleChange(() => {
+    fillCountries();
+    fillNotice();
+    fillProducts();
+    fillProduct(); // description, frame colours, address labels, price
+    fillAddress(); // also for a digital product, so the form is ready if they switch
+    status(statusLine.text, statusLine.error);
+  });
+
+  $('#shop-country').addEventListener('change', () => {
+    fillAddress();
+    void loadCatalogue();
+  });
   $('#shop-currency').addEventListener('change', () => void loadCatalogue(true));
   $('#shop-product').addEventListener('change', fillProduct);
   $('#shop-size').addEventListener('change', fillPrice);
@@ -176,8 +289,8 @@ export function initShop(host: ShopHost) {
   void loadCatalogue();
 }
 
-function autocomplete(k: keyof Address): string {
+function autocomplete(k: AddressField): string {
   return (
-    { name: 'name', line1: 'address-line1', line2: 'address-line2', city: 'address-level2', state: 'address-level1', postalCode: 'postal-code', phone: 'tel', taxId: 'off', country: 'country' } as Record<string, string>
+    { name: 'name', line1: 'address-line1', line2: 'address-line2', city: 'address-level2', state: 'address-level1', postalCode: 'postal-code', phone: 'tel', taxId: 'off' } as Record<string, string>
   )[k];
 }

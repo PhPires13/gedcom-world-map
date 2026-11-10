@@ -117,7 +117,7 @@ export function parseDesign(v: unknown, ids: DesignOptionIds): DesignSpec {
     styleId: pick(v.styleId, styleIds, 'styleId', styleIds[0]),
     orientation: pick(v.orientation, ['landscape', 'portrait'] as const, 'orientation', 'landscape'),
     area: pick(v.area, AREAS, 'area', 'family'),
-    lang: pick(v.lang, ['pt', 'en'] as const, 'lang', 'pt'),
+    lang: pick(v.lang, ['pt', 'en', 'es'] as const, 'lang', 'pt'),
     title: text(v.title, 'title', 120),
     subtitle: text(v.subtitle, 'subtitle', 120),
     dedication: text(v.dedication, 'dedication', 600),

@@ -17,7 +17,11 @@ export type FulfilmentRoute = (typeof FULFILMENT_ROUTES)[number];
 export const SIZES = ['A3', 'A2', 'A1'] as const;
 export type Size = (typeof SIZES)[number];
 
-export type Localised = { en: string; pt: string };
+/** Text the customer reads, in each site language (src/i18n): Portuguese, English and Spanish. */
+export type Localised = { pt: string; en: string; es: string };
+
+/** A catalogue text in a site language (English if a translation is missing). */
+export const localised = (text: Localised, locale: keyof Localised): string => text[locale] || text.en;
 
 /** A price per currency, in major units (e.g. 349.90). */
 export type PriceTable = Partial<Record<Currency, number>>;
@@ -67,7 +71,8 @@ export interface Catalogue {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const isLocalised = (v: unknown) => isObj(v) && typeof v.en === 'string' && typeof v.pt === 'string' && !!v.en && !!v.pt;
+const LANGS = ['pt', 'en', 'es'] as const;
+const isLocalised = (v: unknown) => isObj(v) && LANGS.every((l) => typeof v[l] === 'string' && !!v[l]);
 const COUNTRY_RE = /^[A-Z]{2}$/;
 
 /** Every problem with a catalogue, as readable messages (empty = valid). Unknown "_comment" keys are allowed. */
@@ -108,9 +113,9 @@ export function validateCatalogue(c: unknown): string[] {
     else if (productIds.has(p.id)) errors.push(`${at}.id ${p.id} is used twice`);
     else productIds.add(p.id);
     if (!PRODUCT_KINDS.includes(p.kind as ProductKind)) errors.push(`${at}.kind must be one of ${PRODUCT_KINDS.join(', ')}`);
-    if (!isLocalised(p.name)) errors.push(`${at}.name needs "en" and "pt"`);
-    if (!isLocalised(p.description)) errors.push(`${at}.description needs "en" and "pt"`);
-    if (p.material !== undefined && !isLocalised(p.material)) errors.push(`${at}.material needs "en" and "pt"`);
+    if (!isLocalised(p.name)) errors.push(`${at}.name needs "pt", "en" and "es"`);
+    if (!isLocalised(p.description)) errors.push(`${at}.description needs "pt", "en" and "es"`);
+    if (p.material !== undefined && !isLocalised(p.material)) errors.push(`${at}.material needs "pt", "en" and "es"`);
     if (p.kind === 'framed' && (!Array.isArray(p.frameColours) || !p.frameColours.length || p.frameColours.some((x) => typeof x !== 'string')))
       errors.push(`${at}.frameColours must list at least one colour`);
     const variants = Array.isArray(p.variants) ? p.variants : [];

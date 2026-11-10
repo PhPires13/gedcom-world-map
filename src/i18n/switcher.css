@@ -1,0 +1,17 @@
+.lang-switcher {
+  appearance: none;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 999px;
+  padding: 4px 26px 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg, #1b1f24);
+  background: var(--bg, #fff)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 8px center / 12px;
+  cursor: pointer;
+}
+.lang-switcher:hover {
+  border-color: var(--border-strong, #d1d5db);
+}

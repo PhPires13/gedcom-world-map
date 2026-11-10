@@ -98,14 +98,32 @@ body.sidebar-hidden #sidebar {
   display: none;
 }
 
+/* Logo, title and hide button on top; the Print link and language picker on a row under the title. */
 .brand {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
+  row-gap: 6px;
   margin: 0 2px 16px;
 }
 .brand h1 {
-  flex: 1;
+  min-width: 0;
+}
+.brand-tools {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.brand-tools .print-link {
+  text-decoration: none;
+}
+.brand-tools .lang-switcher {
+  margin-left: auto;
+  padding-top: 3px;
+  padding-bottom: 3px;
 }
 .logo {
   display: grid;

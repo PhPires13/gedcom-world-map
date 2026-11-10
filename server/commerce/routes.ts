@@ -273,7 +273,8 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       const product = productById(catalogue, o.productId);
       const name = product ? `${product.name[o.design.lang]} ${o.size}${o.frameColour ? `, ${o.frameColour}` : ''}` : `${o.productId} ${o.size}`;
       const lines = [{ name, description: o.design.title || undefined, amount: o.unitAmount }];
-      if (o.shippingAmount) lines.push({ name: o.design.lang === 'pt' ? 'Envio' : 'Shipping', description: undefined, amount: o.shippingAmount });
+      const shipping = { pt: 'Envio', en: 'Shipping', es: 'Envío' }[o.design.lang];
+      if (o.shippingAmount) lines.push({ name: shipping, description: undefined, amount: o.shippingAmount });
       const session = await deps.payments.createCheckout({
         orderId: o.id,
         orderNumber: o.number,
@@ -282,7 +283,9 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
         lines,
         successUrl: `${deps.appUrl}/order.html?id=${o.id}&from=checkout`,
         cancelUrl: `${deps.appUrl}/order.html?id=${o.id}&from=cancel`,
-        locale: o.design.lang === 'pt' ? (o.country === 'BR' ? 'pt-BR' : 'pt') : 'en',
+        // Stripe Checkout's own page language follows the order's language.
+        locale:
+          o.design.lang === 'pt' ? (o.country === 'BR' ? 'pt-BR' : 'pt') : o.design.lang === 'es' ? (o.country === 'ES' ? 'es' : 'es-419') : 'en',
       });
       await orders.updateOrder(db, o.id, { stripe_session_id: session.id }, { actor: 'customer', note: 'Went to Stripe Checkout' });
       return c.json({ url: session.url });
