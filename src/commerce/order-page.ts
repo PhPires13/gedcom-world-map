@@ -65,7 +65,8 @@ function render(o: OrderDetail) {
       <dl>
         <dt>Map</dt><dd>${esc(o.design.title || 'Heritage map')}</dd>
         <dt>Design</dt><dd>${esc(d.style)} style · ${esc(d.layout)} layout · ${esc(d.border)} border · ${esc(d.finish)} finish</dd>
-        <dt>Flags</dt><dd>${esc(d.flags)}${d.surnames ? ' · surnames on the routes' : ''}</dd>
+        <dt>Routes</dt><dd>${esc(d.routes)}${d.surnames ? ' · surnames on the routes' : ''}</dd>
+        <dt>Flags</dt><dd>${esc(d.flags)}</dd>
         <dt>Price</dt><dd>${formatMoney(o.unitAmount, o.currency)}${o.shippingAmount ? ` + ${formatMoney(o.shippingAmount, o.currency)} shipping` : ''}${o.refundedAmount ? ` · refunded ${formatMoney(o.refundedAmount, o.currency)}` : ''}</dd>
         <dt>Email</dt><dd>${esc(o.email)}</dd>
         ${a ? `<dt>Deliver to</dt><dd>${esc(a.name)}, ${esc(a.line1)}${a.line2 ? `, ${esc(a.line2)}` : ''}, ${esc(a.postalCode)} ${esc(a.city)}, ${esc(a.country)}</dd>` : ''}

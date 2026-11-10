@@ -179,13 +179,13 @@ describe('creating orders', () => {
   });
 
   it('keeps every design option and renders the file with them', async () => {
-    const design = { styleId: 'nautical', layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, show: { surnames: false, flags: 'both' }, places: PLACES };
+    const design = { styleId: 'nautical', layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, routes: 'detailed', show: { surnames: false, flags: 'both' }, places: PLACES };
     const o = await newOrder({ design });
-    expect(o.design).toMatchObject({ styleId: 'nautical', layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, show: { surnames: false, flags: 'both' } });
+    expect(o.design).toMatchObject({ styleId: 'nautical', layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, routes: 'detailed', show: { surnames: false, flags: 'both' } });
     await checkoutAndPay(o.id);
-    expect(renderedDesigns.at(-1)).toMatchObject({ layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, show: { surnames: false } });
+    expect(renderedDesigns.at(-1)).toMatchObject({ layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, routes: 'detailed', show: { surnames: false } });
     const t = await sampleTree();
-    for (const bad of [{ layoutId: 'globe' }, { borderId: 'baroque' }, { finishId: 'glossy' }, { flagScale: 9 }])
+    for (const bad of [{ layoutId: 'globe' }, { borderId: 'baroque' }, { finishId: 'glossy' }, { flagScale: 9 }, { routes: 'messy' }, { maxRoutes: 99 }])
       await call('POST', '/api/orders', { treeId: t, productId: 'digital', size: 'A1', country: 'PT', email: 'a@b.co', design: bad }, 400);
   });
 
@@ -456,6 +456,7 @@ describe('manual fulfilment (Brazil) and operations', () => {
     expect(sheet).toContain('420 × 297 mm, paisagem');
     expect(sheet).toContain('CPF/CNPJ 12345678909');
     expect(sheet).toContain('antique gold');
+    expect(sheet).toContain('Rotas · Routes</th><td>essenciais');
     expect(sheet).toMatch(/href="http:\/\/api\.test\/api\/files\/[^"]+\/png\?exp=/);
 
     await call('POST', `/api/ops/orders/${o.id}/advance`, {});

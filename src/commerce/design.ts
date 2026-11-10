@@ -21,6 +21,13 @@ export interface DesignSpec {
   finishId?: string;
   /** Size of the flag roundels relative to the style's (1 = as designed). */
   flagScale: number;
+  /**
+   * Essential (the default): a few main routes, the direct line ranked first. Detailed: every move.
+   * Orders saved before this choice existed have none and are drawn detailed, as their preview was.
+   */
+  routes?: 'essential' | 'detailed';
+  /** Most routes in essential mode; undefined = the renderer's default for the paper size. */
+  maxRoutes?: number;
   show: Required<PrintOptions['show']>;
   /** Who is on the map: ids are the tree's person ids (server ids). */
   selection: { rootId?: string; branch: Branch; generations?: number[] };
@@ -46,6 +53,12 @@ export interface DesignOptionIds {
 const MAX_PLACES = 5000;
 
 export class DesignError extends Error {}
+
+function maxRoutes(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === '') return undefined;
+  if (!Number.isInteger(v) || (v as number) < 1 || (v as number) > 30) throw new DesignError('design.maxRoutes must be a whole number between 1 and 30');
+  return v as number;
+}
 
 function flagScale(v: unknown): number {
   if (v === undefined || v === null || v === '') return 1;
@@ -112,6 +125,8 @@ export function parseDesign(v: unknown, ids: DesignOptionIds): DesignSpec {
     borderId: optionalId(v.borderId, ids.borders, 'borderId'),
     finishId: optionalId(v.finishId, ids.finishes, 'finishId'),
     flagScale: flagScale(v.flagScale),
+    routes: pick(v.routes, ['essential', 'detailed'] as const, 'routes', 'essential'),
+    maxRoutes: maxRoutes(v.maxRoutes),
     show: {
       ...(Object.fromEntries(SHOW_KEYS.map((k) => [k, show[k] === undefined ? true : show[k] === true])) as Omit<Required<PrintOptions['show']>, 'flags'>),
       flags: pick(show.flags, FLAGS, 'show.flags', 'both'),
@@ -141,5 +156,9 @@ export function describeDesign(
     finish: name(names.finishes, d.finishId, 'style’s own paper'),
     flags: d.show.flags === 'none' ? 'no flags' : `${flags}, ${scale === 1 ? 'medium' : scale < 1 ? 'small' : scale < 1.45 ? 'large' : 'extra large'}`,
     surnames: d.show.surnames !== false,
+    routes:
+      (d.routes ?? 'detailed') === 'essential'
+        ? `essential (a few main routes${d.maxRoutes ? `, at most ${d.maxRoutes}` : ''})`
+        : 'detailed (every move)',
   };
 }

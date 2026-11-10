@@ -6,7 +6,7 @@ const IDS = { styles: ['antique', 'nautical', 'modern'], layouts: ['accurate', '
 describe('parseDesign', () => {
   it('fills in defaults', () => {
     const d = parseDesign({}, IDS);
-    expect(d).toMatchObject({ styleId: 'antique', orientation: 'landscape', area: 'family', lang: 'pt', title: '', layoutId: 'accurate', borderId: undefined, finishId: undefined, flagScale: 1, selection: { branch: 'all' }, places: {} });
+    expect(d).toMatchObject({ styleId: 'antique', orientation: 'landscape', area: 'family', lang: 'pt', title: '', layoutId: 'accurate', borderId: undefined, finishId: undefined, flagScale: 1, routes: 'essential', maxRoutes: undefined, selection: { branch: 'all' }, places: {} });
     expect(d.show).toMatchObject({ dates: true, legend: true, surnames: true, flags: 'both' });
   });
 
@@ -34,6 +34,10 @@ describe('parseDesign', () => {
     expect(() => parseDesign({ borderId: 'baroque' }, IDS)).toThrow(/borderId/);
     expect(() => parseDesign({ finishId: 'glossy' }, IDS)).toThrow(/finishId/);
     expect(() => parseDesign({ flagScale: 5 }, IDS)).toThrow(/flagScale/);
+    expect(() => parseDesign({ routes: 'all' }, IDS)).toThrow(/routes/);
+    expect(() => parseDesign({ maxRoutes: 0 }, IDS)).toThrow(/maxRoutes/);
+    expect(() => parseDesign({ maxRoutes: 2.5 }, IDS)).toThrow(/maxRoutes/);
+    expect(parseDesign({ routes: 'detailed', maxRoutes: 6 }, IDS)).toMatchObject({ routes: 'detailed', maxRoutes: 6 });
     expect(() => parseDesign({ show: { flags: 'big' } }, IDS)).toThrow(/show.flags/);
   });
 

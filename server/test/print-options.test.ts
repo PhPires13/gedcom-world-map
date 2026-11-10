@@ -24,17 +24,22 @@ import { preparePrint, printPixels, rasterize } from '../print/render';
 const places: Record<string, { lat: number; lon: number }> = JSON.parse(readFileSync(new URL('./fixtures/sample-places.json', import.meta.url), 'utf8'));
 delete (places as Record<string, unknown>)._comment;
 const ged = readFileSync(new URL('../../public/sample.ged', import.meta.url), 'utf8');
-const tree = parseGedcom(ged);
+const sample = { tree: parseGedcom(ged), name: 'sample' };
+const dense = { tree: parseGedcom(readFileSync(new URL('../../tests/print/fixtures/dense-portugal-brazil.ged', import.meta.url), 'utf8')), name: 'dense' };
+const tree = sample.tree;
 const detail = localTreeDetail(tree, 'sample', 2026);
 const ids = designOptionIds();
 
 /** The preview as the designer draws it: its tree with private people left off, its option lists. */
-function designerPreview(design: DesignSpec, paper: 'A2') {
+function designerPreview(design: DesignSpec, paper: 'A2', t: { tree: typeof tree; name: string } = sample) {
+  const tree = t.tree;
+  const detail = localTreeDetail(tree, t.name, 2026);
   const hidden = new Set(detail.people.filter((p) => p.isPrivate).map((p) => p.id));
   const located = new Map<string, Located>();
   for (const p of tree.people.values()) {
     const ev = !hidden.has(p.id) ? originEvent(p)?.event : undefined;
-    if (ev?.place && places[ev.place]) located.set(p.id, { ...places[ev.place], place: ev.place });
+    if (ev && ev.lat !== undefined && ev.lon !== undefined) located.set(p.id, { lat: ev.lat, lon: ev.lon, place: ev.place ?? '' });
+    else if (ev?.place && places[ev.place]) located.set(p.id, { ...places[ev.place], place: ev.place });
   }
   const gens = computeGenerations(tree);
   const data = buildPrintData(tree, located, gens, design.selection);
@@ -52,13 +57,16 @@ function designerPreview(design: DesignSpec, paper: 'A2') {
     border: design.borderId ? borderById(design.borderId) : undefined,
     finish: design.finishId ? finishById(design.finishId) : undefined,
     flagScale: design.flagScale,
+    routes: design.routes,
+    maxRoutes: design.maxRoutes,
   };
   return { data, o };
 }
 
 const COMBOS = [
-  { layoutId: 'storybook', borderId: 'laurel', finishId: 'aged', flagScale: 1.3 },
-  { layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 0.75 },
+  { layoutId: 'storybook', borderId: 'laurel', finishId: 'aged', flagScale: 1.3, routes: 'essential' },
+  { layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 0.75, routes: 'essential' },
+  { layoutId: 'accurate', borderId: 'engraved', finishId: 'clean', flagScale: 1, routes: 'detailed' },
 ] as const;
 
 describe('the server prints every option the designer offers', () => {
@@ -70,7 +78,7 @@ describe('the server prints every option the designer offers', () => {
   });
 
   for (const combo of COMBOS) {
-    it(`${combo.layoutId} + ${combo.borderId} + ${combo.finishId} at A2 draws the designer’s preview`, () => {
+    it(`${combo.layoutId} + ${combo.borderId} + ${combo.finishId}, ${combo.routes} routes, at A2 draws the designer’s preview`, () => {
       const rootId = defaultRoot(tree, computeGenerations(tree));
       const design = parseDesign(
         { styleId: 'antique', lang: 'pt', title: 'Família Costa', subtitle: '1810–1998', ...combo, show: { surnames: true, flags: 'both' }, selection: { rootId, branch: 'all' }, places },
@@ -79,8 +87,9 @@ describe('the server prints every option the designer offers', () => {
       const server = preparePrint(detail, design, 'A2');
       const preview = designerPreview(design, 'A2');
 
-      // Same people, same moves, same options, same map detail (medallions need 1:10m).
+      // Same people, same moves, same direct line, same options, same map detail (medallions need 1:10m).
       expect(server.data).toEqual(preview.data);
+      expect(server.data.directLine?.length).toBeGreaterThan(1);
       expect(server.options).toEqual(preview.o);
       expect(topologyDetailFor(server.data, server.options)).toBe(topologyDetailFor(preview.data, preview.o));
       if (combo.layoutId === 'vignette') expect(topologyDetailFor(server.data, server.options)).toBe('10m');
@@ -92,6 +101,8 @@ describe('the server prints every option the designer offers', () => {
       expect(a.svg).toBe(b.svg);
       if (combo.layoutId === 'vignette') expect(a.layout.medallions.length).toBeGreaterThan(1);
       else expect(a.layout.medallions).toEqual([]);
+      // Same routes chosen on both sides.
+      expect(a.layout.routes).toEqual(b.layout.routes);
       // Surnames along the routes, and gone when the customer turned them off.
       expect(a.layout.routeLabels.map((l) => l.text)).toContain('Almeida · 1940');
       const off = preparePrint(detail, { ...design, show: { ...design.show, surnames: false } }, 'A2');
@@ -99,10 +110,35 @@ describe('the server prints every option the designer offers', () => {
     });
   }
 
+  it('picks the same few essential routes as the preview on a dense tree, and every move when detailed', () => {
+    const denseDetail = localTreeDetail(dense.tree, 'dense', 2026);
+    const rootId = defaultRoot(dense.tree, computeGenerations(dense.tree));
+    const counts: Record<string, number> = {};
+    for (const routes of ['essential', 'detailed'] as const) {
+      const design = parseDesign({ styleId: 'antique', lang: 'pt', title: 'Família', subtitle: '1815–1920', routes, selection: { rootId, branch: 'all' } }, ids);
+      const server = preparePrint(denseDetail, design, 'A2');
+      const preview = designerPreview(design, 'A2', dense);
+      expect(server.data.people.length).toBeGreaterThan(100);
+      expect(server.data.directLine).toEqual(preview.data.directLine);
+      expect(server.options).toEqual(preview.o);
+      const a = renderHeritageMap(server.data, server.options, server.assets);
+      const b = renderHeritageMap(preview.data, preview.o, server.assets);
+      expect(a.layout.routes).toEqual(b.layout.routes);
+      expect(a.svg).toBe(b.svg);
+      counts[routes] = new Set(a.layout.routes.map((r) => JSON.stringify(r.pts[0]))).size;
+    }
+    // Essential keeps a few main routes; detailed draws many more.
+    expect(counts.essential).toBeLessThan(counts.detailed);
+    // A cap from the order is honoured too.
+    const capped = parseDesign({ routes: 'essential', maxRoutes: 3, selection: { rootId, branch: 'all' } }, ids);
+    const p = preparePrint(denseDetail, capped, 'A2');
+    expect(p.options.maxRoutes).toBe(3);
+  });
+
   it(
     'rasterises both at A2 proportions with resvg',
     () => {
-      for (const combo of COMBOS) {
+      for (const combo of COMBOS.slice(0, 2)) {
         const design = parseDesign({ styleId: 'antique', ...combo, places }, ids);
         const p = preparePrint(detail, design, 'A2');
         // 60 dpi keeps the test quick; the 300 dpi path is the same call (print-render.test.ts).

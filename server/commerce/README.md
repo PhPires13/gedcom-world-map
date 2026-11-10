@@ -116,7 +116,11 @@ so they are cached as TTF in the OS temp folder).
 
 **Design options:** the order stores every choice the designer offers (`src/commerce/design.ts`):
 style, layout (geographic, close-up, storybook, medallions), decorative border, paper finish, flag
-choice and size, surnames on the routes, and the rest. The server checks the ids against the same
+choice and size, surnames on the routes, routes (essential — a few main routes, the direct line
+ranked first — or detailed; optional `maxRoutes`), and the rest. The server builds the print data
+with the designer's `buildPrintData`, so the direct line and the essential routes chosen are the
+same as in the preview. Orders saved before the routes choice existed are drawn detailed, as
+their preview was. The server checks the ids against the same
 JSON files the designer lists (`src/print/{styles,layouts,borders,finishes}/*.json`, read by
 `server/print/assets.ts`) and draws with exactly those options, picking map detail with
 `topologyDetailFor()` (medallions use the 1:10m coastlines). `server/test/print-options.test.ts`

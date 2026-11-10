@@ -415,6 +415,8 @@ initShop({
       borderId: o.border?.id,
       finishId: o.finish?.id,
       flagScale: o.flagScale ?? 1,
+      routes: o.routes ?? 'essential',
+      maxRoutes: o.maxRoutes,
       show: { ...o.show, surnames: o.show.surnames !== false },
       selection: { rootId: val('root') || undefined, branch: val('branch') as Branch, generations: selectedGenerations() },
       places,

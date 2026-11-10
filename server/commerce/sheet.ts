@@ -40,6 +40,7 @@ ${row('Formato · Size', `${esc(o.size)}: ${landscape ? `${longMm} × ${shortMm}
 ${row('Papel · Paper', esc(product?.material?.pt ?? ''))}
 ${row('Moldura · Frame', o.kind === 'framed' ? `${esc(o.frameColour ?? '')}, com passe-partout e vidro` : 'sem moldura (enrolar em tubo)')}
 ${row('Desenho · Design', `${esc(d.style)} · layout ${esc(d.layout)} · moldura desenhada ${esc(d.border)} · acabamento ${esc(d.finish)}`)}
+${row('Rotas · Routes', `${d.routes === 'detailed (every move)' ? 'detalhadas (todas as mudanças)' : 'essenciais (as rotas principais)'} · ${esc(d.routes)}`)}
 ${row('Impressão · Print', 'Giclée, 100% sem margens, sem redimensionar; perfil sRGB. Print at 100%, no scaling, borderless.')}
 ${row('Ficheiro · File', `${px}`)}
 ${row('PNG', files.png ? `<a href="${esc(files.png)}">${esc(files.png)}</a>` : 'ainda não disponível')}

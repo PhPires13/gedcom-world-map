@@ -71,6 +71,9 @@ export function preparePrint(detail: Pick<TreeDetail, 'people' | 'relationships'
     border: design.borderId ? all.borders.find((b) => b.id === design.borderId) : undefined,
     finish: design.finishId ? all.finishes.find((f) => f.id === design.finishId) : undefined,
     flagScale: design.flagScale,
+    // Orders from before the routes choice were previewed with every move.
+    routes: design.routes ?? 'detailed',
+    maxRoutes: design.maxRoutes,
   };
 
   // Same map detail as the designer (medallions need the 1:10m coastlines).
