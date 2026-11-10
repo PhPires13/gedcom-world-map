@@ -231,14 +231,17 @@ export function relaxCircles(
         const need = r + opts.gap;
         if (dist >= need) continue;
         if (dist < 1e-6) {
-          // Centre inside the box: leave by the nearest side.
+          // Centre inside the box: leave by the nearest side that doesn't run off the sheet.
+          const w = opts.within;
+          const fits = (p: Pt) => !w || (p[0] - r >= w.x && p[0] + r <= w.x + w.w && p[1] - r >= w.y && p[1] + r <= w.y + w.h);
           const exits: [number, Pt][] = [
             [pos[i][0] - b.x, [b.x - need, pos[i][1]]],
             [b.x + b.w - pos[i][0], [b.x + b.w + need, pos[i][1]]],
             [pos[i][1] - b.y, [pos[i][0], b.y - need]],
             [b.y + b.h - pos[i][1], [pos[i][0], b.y + b.h + need]],
           ];
-          pos[i] = exits.sort((a, c) => a[0] - c[0])[0][1];
+          const ok = exits.filter(([, p]) => fits(p));
+          pos[i] = (ok.length ? ok : exits).sort((a, c) => a[0] - c[0])[0][1];
         } else pos[i] = add(q, mul(d, need / dist));
       }
       if (opts.within) {

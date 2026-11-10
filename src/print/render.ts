@@ -176,6 +176,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   const ink = (g: number) => generationInk(S, g, minGen, maxGen);
   const yearOf = new Map(data.people.map((p) => [p.id, p.birthYear]));
   const surnameOf = new Map(data.people.map((p) => [p.id, p.surname]));
+  const sexOf = new Map(data.people.map((p) => [p.id, p.sex]));
 
   // ---------- Sizes, never below the minimums for the paper ----------
   const markR = sized('mark', S.marks.size, k) / 2;
@@ -421,7 +422,9 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
     const longEnough = mains.filter((m) => pathLength(m.pts) >= 28 * k);
     for (const [i, m] of longEnough.sort((a, b) => b.width - a.width || b.movers.length - a.movers.length).entries()) {
       if (routeLabels.length >= maxLabels) break;
-      const names = showSurnames ? routeSurnames(m.movers.map((id) => surnameOf.get(id) ?? '')) : [];
+      // Fathers first: their surname is the one the family passes on.
+      const movers = [...m.movers].sort((a, b) => Number(sexOf.get(b) === 'M') - Number(sexOf.get(a) === 'M'));
+      const names = showSurnames ? routeSurnames(movers.map((id) => surnameOf.get(id) ?? '')) : [];
       const surname = upper(names.join(' & '));
       const years = o.show.dates ? m.years : '';
       // Try the full label, then fewer parts, then smaller text.

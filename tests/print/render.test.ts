@@ -1,9 +1,14 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPrintData, defaultRoot } from '../../src/print/data';
 import { contains, overlaps } from '../../src/print/layout';
 import { defaultTexts, renderHeritageMap } from '../../src/print/render';
+import { BORDERS, FINISHES, LAYOUTS } from '../../src/print/catalog';
+import { MIN_SIZES } from '../../src/print/style';
 import { STYLES } from '../../src/print/styles';
+import { parseGedcom } from '../../src/gedcom';
+import { computeGenerations } from '../../src/generations';
 import type { AreaId, PrintOptions } from '../../src/print/types';
 import { fakeFlag, sampleTree, topology } from './fixtures';
 
@@ -75,5 +80,77 @@ describe('renderHeritageMap', () => {
   it('sets the pixel size for rasterising without changing the drawing', () => {
     const res = renderHeritageMap(data, options({ pixelSize: { width: 7016, height: 4961 } }), { topology, flags, fontCss: '' });
     expect(res.svg).toMatch(/^<svg[^>]*width="7016" height="4961" viewBox="0 0 594 420"/);
+  });
+
+  for (const layout of LAYOUTS) {
+    for (const paper of ['A3', 'A2', 'A1'] as const) {
+      it(`never prints anything too small to read (${layout.id}, ${paper})`, () => {
+        const k = paper === 'A3' ? 297 / 420 : paper === 'A1' ? 594 / 420 : 1;
+        const res = renderHeritageMap(data, options({ layout, paper, style: STYLES[0] }), { topology, flags, fontCss: '' });
+        const sizes = [...res.svg.matchAll(/font-size="([\d.]+)"/g)].map((m) => Number(m[1]));
+        expect(sizes.length).toBeGreaterThan(10);
+        // Nothing under ~7 pt on an A2 (2.5 mm), scaled gently for other sizes.
+        for (const s of sizes) expect(s).toBeGreaterThanOrEqual(2.5 * Math.sqrt(k) - 0.01);
+        for (const l of res.layout.routeLabels) expect(l.size).toBeGreaterThanOrEqual(MIN_SIZES.date * Math.sqrt(k) * 0.82 - 0.01);
+        for (const s of res.layout.routes) expect(s.width).toBeGreaterThanOrEqual(MIN_SIZES.route * Math.sqrt(k) - 0.01);
+        for (const f of res.layout.flags) expect(f.r).toBeGreaterThanOrEqual(MIN_SIZES.flag * Math.sqrt(k) * 0.85 - 0.01);
+      });
+    }
+  }
+
+  it('letters the family surname along the routes, and can leave it off', () => {
+    const on = renderHeritageMap(data, options(), { topology, flags, fontCss: '' });
+    expect(on.layout.routeLabels.length).toBeGreaterThan(3);
+    expect(on.layout.routeLabels.some((l) => /^(COSTA|Costa|ALMEIDA|Almeida|SANTOS|Santos)/.test(l.text))).toBe(true);
+    expect(on.svg).toContain('<textPath href="#route-label-');
+    const off = renderHeritageMap(data, options({ show: { ...options().show, surnames: false } }), { topology, flags, fontCss: '' });
+    expect(off.layout.routeLabels.every((l) => /^\d{4}(–\d{4})?$/.test(l.text))).toBe(true);
+  });
+
+  it('draws flags at both ends of the moves when asked, scaled by the flag size', () => {
+    const origins = renderHeritageMap(data, options({ show: { ...options().show, flags: 'origins' } }), { topology, flags, fontCss: '' });
+    const both = renderHeritageMap(data, options({ show: { ...options().show, flags: 'both' }, flagScale: 1.5 }), { topology, flags, fontCss: '' });
+    expect(both.layout.flags.map((f) => f.code)).toEqual(expect.arrayContaining(['br', 'pt']));
+    expect(both.layout.flags.length).toBeGreaterThan(origins.layout.flags.length);
+    expect(both.layout.flags[0].r).toBeCloseTo(origins.layout.flags[0].r * 1.5, 5);
+  });
+
+  for (const layout of LAYOUTS) {
+    for (const border of [undefined, ...BORDERS]) {
+      it(`keeps panels and labels inside the map with ${layout.id} and ${border?.id ?? 'the style frame'}`, () => {
+        const res = renderHeritageMap(data, options({ layout, border, finish: FINISHES[FINISHES.length - 1] }), { topology, flags, fontCss: '' });
+        const { layout: l } = res;
+        const panels = [l.cartouche, l.legend, l.compass, l.scaleBar].filter((b) => !!b);
+        for (const p of panels) expect(contains(l.map, p)).toBe(true);
+        for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) expect(overlaps(panels[i], panels[j])).toBe(false);
+        for (const lb of l.labels) expect(contains(l.map, lb.box)).toBe(true);
+        for (const rl of l.routeLabels) for (const b of rl.boxes) for (const p of panels) expect(overlaps(p, b)).toBe(false);
+        // A gallery border writes the title under the map instead of in a cartouche.
+        if (border?.caption) {
+          expect(l.cartouche).toBeUndefined();
+          expect(res.svg).toContain('class="caption"');
+        }
+        expect(res.svg).not.toContain('NaN');
+      });
+    }
+  }
+
+  it('handles a dense tree (many families from Portugal to Brazil) in every layout', () => {
+    const t = parseGedcom(readFileSync(resolve(__dirname, 'fixtures/dense-portugal-brazil.ged'), 'utf8'));
+    const g = computeGenerations(t);
+    const loc = new Map([...t.people.values()].map((p) => [p.id, { lat: p.birth!.lat!, lon: p.birth!.lon!, place: p.birth!.place! }]));
+    const dense = buildPrintData(t, loc, g, { branch: 'all' });
+    expect(dense.people.length).toBe(279);
+    for (const layout of LAYOUTS) {
+      const res = renderHeritageMap(dense, options({ layout }), { topology, flags, fontCss: '' });
+      expect(res.layout.marks.length).toBeGreaterThan(15);
+      expect(res.layout.routeLabels.length).toBeLessThanOrEqual(14);
+      if (layout.kind === 'vignette') {
+        expect(res.layout.medallions.length).toBeLessThanOrEqual(9);
+        const perCountry = new Map<string, number>();
+        for (const m of res.layout.medallions) perCountry.set(m.code, (perCountry.get(m.code) ?? 0) + 1);
+        for (const n of perCountry.values()) expect(n).toBeLessThanOrEqual(2);
+      }
+    }
   });
 });

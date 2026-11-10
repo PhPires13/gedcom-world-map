@@ -96,16 +96,19 @@ export function placeAlongCurve(
   return null;
 }
 
-/** Most common surnames among the people who moved (the family name: the last of a compound one). */
+/**
+ * Most common surnames among the people who moved (the family name: the last of a compound one).
+ * Ties go to the one listed first, so callers list fathers first. A second name is added only when
+ * at least two people carry it and it's nearly as common as the first.
+ */
 export function routeSurnames(surnames: string[], max = 2): string[] {
   const counts = new Map<string, number>();
   for (const s of surnames) {
     const last = s.trim().split(/\s+/).filter(Boolean).pop();
     if (last) counts.set(last, (counts.get(last) ?? 0) + 1);
   }
-  const sorted = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const sorted = [...counts].sort((a, b) => b[1] - a[1]); // stable: ties keep their order
   if (!sorted.length) return [];
   const top = sorted[0][1];
-  // A second name only when it's nearly as common as the first.
-  return sorted.filter(([, c], i) => i === 0 || c >= Math.max(1, top * 0.5)).slice(0, max).map(([s]) => s);
+  return sorted.filter(([, c], i) => i === 0 || c >= Math.max(2, top * 0.5)).slice(0, max).map(([s]) => s);
 }
