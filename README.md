@@ -23,8 +23,56 @@ npm run dev
 Open http://localhost:5173. Then drop in a `.ged` file, or click **Try a sample family tree**.
 
 ```bash
-npm test         # unit tests (parser, generations, helpers)
+npm test         # unit tests (parser, generations, helpers, evidence model) and API tests
 npm run build    # static build in dist/, which you can host anywhere
+```
+
+## Evidence-based family tree (Map / Tree)
+
+The **Map / Tree** switch at the top opens a family chart around one person: ancestors above, descendants below, spouses beside. Every link is drawn by how well it is proven:
+
+| Line | Level | Meaning |
+| --- | --- | --- |
+| solid green | **Proven** | An original record states the link directly, from first-hand information, and nothing contradicts it. |
+| dashed | **Probable** | Two or more independent sources agree, or one direct statement that is second-hand, copied or hard to read. |
+| dotted | **Possible** | One indirect piece of evidence, or an AI proposal nobody has confirmed. |
+| red | **In conflict** | Sources disagree. |
+| grey | **Unsupported** | No source. Everything imported from a GEDCOM starts here. |
+
+- **Click a person** for their facts, their family links with each link's level, and their documents on a timeline. People presumed living (no death record, born less than 100 years ago) are private by default; you can override that per person.
+- **Click a link** for its evidence: the claims that support or contradict it, the documents with an image preview, why it has its level, and your written argument.
+- **Add evidence** from either panel: upload a scan or PDF (or pick one already uploaded), cite it (archive, book, folio, entry), write what it says, and say whether it supports or contradicts the link and whether directly or indirectly. The link's level updates at once.
+- **Tree health** in the header is the share of proven links.
+
+The tree view needs the API server to store trees and documents. Without it, it shows the GEDCOM open on the map, read-only, with every link Unsupported. The map works as before either way, and "Show on map" (or switching back to Map) shows a tree from the server on the map.
+
+The evidence model and its rules are documented in [`src/model/README.md`](src/model/README.md).
+
+### Run it with the server
+
+```bash
+npm install
+npm run dev:all      # API on http://localhost:8787 and the app on http://localhost:5173
+```
+
+Open http://localhost:5173, click **Tree**, then **Use the sample family** (or import your own GEDCOM).
+
+- `npm run server` runs the API alone (`npm run server:dev` restarts it on changes).
+- Data lives in `server/.data/` (a [PGlite](https://pglite.dev) database, which is Postgres compiled to WebAssembly, so there is nothing to install, plus uploaded documents on disk). Delete the folder to start over.
+- Environment: `PORT` (default 8787), `DATA_DIR`, `CORS_ORIGINS` (comma-separated; default allows any localhost port). The app reads `VITE_API_URL` (default `http://localhost:8787` in dev, same origin in a build).
+- There are no accounts yet: every request is a single dev user. Routes already scope every tree to its owner (see `server/auth.ts`).
+
+### Server layout
+
+- `server/app.ts`: the HTTP API (Hono); the route list is at the top of the file.
+- `server/repo.ts`: SQL ⇄ model, GEDCOM import, claims, confidence recompute.
+- `server/db/`: the `Db` interface (PGlite now, Postgres in production) and numbered SQL migrations, applied at startup.
+- `server/storage.ts`: where document bytes go (`LocalDiskStorage` in dev; S3-compatible storage implements the same interface).
+- `server/test/`: integration tests that run the API against an in-memory database.
+
+```bash
+npm test             # unit tests and API integration tests
+npm run typecheck    # app and server
 ```
 
 ## How it works

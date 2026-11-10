@@ -8,6 +8,7 @@
 //   CORS_ORIGINS  comma-separated browser origins allowed to call the API (default: any localhost port)
 
 import { serve } from '@hono/node-server';
+import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './app';
 import { ensureDevUser } from './auth';
@@ -17,6 +18,7 @@ import { LocalDiskStorage } from './storage';
 const port = Number(process.env.PORT ?? 8787);
 const dataDir = process.env.DATA_DIR ?? fileURLToPath(new URL('./.data/', import.meta.url));
 
+mkdirSync(`${dataDir}/pg`, { recursive: true });
 const db = await openPglite(`${dataDir}/pg`);
 const applied = await migrate(db);
 if (applied.length) console.log(`Applied migrations: ${applied.join(', ')}`);

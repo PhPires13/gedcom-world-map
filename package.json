@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev:all": "node server/dev-all.mjs",
+    "server": "tsx server/main.ts",
+    "server:dev": "tsx watch server/main.ts",
+    "build": "tsc --noEmit && tsc --noEmit -p server && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
     "preview": "vite preview",
     "test": "vitest run"
   },
