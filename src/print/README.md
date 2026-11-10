@@ -14,6 +14,9 @@ routes between birthplaces, flag roundels, a cartouche and a legend. Open `print
 | `routes.ts` | The web app's bundled flow map (`bundleFlows` + `bundleGeometry`) projected into mm and turned into tapered pen strokes with arrows and year labels. |
 | `layout.ts` | Cartouche and legend layout, panel/roundel/label placement without overlaps. |
 | `ornaments.ts` | Compass rose, rhumb lines, scale bar, frame, panel borders. |
+| `layouts.ts`, `planar.ts` | The storybook and medallion layouts, on map geometry flattened to the sheet. |
+| `borders.ts` | Decorative borders and paper finishes. |
+| `curvelabel.ts` | Surnames and years lettered along the routes. |
 | `countries.ts` | Which country a place is in (Natural Earth polygons, then the place name) and country names in pt/en. |
 | `style.ts`, `styles/*.json` | Styles as data, and their validation. |
 | `designer.ts`, `assets-browser.ts` | The designer page and the browser loaders for map data, flags and fonts. |
@@ -21,6 +24,34 @@ routes between birthplaces, flag roundels, a cartouche and a legend. Open `print
 
 Coordinates on the sheet are millimetres. Styles are designed on A2 and scale with the paper,
 so A3 and A1 are the same design reduced or enlarged (A-series sheets share proportions).
+
+## Layouts, borders and finishes
+
+All three are data, chosen independently of the style, and passed to `renderHeritageMap` as
+specs (`options.layout`, `options.border`, `options.finish`; all optional, so older callers get
+the geographic map in the style's own frame).
+
+- **Layouts** (`layouts/*.json`, `layouts.ts`): *Geographic* (true projection of the chosen
+  area), *Close-up* (true projection cropped tight to the family's places), *Storybook*
+  (neighbouring homelands enlarged together as regions and lifted off the page, small islands
+  brought in to sit off the enlarged coast, oceans between continents narrowed as far as the
+  coasts stay apart; every place moves with its country) and *Medallions* (each group of places
+  as a round inset map, at most two per country and nine in all, joined by the routes). The
+  artistic layouts drop the scale bar and degree marks, since they aren't to scale.
+- **Borders** (`borders/*.json`, `borders.ts`): engraved double rule, nautical rope, laurel,
+  art deco, and a gallery margin that sets the title under the map instead of in a cartouche.
+- **Finishes** (`finishes/*.json`): clean sheet, soft vignette, aged edges (browned edges and
+  foxing), deckled edge (torn paper on a mount) and heirloom (all of them).
+
+Other print options: `flagScale` (roundel size), `show.flags: 'both'` (flags at both ends of each
+move), `show.surnames` (the family's surname lettered along each route; on by default).
+`topologyDetailFor(data, options)` says which Natural Earth file (50m or 10m) a print needs.
+
+Every text, route, arrowhead, mark and flag has a minimum size on the paper (`MIN_SIZES` in
+`style.ts`; A3 keeps relatively larger text than an exact reduction of A2).
+
+`catalog.ts` and `styles/index.ts` find the JSON files with Vite's `import.meta.glob`; a server
+without Vite imports the JSON files directly. The renderer itself never reads them.
 
 ## Adding a style
 

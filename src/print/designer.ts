@@ -14,10 +14,11 @@ import { Geocoder } from '../geocode';
 import { loadFlags, loadStyleFonts, loadTopology } from './assets-browser';
 import { CountryLocator } from './countries';
 import { buildPrintData, defaultRoot, type Branch, type Located } from './data';
-import { kmPerMm, inset, makeProjection, mmToPx, pageSize, sizeScale, topologyDetail } from './geo';
+import { BORDERS, FINISHES, LAYOUTS, borderById, finishById, layoutById } from './catalog';
+import { mmToPx, pageSize } from './geo';
 import { setPngDpi } from './png';
 import { initShop } from './shop';
-import { defaultTexts, renderHeritageMap } from './render';
+import { defaultTexts, renderHeritageMap, topologyDetailFor } from './render';
 import { STYLES, styleById } from './styles';
 import type { AreaId, Lang, Orientation, PaperSize, PrintAssets, PrintData, PrintOptions } from './types';
 import type { Topology } from 'topojson-specification';
@@ -217,7 +218,12 @@ function currentOptions(data: PrintData): PrintOptions {
       scaleBar: checked('show-scaleBar'),
       legend: checked('show-legend'),
       graticule: checked('show-graticule'),
+      surnames: checked('show-surnames'),
     },
+    layout: layoutById(val('layout')),
+    border: borderById(val('border')),
+    finish: finishById(val('finish')),
+    flagScale: Number(val('flag-size')) || 1,
   };
 }
 
@@ -227,11 +233,7 @@ const locators = new WeakMap<Topology, CountryLocator>();
 
 /** Everything the renderer needs for these options: map detail for the scale, flags, fonts. */
 async function assetsFor(data: PrintData, o: PrintOptions, embedFonts: boolean): Promise<PrintAssets> {
-  const { w, h } = pageSize(o.paper, o.orientation);
-  const k = sizeScale(o.paper);
-  const frame = inset({ x: 0, y: 0, w, h }, (o.style.frame.margin + o.style.frame.band) * k);
-  const kpm = kmPerMm(makeProjection(o.area, data.people, frame, o.style.map.projection), [w / 2, h / 2]);
-  const topology = await loadTopology(topologyDetail(kpm));
+  const topology = await loadTopology(topologyDetailFor(data, o));
   let locator = locators.get(topology);
   if (!locator) locators.set(topology, (locator = new CountryLocator(topology)));
   const codes = new Set(data.people.map((p) => locator.locate(p)).filter(Boolean));
@@ -255,6 +257,8 @@ async function render() {
     const data = currentData();
     const o = currentOptions(data);
     $('#style-desc').textContent = o.style.description ?? '';
+    // Only the geographic layout uses the chosen area; the others always fit the family.
+    $<HTMLSelectElement>('#area').disabled = !!o.layout && (o.layout.kind !== 'accurate' || !!o.layout.fitFamily);
     const assets = await assetsFor(data, o, false);
     if (seq !== renderSeq) return;
     const t0 = performance.now();
@@ -318,7 +322,7 @@ export async function exportBlob(kind: 'svg' | 'png' | 'pdf'): Promise<{ blob: B
   const data = currentData();
   const o = currentOptions(data);
   const assets = await assetsFor(data, o, true);
-  const name = `heritage-map-${o.style.id}-${o.paper}-${o.orientation}`;
+  const name = ['heritage-map', o.style.id, o.layout?.id, o.border?.id, o.finish?.id, o.paper, o.orientation].filter(Boolean).join('-');
   if (kind === 'svg') return { blob: new Blob([renderHeritageMap(data, o, assets).svg], { type: 'image/svg+xml' }), name: `${name}.svg` };
   const { w, h } = pageSize(o.paper, o.orientation);
   const px = { width: mmToPx(w, DPI), height: mmToPx(h, DPI) };
@@ -357,6 +361,14 @@ async function exportFile(kind: 'svg' | 'png' | 'pdf') {
 // ---------- Wiring ----------
 
 $('#style').innerHTML = STYLES.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+const optionList = (items: { id: string; name: string; description?: string }[], none?: string) =>
+  (none ? `<option value="">${escapeHtml(none)}</option>` : '') +
+  items.map((x) => `<option value="${x.id}" title="${escapeHtml(x.description ?? '')}">${escapeHtml(x.name)}</option>`).join('');
+$('#layout').innerHTML = optionList(LAYOUTS);
+$('#border').innerHTML = optionList(BORDERS, "The style's own frame");
+$('#finish').innerHTML = optionList(FINISHES, "The style's own paper");
+// The frame around the preview is only a mock-up of the finished object; it isn't exported.
+$('#mockup').addEventListener('change', () => ($('#stage').dataset.frame = val('mockup')));
 
 $<HTMLInputElement>('#file').addEventListener('change', async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
@@ -397,7 +409,12 @@ initShop({
       title: o.title,
       subtitle: o.subtitle,
       dedication: o.dedication,
-      show: o.show,
+      // The same choices the preview is drawn with (layouts, borders, finishes are ids of the JSON files).
+      layoutId: o.layout?.id ?? LAYOUTS[0].id,
+      borderId: o.border?.id,
+      finishId: o.finish?.id,
+      flagScale: o.flagScale ?? 1,
+      show: { ...o.show, surnames: o.show.surnames !== false },
       selection: { rootId: val('root') || undefined, branch: val('branch') as Branch, generations: selectedGenerations() },
       places,
     };
@@ -434,3 +451,6 @@ $('#design').addEventListener('change', () => scheduleRender());
 for (const b of document.querySelectorAll<HTMLButtonElement>('[data-export]')) {
   b.addEventListener('click', () => exportFile(b.dataset.export as 'svg' | 'png' | 'pdf'));
 }
+
+// For checking exports from the browser's console while developing (not in production builds).
+if (import.meta.env.DEV) Object.assign(window, { heritagePrint: { exportBlob } });

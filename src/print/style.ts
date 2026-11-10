@@ -76,6 +76,8 @@ export interface PrintStyle {
     halo: string;
     haloWidth: number;
     dateSize: number;
+    /** Size of the surname lettered along routes (defaults to 1.6 × dateSize). */
+    surnameSize?: number;
   };
   marks: { kind: (typeof MARK_KINDS)[number]; size: number; fill: string; stroke: string };
   labels: {
@@ -126,6 +128,34 @@ export interface PrintStyle {
   compass: { kind: (typeof COMPASS_KINDS)[number]; size: number; fill: string; dark: string; accent: string };
   scaleBar: { kind: (typeof SCALEBAR_KINDS)[number]; length: number };
 }
+
+/**
+ * Smallest sizes on an A2 sheet, in mm, whatever a style says, so nothing on the print is too
+ * small to read or see at arm's length. Smaller sheets scale these by the square root of their
+ * size (not linearly), so an A3 keeps relatively larger text than an exact reduction of an A2.
+ */
+export const MIN_SIZES = {
+  title: 15,
+  subtitle: 6,
+  dedication: 4.6,
+  legendTitle: 5.6,
+  legendRow: 4.4,
+  place: 4.2,
+  country: 6,
+  ocean: 7,
+  date: 3.8,
+  surname: 5,
+  flagLabel: 3.8,
+  degree: 2.8,
+  scale: 3.6,
+  route: 1.2,
+  arrow: 6,
+  mark: 2.6,
+  flag: 8,
+} as const;
+
+/** A style size (mm on A2) for a sheet `k` times A2's size, never below the minimum for its role. */
+export const sized = (role: keyof typeof MIN_SIZES, value: number, k: number) => Math.max(value * k, MIN_SIZES[role] * Math.sqrt(k));
 
 const COLOR_RE = /^(#[0-9a-f]{3}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\([\d.,\s%]+\)|none|transparent|[a-z]+)$/i;
 
@@ -221,6 +251,7 @@ export function validateStyle(s: unknown): string[] {
   color('routes.halo', true);
   num('routes.haloWidth', 0, 10);
   num('routes.dateSize', 0.5, 20);
+  if (get('routes.surnameSize') !== undefined) num('routes.surnameSize', 0.5, 30);
   oneOf('marks.kind', MARK_KINDS);
   num('marks.size', 0.1, 20);
   color('marks.fill');

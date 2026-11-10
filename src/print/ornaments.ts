@@ -1,7 +1,7 @@
 // Drawn ornaments: compass rose, scale bar, the map's frame and the panel borders. Each returns SVG.
 
 import { degreeLabel, type FrameTick } from './geo';
-import type { PrintStyle } from './style';
+import { sized, type PrintStyle } from './style';
 import { el, fontAttrs, n, polygonPath } from './svg';
 import type { Box, Lang, Pt } from './types';
 
@@ -108,10 +108,10 @@ export function scaleBar(
   km: number,
   caption: string,
   k: number,
+  fs = 3 * k,
 ): string {
   const ink = style.ink.main;
   const font = style.fonts.italic;
-  const fs = 3 * k;
   const h = 1.6 * k;
   const label = (v: number) => (v >= 1000 ? v.toLocaleString('en-US').replace(/,/g, ' ') : String(v));
   let out = el('text', { x: x + barMm / 2, y: y + fs * 0.8, 'text-anchor': 'middle', fill: ink, ...fontAttrs(font, fs) }, caption);
@@ -132,7 +132,7 @@ export function scaleBar(
   return `<g class="scale-bar">${out}</g>`;
 }
 
-export const scaleBarHeight = (k: number) => 3 * k * 1.5 + 1.6 * k + 3 * k * 1.3;
+export const scaleBarHeight = (k: number, fs = 3 * k) => fs * 1.5 + 1.6 * k + fs * 1.3;
 
 /**
  * The frame around the map: outer and inner lines, and the band between them with degree marks
@@ -173,7 +173,7 @@ export function mapFrame(style: PrintStyle, outer: Box, inner: Box, ticks: Frame
 
   // Degree marks and labels in the band.
   if (f.degreeLabels) {
-    const fs = Math.min(band * 0.42, 2.6 * k);
+    const fs = Math.min(band * 0.55, sized('degree', 2.6, k));
     const tick = band * (f.kind === 'nautical' ? 0.42 : 0.3);
     let d = '';
     let labels = '';

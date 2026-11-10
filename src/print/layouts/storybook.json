@@ -1,0 +1,16 @@
+{
+  "id": "storybook",
+  "name": "Storybook",
+  "description": "The family's countries enlarged and lifted off the page, the ocean between them narrowed.",
+  "kind": "storybook",
+  "padding": 0.05,
+  "storybook": {
+    "targetShare": 0.2,
+    "maxScale": 3,
+    "pull": 0.4,
+    "overlap": 0.15,
+    "regionShare": 0.2,
+    "shadow": 0.5,
+    "background": 0.5
+  }
+}

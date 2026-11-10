@@ -26,6 +26,18 @@ export interface RouteDate {
   gen: number;
 }
 
+/** The main piece of a bundle (its trunk, or the route itself), for lettering along. */
+export interface RouteMain {
+  pts: Pt[];
+  gen: number;
+  /** Stroke width of the piece. */
+  width: number;
+  /** Years of the births that date the move ("1902", "1890–1905"); empty if unknown. */
+  years: string;
+  /** Ids of the people who moved along it. */
+  movers: string[];
+}
+
 export interface RouteOptions {
   /** Places closer than this (mm) share a bundle end. */
   radius: number;
@@ -108,12 +120,13 @@ export function projectRoutes(
   project: (p: Place) => Pt | null,
   opts: RouteOptions,
   birthYear: (childId: string) => number | undefined,
-): { strokes: RouteStroke[]; dates: RouteDate[]; bundles: Bundle[] } {
+): { strokes: RouteStroke[]; dates: RouteDate[]; bundles: Bundle[]; mains: RouteMain[] } {
   const visible = flows.filter((f) => project(f.from) && project(f.to));
   const bundles = bundleFlows(visible, (p) => project(p)!, opts.radius).sort((a, b) => a.total - b.total);
   const max = Math.max(1, ...bundles.flatMap((b) => [b.total, ...b.origins.map((e) => e.count), ...b.dests.map((e) => e.count)]));
   const strokes: RouteStroke[] = [];
   const dates: RouteDate[] = [];
+  const mains: RouteMain[] = [];
 
   for (const [bi, b] of bundles.entries()) {
     const paths = bundleGeometry(b, laneBend(b.lane));
@@ -125,7 +138,8 @@ export function projectRoutes(
       let arrow: RouteStroke['arrow'];
       if (path.kind === 'out') {
         pts = trimEnd(pts, opts.endGap);
-        if (opts.arrowSize > 0 && pts.length >= 2) arrow = arrowAtEnd(pts, opts.arrowSize + width);
+        // Arrowheads grow with the route, so a heavy route doesn't end in a tiny point.
+        if (opts.arrowSize > 0 && pts.length >= 2) arrow = arrowAtEnd(pts, Math.max(opts.arrowSize, width * 2.8));
       }
       const fromOrigin = path.kind === 'in' || (path.kind === 'trunk' && !hasIn) || (path.kind === 'out' && !hasIn && !hasTrunk);
       strokes.push({ gen: b.gen, kind: path.kind, pts, width, fromOrigin, arrow });
@@ -135,6 +149,11 @@ export function projectRoutes(
     const main = paths.find((p) => p.kind === 'trunk') ?? paths.find((p) => p.kind === 'out' && !hasTrunk);
     const children = [...new Set([...b.dests.flatMap((e) => e.flows.flatMap((f) => f.children))])];
     const text = yearsLabel(children.map(birthYear).filter((y): y is number => y !== undefined));
+    if (main) {
+      const movers = [...new Set(b.origins.flatMap((e) => e.flows.flatMap((f) => f.parents)))];
+      const stroke = strokes[strokes.length - paths.length + paths.indexOf(main)];
+      mains.push({ pts: stroke.pts, gen: b.gen, width: stroke.width, years: text, movers });
+    }
     if (main && text) {
       const mid = Math.floor(main.pts.length / 2);
       const a = main.pts[Math.max(0, mid - 1)];
@@ -150,7 +169,7 @@ export function projectRoutes(
       dates.push({ text, at: [main.pts[mid][0] + nx * off, main.pts[mid][1] + ny * off], angle, gen: b.gen });
     }
   }
-  return { strokes, dates, bundles };
+  return { strokes, dates, bundles, mains };
 }
 
 /**

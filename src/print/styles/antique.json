@@ -94,40 +94,41 @@
       "#7a3b14",
       "#9b2d20"
     ],
-    "minWidth": 0.65,
-    "maxWidth": 2.6,
+    "minWidth": 1.5,
+    "maxWidth": 4.6,
     "taper": true,
     "arrow": "barb",
-    "arrowSize": 3.2,
+    "arrowSize": 7.5,
     "opacity": 0.92,
     "halo": "#f3e8c8",
-    "haloWidth": 1.1,
-    "dateSize": 3
+    "haloWidth": 1.6,
+    "dateSize": 4,
+    "surnameSize": 6.2
   },
   "marks": {
     "kind": "town",
-    "size": 1.8,
+    "size": 2.8,
     "fill": "#f3e8c8",
     "stroke": "#3b2a1a"
   },
   "labels": {
-    "placeSize": 3.4,
+    "placeSize": 4.6,
     "placeColor": "#3b2a1a",
-    "countrySize": 6,
+    "countrySize": 7,
     "countryColor": "#6a5236",
     "countryLetterSpacing": 2.2,
-    "oceanSize": 9,
+    "oceanSize": 10,
     "oceanColor": "#6a5a44",
     "oceanLetterSpacing": 3.5,
     "halo": "rgba(240,226,189,0.75)"
   },
   "flags": {
-    "radius": 6.5,
+    "radius": 11,
     "ring": "#3b2a1a",
-    "ringWidth": 0.5,
+    "ringWidth": 0.7,
     "outerRing": "#a8863a",
     "tone": 0.35,
-    "labelSize": 3,
+    "labelSize": 4,
     "leader": "#5c4630"
   },
   "cartouche": {
@@ -142,8 +143,8 @@
   "legend": {
     "fill": "#f3e7c6",
     "stroke": "#3b2a1a",
-    "titleSize": 5.5,
-    "rowSize": 3.6
+    "titleSize": 6.4,
+    "rowSize": 4.8
   },
   "frame": {
     "kind": "antique",

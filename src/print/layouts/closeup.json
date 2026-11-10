@@ -1,0 +1,8 @@
+{
+  "id": "closeup",
+  "name": "Close-up",
+  "description": "Cropped tight around the family's places, with as little empty ocean as possible.",
+  "kind": "accurate",
+  "fitFamily": true,
+  "padding": 0.035
+}
