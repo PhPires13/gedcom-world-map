@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heritage Map Print Designer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
+  </head>
+  <body>
+    <aside id="controls">
+      <header>
+        <a href="./" class="back" title="Back to the map">← Map</a>
+        <h1>Heritage map print</h1>
+      </header>
+
+      <section>
+        <h2>Family tree</h2>
+        <div class="row">
+          <label class="btn file-btn">Open .ged file<input type="file" id="file" accept=".ged,.gedcom,text/plain" hidden /></label>
+          <button id="sample" class="btn">Use the sample</button>
+        </div>
+        <p id="tree-status" class="muted small">No tree loaded yet.</p>
+        <div id="geocode-box" hidden>
+          <button id="geocode" class="btn wide"></button>
+          <div class="bar"><div id="geocode-fill"></div></div>
+        </div>
+      </section>
+
+      <fieldset id="design" disabled>
+        <section>
+          <h2>Style</h2>
+          <select id="style"></select>
+          <p id="style-desc" class="muted small"></p>
+        </section>
+
+        <section class="grid2">
+          <label>Area<select id="area">
+            <option value="family">Fit to the family</option>
+            <option value="world">World</option>
+            <option value="atlantic">Atlantic</option>
+            <option value="europe">Europe</option>
+            <option value="iberia">Iberia</option>
+            <option value="south-america">South America</option>
+            <option value="north-america">North America</option>
+            <option value="africa">Africa</option>
+          </select></label>
+          <label>Language<select id="lang"><option value="pt">Português</option><option value="en">English</option></select></label>
+          <label>Paper<select id="paper"><option>A3</option><option selected>A2</option><option>A1</option></select></label>
+          <label>Orientation<select id="orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+        </section>
+
+        <section>
+          <h2>Who's on the map</h2>
+          <div class="grid2">
+            <label>Branch<select id="branch">
+              <option value="all">Everyone in the file</option>
+              <option value="ancestors">Ancestors of…</option>
+              <option value="paternal">Father's side of…</option>
+              <option value="maternal">Mother's side of…</option>
+            </select></label>
+            <label>Person<select id="root"></select></label>
+          </div>
+          <div id="gens" class="checks"></div>
+        </section>
+
+        <section>
+          <h2>Cartouche</h2>
+          <label>Title<input id="title" type="text" /></label>
+          <label>Years<input id="subtitle" type="text" /></label>
+          <label>Dedication<textarea id="dedication" rows="3" placeholder="e.g. Para os meus avós, que atravessaram o mar."></textarea></label>
+        </section>
+
+        <section>
+          <h2>On the map</h2>
+          <label>Flags<select id="flags">
+            <option value="origins">Countries people left</option>
+            <option value="all">Every country with a birth</option>
+            <option value="none">No flags</option>
+          </select></label>
+          <div class="checks">
+            <label><input type="checkbox" id="show-dates" checked /> Years on routes</label>
+            <label><input type="checkbox" id="show-placeNames" checked /> Town names</label>
+            <label><input type="checkbox" id="show-countryNames" checked /> Country names</label>
+            <label><input type="checkbox" id="show-oceanNames" checked /> Ocean names</label>
+            <label><input type="checkbox" id="show-legend" checked /> Legend</label>
+            <label><input type="checkbox" id="show-compass" checked /> Compass rose</label>
+            <label><input type="checkbox" id="show-scaleBar" checked /> Scale bar</label>
+            <label><input type="checkbox" id="show-graticule" checked /> Meridians &amp; parallels</label>
+          </div>
+        </section>
+
+        <section>
+          <h2>Export</h2>
+          <div class="row">
+            <button class="btn" data-export="svg">SVG</button>
+            <button class="btn" data-export="png">PNG 300 dpi</button>
+            <button class="btn primary" data-export="pdf">PDF</button>
+          </div>
+          <p id="export-status" class="muted small"></p>
+          <p class="muted small">Exports are made in your browser at 300 dpi for the chosen paper size. Very large sizes (A1) need a desktop browser with plenty of memory; Safari and phones may refuse them.</p>
+        </section>
+      </fieldset>
+    </aside>
+
+    <main id="stage">
+      <div id="sheet"><p class="empty">Open a GEDCOM file or use the sample to design a print.</p></div>
+      <ul id="warnings" hidden></ul>
+    </main>
+
+    <script type="module" src="/src/print/designer.ts"></script>
+  </body>
+</html>
