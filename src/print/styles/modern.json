@@ -1,0 +1,166 @@
+{
+  "id": "modern",
+  "name": "Modern minimal",
+  "description": "Clean grey land, white borders and bright routes on off-white paper.",
+  "fonts": {
+    "title": {
+      "family": "Jost",
+      "weight": 300,
+      "style": "normal",
+      "widthFactor": 0.55
+    },
+    "heading": {
+      "family": "Jost",
+      "weight": 500,
+      "style": "normal",
+      "widthFactor": 0.58
+    },
+    "body": {
+      "family": "Jost",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.5
+    },
+    "italic": {
+      "family": "Jost",
+      "weight": 300,
+      "style": "italic",
+      "widthFactor": 0.48
+    }
+  },
+  "uppercaseTitles": true,
+  "paper": {
+    "color": "#fbfaf7",
+    "grain": 0.04,
+    "grainFrequency": 2.5,
+    "stains": 0,
+    "vignette": 0,
+    "ageColor": "#000000"
+  },
+  "ink": {
+    "main": "#222222",
+    "faint": "#8a8a8a",
+    "accent": "#c2410c",
+    "wobble": 0
+  },
+  "map": {
+    "sea": "#fbfaf7",
+    "land": "#e9e7e1",
+    "coast": {
+      "color": "#c4c1b7",
+      "width": 0.15
+    },
+    "waterLines": {
+      "count": 0,
+      "spacing": 0,
+      "width": 0,
+      "color": "#000000",
+      "opacity": 0
+    },
+    "landShade": {
+      "color": "#000000",
+      "width": 0,
+      "opacity": 0
+    },
+    "borders": {
+      "color": "#fbfaf7",
+      "width": 0.35,
+      "dash": []
+    },
+    "graticule": {
+      "step": 15,
+      "color": "#e6e4dd",
+      "width": 0.15,
+      "dash": []
+    },
+    "rhumbLines": {
+      "count": 0,
+      "colors": [
+        "#000000"
+      ],
+      "width": 0,
+      "opacity": 0
+    },
+    "projection": "auto"
+  },
+  "routes": {
+    "inks": [
+      "#1e3a8a",
+      "#0e7490",
+      "#15803d",
+      "#ca8a04",
+      "#c2410c",
+      "#be123c"
+    ],
+    "minWidth": 0.5,
+    "maxWidth": 2.2,
+    "taper": false,
+    "arrow": "triangle",
+    "arrowSize": 2.4,
+    "opacity": 0.95,
+    "halo": "#fbfaf7",
+    "haloWidth": 0.8,
+    "dateSize": 2.6
+  },
+  "marks": {
+    "kind": "dot",
+    "size": 1.4,
+    "fill": "#222222",
+    "stroke": "#fbfaf7"
+  },
+  "labels": {
+    "placeSize": 3,
+    "placeColor": "#222222",
+    "countrySize": 4.2,
+    "countryColor": "#a19e94",
+    "countryLetterSpacing": 1.6,
+    "oceanSize": 5,
+    "oceanColor": "#b5b2a8",
+    "oceanLetterSpacing": 2.5,
+    "halo": "rgba(251,250,247,0.9)"
+  },
+  "flags": {
+    "radius": 5,
+    "ring": "#fbfaf7",
+    "ringWidth": 0.6,
+    "outerRing": "",
+    "tone": 0,
+    "labelSize": 2.6,
+    "leader": "#8a8a8a"
+  },
+  "cartouche": {
+    "kind": "plain",
+    "fill": "#fbfaf7",
+    "stroke": "#222222",
+    "titleSize": 14,
+    "subtitleSize": 5,
+    "dedicationSize": 3.8,
+    "maxWidthShare": 0.36
+  },
+  "legend": {
+    "fill": "#fbfaf7",
+    "stroke": "#222222",
+    "titleSize": 3.6,
+    "rowSize": 3.2
+  },
+  "frame": {
+    "kind": "simple",
+    "color": "#222222",
+    "margin": 14,
+    "band": 0,
+    "outerWidth": 0.3,
+    "innerWidth": 0,
+    "degreeLabels": false
+  },
+  "compass": {
+    "kind": "simple",
+    "size": 20,
+    "fill": "#fbfaf7",
+    "dark": "#222222",
+    "accent": "#c2410c"
+  },
+  "scaleBar": {
+    "kind": "simple",
+    "length": 60
+  }
+}

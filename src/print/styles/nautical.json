@@ -1,0 +1,169 @@
+{
+  "id": "nautical",
+  "name": "Nautical chart",
+  "description": "A sea chart: Mercator projection, rhumb lines from the compass rose, crisp navy ink on cream.",
+  "fonts": {
+    "title": {
+      "family": "Cinzel",
+      "weight": 600,
+      "style": "normal",
+      "widthFactor": 0.72
+    },
+    "heading": {
+      "family": "Cinzel",
+      "weight": 500,
+      "style": "normal",
+      "widthFactor": 0.7
+    },
+    "body": {
+      "family": "EB Garamond",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.46
+    },
+    "italic": {
+      "family": "EB Garamond",
+      "weight": 400,
+      "style": "italic",
+      "widthFactor": 0.42
+    }
+  },
+  "uppercaseTitles": true,
+  "paper": {
+    "color": "#f1ead8",
+    "grain": 0.18,
+    "grainFrequency": 2.4,
+    "stains": 0.15,
+    "vignette": 0.3,
+    "ageColor": "#5d5a48"
+  },
+  "ink": {
+    "main": "#1d2b3a",
+    "faint": "#5b6b7a",
+    "accent": "#a8322d",
+    "wobble": 0
+  },
+  "map": {
+    "sea": "#dde6e1",
+    "land": "#f3ead2",
+    "coast": {
+      "color": "#1d2b3a",
+      "width": 0.3
+    },
+    "waterLines": {
+      "count": 3,
+      "spacing": 0.8,
+      "width": 0.14,
+      "color": "#3d5a6c",
+      "opacity": 0.55
+    },
+    "landShade": {
+      "color": "#c9b98b",
+      "width": 1.6,
+      "opacity": 0.3
+    },
+    "borders": {
+      "color": "#6b7a86",
+      "width": 0.22,
+      "dash": [
+        2,
+        1
+      ]
+    },
+    "graticule": {
+      "step": 10,
+      "color": "#6b8796",
+      "width": 0.18,
+      "dash": []
+    },
+    "rhumbLines": {
+      "count": 32,
+      "colors": [
+        "#a8322d",
+        "#2f6b4a",
+        "#1d2b3a"
+      ],
+      "width": 0.2,
+      "opacity": 0.6
+    },
+    "projection": "mercator"
+  },
+  "routes": {
+    "inks": [
+      "#1d3557",
+      "#2a6f97",
+      "#7d4e24",
+      "#a8322d"
+    ],
+    "minWidth": 0.55,
+    "maxWidth": 2.4,
+    "taper": true,
+    "arrow": "triangle",
+    "arrowSize": 2.8,
+    "opacity": 0.92,
+    "halo": "#f4ecd6",
+    "haloWidth": 1,
+    "dateSize": 2.8
+  },
+  "marks": {
+    "kind": "ring",
+    "size": 1.7,
+    "fill": "#f4ecd6",
+    "stroke": "#1d2b3a"
+  },
+  "labels": {
+    "placeSize": 3.2,
+    "placeColor": "#1d2b3a",
+    "countrySize": 5.2,
+    "countryColor": "#4d5d6b",
+    "countryLetterSpacing": 2,
+    "oceanSize": 8,
+    "oceanColor": "#3d5a6c",
+    "oceanLetterSpacing": 3,
+    "halo": "rgba(243,234,210,0.85)"
+  },
+  "flags": {
+    "radius": 6,
+    "ring": "#1d2b3a",
+    "ringWidth": 0.45,
+    "outerRing": "#a8322d",
+    "tone": 0.12,
+    "labelSize": 2.8,
+    "leader": "#1d2b3a"
+  },
+  "cartouche": {
+    "kind": "framed",
+    "fill": "#f6f1e3",
+    "stroke": "#1d2b3a",
+    "titleSize": 14,
+    "subtitleSize": 6,
+    "dedicationSize": 4.2,
+    "maxWidthShare": 0.38
+  },
+  "legend": {
+    "fill": "#f6f1e3",
+    "stroke": "#1d2b3a",
+    "titleSize": 4.6,
+    "rowSize": 3.4
+  },
+  "frame": {
+    "kind": "nautical",
+    "color": "#1d2b3a",
+    "margin": 12,
+    "band": 5,
+    "outerWidth": 0.9,
+    "innerWidth": 0.3,
+    "degreeLabels": true
+  },
+  "compass": {
+    "kind": "nautical",
+    "size": 50,
+    "fill": "#f6f1e3",
+    "dark": "#1d2b3a",
+    "accent": "#a8322d"
+  },
+  "scaleBar": {
+    "kind": "checkered",
+    "length": 70
+  }
+}

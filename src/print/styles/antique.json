@@ -1,0 +1,168 @@
+{
+  "id": "antique",
+  "name": "Antique parchment",
+  "description": "Aged paper, engraved coastlines and inked routes, in the manner of an 18th-century atlas.",
+  "fonts": {
+    "title": {
+      "family": "IM Fell English SC",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.66
+    },
+    "heading": {
+      "family": "IM Fell English SC",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.66
+    },
+    "body": {
+      "family": "IM Fell English",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.47
+    },
+    "italic": {
+      "family": "IM Fell English",
+      "weight": 400,
+      "style": "italic",
+      "widthFactor": 0.43
+    }
+  },
+  "uppercaseTitles": false,
+  "paper": {
+    "color": "#ead8ad",
+    "grain": 0.32,
+    "grainFrequency": 2.2,
+    "stains": 0.35,
+    "vignette": 0.6,
+    "ageColor": "#6b4a1f"
+  },
+  "ink": {
+    "main": "#3b2a1a",
+    "faint": "#7a6244",
+    "accent": "#8b2e1f",
+    "wobble": 0.12
+  },
+  "map": {
+    "sea": "#e0cfa2",
+    "land": "#f0e2bd",
+    "coast": {
+      "color": "#4a3622",
+      "width": 0.35
+    },
+    "waterLines": {
+      "count": 5,
+      "spacing": 0.9,
+      "width": 0.16,
+      "color": "#5c4630",
+      "opacity": 0.5
+    },
+    "landShade": {
+      "color": "#b89b62",
+      "width": 2.6,
+      "opacity": 0.4
+    },
+    "borders": {
+      "color": "#7a6244",
+      "width": 0.28,
+      "dash": [
+        1.2,
+        0.8
+      ]
+    },
+    "graticule": {
+      "step": 10,
+      "color": "#9a8462",
+      "width": 0.15,
+      "dash": []
+    },
+    "rhumbLines": {
+      "count": 0,
+      "colors": [
+        "#7a6244"
+      ],
+      "width": 0.15,
+      "opacity": 0.3
+    },
+    "projection": "auto"
+  },
+  "routes": {
+    "inks": [
+      "#283a5b",
+      "#2e5a46",
+      "#5a4a1c",
+      "#7a3b14",
+      "#9b2d20"
+    ],
+    "minWidth": 0.65,
+    "maxWidth": 2.6,
+    "taper": true,
+    "arrow": "barb",
+    "arrowSize": 3.2,
+    "opacity": 0.92,
+    "halo": "#f3e8c8",
+    "haloWidth": 1.1,
+    "dateSize": 3
+  },
+  "marks": {
+    "kind": "town",
+    "size": 1.8,
+    "fill": "#f3e8c8",
+    "stroke": "#3b2a1a"
+  },
+  "labels": {
+    "placeSize": 3.4,
+    "placeColor": "#3b2a1a",
+    "countrySize": 6,
+    "countryColor": "#6a5236",
+    "countryLetterSpacing": 2.2,
+    "oceanSize": 9,
+    "oceanColor": "#6a5a44",
+    "oceanLetterSpacing": 3.5,
+    "halo": "rgba(240,226,189,0.75)"
+  },
+  "flags": {
+    "radius": 6.5,
+    "ring": "#3b2a1a",
+    "ringWidth": 0.5,
+    "outerRing": "#a8863a",
+    "tone": 0.35,
+    "labelSize": 3,
+    "leader": "#5c4630"
+  },
+  "cartouche": {
+    "kind": "scroll",
+    "fill": "#f3e7c6",
+    "stroke": "#3b2a1a",
+    "titleSize": 17,
+    "subtitleSize": 6.5,
+    "dedicationSize": 4.4,
+    "maxWidthShare": 0.38
+  },
+  "legend": {
+    "fill": "#f3e7c6",
+    "stroke": "#3b2a1a",
+    "titleSize": 5.5,
+    "rowSize": 3.6
+  },
+  "frame": {
+    "kind": "antique",
+    "color": "#3b2a1a",
+    "margin": 12,
+    "band": 6,
+    "outerWidth": 1,
+    "innerWidth": 0.35,
+    "degreeLabels": true
+  },
+  "compass": {
+    "kind": "ornate",
+    "size": 44,
+    "fill": "#f3e7c6",
+    "dark": "#3b2a1a",
+    "accent": "#8b2e1f"
+  },
+  "scaleBar": {
+    "kind": "checkered",
+    "length": 70
+  }
+}
