@@ -11,6 +11,7 @@ import { generationColor, vibrant } from './colors';
 import { DOT, DOTS_FROM_ZOOM, layoutSpot, spreadBox, spreadScale, type SpotLayout } from './spots';
 import { DENSITY_LEVELS, densityLevel, hexCorners, hexDensity } from './hexbin';
 import { arrowHead, bundleFlows, bundleGeometry, computeFlows, cutPath, laneBend, trimEnd, type BundlePath } from './flows';
+import { mountTreeView } from './tree';
 
 // ---------- Types & state ----------
 
@@ -484,10 +485,13 @@ function spotIcon(ids: string[], layout: SpotLayout | null) {
 // ---------- Loading a tree ----------
 
 async function loadText(text: string, fileName: string) {
+  await loadTree(parseGedcom(text), fileName);
+}
+
+async function loadTree(tree: Tree, fileName: string) {
   state.geocodeAbort?.abort();
   state.lookupActive = false;
   state.pendingPlaces = new Set();
-  const tree = parseGedcom(text);
   if (tree.people.size === 0) {
     alert(`No people found in “${fileName}”. Is it a GEDCOM file?`);
     return;
@@ -1438,4 +1442,15 @@ $('#show-sidebar').addEventListener('click', () => {
   document.body.classList.remove('sidebar-hidden');
   $('#show-sidebar').hidden = true;
   setTimeout(() => map.invalidateSize(), 250);
+});
+
+// ---------- Tree view ----------
+
+mountTreeView($('#tree-root'), {
+  current: () => (state.tree ? { tree: state.tree, name: $('#file-name').textContent ?? '' } : null),
+  show(tree, name, personId) {
+    if (tree !== state.tree) void loadTree(tree, name);
+    if (personId && state.tree?.people.has(personId)) select(personId);
+  },
+  shown: () => map.invalidateSize(),
 });
