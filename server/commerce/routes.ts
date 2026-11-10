@@ -331,7 +331,8 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       if (!to) throw new HttpError(409, `Nothing to do by hand for an order that is ${o.status}`);
       if (to === 'paid' || to === 'refunded') throw new HttpError(409, `Orders become ${to} through Stripe, not by hand`);
       const note = optStr(b.note, 'note', 500);
-      const { order } = await orders.transition(db, o.id, to, 'operator', note ?? `Marked ${STATUS_LABELS[to].en.toLowerCase()} by ${c.var.user.email}`);
+      const patch = o.fulfilment === 'manual' && to !== 'cancelled' ? { fulfilment_status: to } : {};
+      const { order } = await orders.transition(db, o.id, to, 'operator', note ?? `Marked ${STATUS_LABELS[to].en.toLowerCase()} by ${c.var.user.email}`, patch);
       if (to === 'file_ready') background(() => pipeline.processOrder(order.id));
       return c.json(await detail(order, true));
     });

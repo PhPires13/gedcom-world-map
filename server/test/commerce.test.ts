@@ -447,6 +447,7 @@ describe('manual fulfilment (Brazil) and operations', () => {
     const done = await call<OrderDetail>('POST', `/api/ops/orders/${o.id}/advance`, {});
     expect(statuses(done)).toEqual(['created', 'paid', 'file_ready', 'sent_to_production', 'shipped', 'delivered']);
     expect(done.events.find((e) => e.toStatus === 'shipped')?.note).toBe('Correios AA123456789BR');
+    expect(done.fulfilmentStatus).toBe('delivered');
     await call('POST', `/api/ops/orders/${o.id}/advance`, {}, 409);
     await call('POST', `/api/ops/orders/${o.id}/advance`, { to: 'paid' }, 409);
   });

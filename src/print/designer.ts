@@ -1,8 +1,14 @@
 // The print designer page (print.html): load a tree, choose a style and what to show, preview the
-// print live and export it as SVG, 300 dpi PNG or PDF. Everything runs in the browser.
+// print live and export it as SVG, 300 dpi PNG or PDF, or order it (shop.ts). Everything but the
+// order runs in the browser.
+//
+// The preview is the tree's PUBLIC view: people presumed living (or marked private) are left off,
+// exactly as on the print the server makes for an order.
 
 import './designer.css';
 import { originEvent, parseGedcom, decodeGedcom, type Tree } from '../gedcom';
+import { localTreeDetail, toGedcomTree } from '../model';
+import { api, serverAvailable } from '../tree/api';
 import { computeGenerations } from '../generations';
 import { Geocoder } from '../geocode';
 import { loadFlags, loadStyleFonts, loadTopology } from './assets-browser';
@@ -10,6 +16,7 @@ import { CountryLocator } from './countries';
 import { buildPrintData, defaultRoot, type Branch, type Located } from './data';
 import { kmPerMm, inset, makeProjection, mmToPx, pageSize, sizeScale, topologyDetail } from './geo';
 import { setPngDpi } from './png';
+import { initShop } from './shop';
 import { defaultTexts, renderHeritageMap } from './render';
 import { STYLES, styleById } from './styles';
 import type { AreaId, Lang, Orientation, PaperSize, PrintAssets, PrintData, PrintOptions } from './types';
@@ -30,6 +37,14 @@ const state = {
   titleTouched: false,
   subtitleTouched: false,
   geocoding: null as AbortController | null,
+  /** GEDCOM text of a tree opened from a file (imported to the server when ordering). */
+  gedText: '',
+  /** The tree on the server, once known (opened from there, or imported for an order). */
+  serverTreeId: '',
+  /** Designer person id → server person id (GEDCOM xref → id after an import). */
+  serverIds: new Map<string, string>(),
+  /** People kept off the map because they are presumed living or marked private. */
+  privateCount: 0,
 };
 
 // ---------- Loading a tree ----------
@@ -40,9 +55,28 @@ function loadText(text: string, fileName: string) {
     alert(`No people found in “${fileName}”. Is it a GEDCOM file?`);
     return;
   }
+  // The living rule, as the server applies it: these people never reach the print.
+  const detail = localTreeDetail(tree, fileName, new Date().getFullYear());
+  const hidden = new Set(detail.people.filter((p) => p.isPrivate).map((p) => p.id));
+  loadTree(tree, fileName, hidden, { gedText: text });
+}
+
+/** A tree saved on the server, in its public view. */
+async function loadServerTree(treeId: string) {
+  const detail = await api.getTreeView(treeId, 'public');
+  const tree = toGedcomTree(detail);
+  const hidden = new Set(detail.people.filter((p) => p.isPrivate).map((p) => p.id));
+  loadTree(tree, detail.tree.name, hidden, { serverTreeId: treeId });
+}
+
+function loadTree(tree: Tree, fileName: string, hidden: Set<string>, from: { gedText?: string; serverTreeId?: string }) {
   state.geocoding?.abort();
   state.tree = tree;
   state.fileName = fileName;
+  state.gedText = from.gedText ?? '';
+  state.serverTreeId = from.serverTreeId ?? '';
+  state.serverIds = new Map(from.serverTreeId ? [...tree.people.keys()].map((id) => [id, id]) : []);
+  state.privateCount = hidden.size;
   state.gens = computeGenerations(tree);
   state.located = new Map();
   state.pending = new Map();
@@ -50,6 +84,7 @@ function loadText(text: string, fileName: string) {
   state.subtitleTouched = false;
   // Coordinates from the file, else from the map app's geocoding cache (same browser storage).
   for (const p of tree.people.values()) {
+    if (hidden.has(p.id)) continue;
     const ev = originEvent(p)?.event;
     if (!ev) continue;
     if (ev.lat !== undefined && ev.lon !== undefined) state.located.set(p.id, { lat: ev.lat, lon: ev.lon, place: ev.place ?? '' });
@@ -70,7 +105,9 @@ function updateStatus() {
   const t = state.tree;
   if (!t) return;
   const placed = state.located.size;
-  $('#tree-status').textContent = `${state.fileName}: ${t.people.size} people, ${placed} placed on the map.`;
+  $('#tree-status').textContent =
+    `${state.fileName}: ${t.people.size} people, ${placed} placed on the map.` +
+    (state.privateCount ? ` ${state.privateCount} presumed living or private ${state.privateCount === 1 ? 'is' : 'are'} left off, as on the printed map.` : '');
   const n = state.pending.size;
   $('#geocode-box').hidden = !n && !state.geocoding;
   if (!state.geocoding) $('#geocode').textContent = `Find ${n} more place${n === 1 ? '' : 's'} (about ${Math.ceil(n * 1.2)} s)`;
@@ -325,6 +362,66 @@ $<HTMLInputElement>('#file').addEventListener('change', async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (file) loadText(decodeGedcom(await file.arrayBuffer()), file.name);
 });
+// Trees saved on the server (the tree view's), when the API is running.
+void serverAvailable().then(async (up) => {
+  if (!up) return;
+  const trees = await api.listTrees().catch(() => []);
+  if (!trees.length) return;
+  const sel = $<HTMLSelectElement>('#saved-tree');
+  sel.innerHTML = `<option value="">Open a saved tree…</option>` + trees.map((t) => `<option value="${t.id}">${escapeHtml(t.name)} (${t.peopleCount} people)</option>`).join('');
+  sel.hidden = false;
+  const wanted = new URLSearchParams(location.search).get('tree');
+  if (wanted && trees.some((t) => t.id === wanted)) {
+    sel.value = wanted;
+    await loadServerTree(wanted);
+  }
+});
+$<HTMLSelectElement>('#saved-tree').addEventListener('change', (e) => {
+  const id = (e.target as HTMLSelectElement).value;
+  if (id) void loadServerTree(id).catch((err) => alert(`Couldn't open the tree: ${String(err)}`));
+});
+
+initShop({
+  design() {
+    if (!state.tree) return undefined;
+    const data = currentData();
+    const o = currentOptions(data);
+    // Coordinates of the birthplaces shown (place names only, never people).
+    const places: Record<string, { lat: number; lon: number }> = {};
+    for (const l of state.located.values()) if (l.place) places[l.place] = { lat: l.lat, lon: l.lon };
+    return {
+      styleId: o.style.id,
+      orientation: o.orientation,
+      area: o.area,
+      lang: o.lang,
+      title: o.title,
+      subtitle: o.subtitle,
+      dedication: o.dedication,
+      show: o.show,
+      selection: { rootId: val('root') || undefined, branch: val('branch') as Branch, generations: selectedGenerations() },
+      places,
+    };
+  },
+  async serverTree() {
+    if (!state.serverTreeId) {
+      if (!state.gedText) throw new Error('No tree loaded');
+      const tree = await api.createTree(state.fileName.replace(/\.(ged|gedcom)$/i, '') || 'Family tree');
+      await api.importGedcomText(tree.id, state.fileName, state.gedText);
+      const detail = await api.getTree(tree.id);
+      state.serverIds = new Map(detail.people.filter((p) => p.originRef).map((p) => [p.originRef!, p.id]));
+      state.serverTreeId = tree.id;
+    }
+    return { treeId: state.serverTreeId, personId: (id) => state.serverIds.get(id) };
+  },
+  setPaper(size) {
+    const sel = $<HTMLSelectElement>('#paper');
+    if (sel.value !== size) {
+      sel.value = size;
+      scheduleRender(0);
+    }
+  },
+});
+
 $('#sample').addEventListener('click', async () => {
   const res = await fetch(`${import.meta.env.BASE_URL}sample.ged`);
   loadText(await res.text(), 'sample.ged');

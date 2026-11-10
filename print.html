@@ -19,6 +19,7 @@
           <label class="btn file-btn">Open .ged file<input type="file" id="file" accept=".ged,.gedcom,text/plain" hidden /></label>
           <button id="sample" class="btn">Use the sample</button>
         </div>
+        <select id="saved-tree" hidden></select>
         <p id="tree-status" class="muted small">No tree loaded yet.</p>
         <div id="geocode-box" hidden>
           <button id="geocode" class="btn wide"></button>
@@ -98,6 +99,29 @@
           </div>
           <p id="export-status" class="muted small"></p>
           <p class="muted small">Exports are made in your browser at 300 dpi for the chosen paper size. Very large sizes (A1) need a desktop browser with plenty of memory; Safari and phones may refuse them.</p>
+        </section>
+
+        <section id="shop">
+          <h2>Order</h2>
+          <p id="shop-placeholder" class="note small" hidden></p>
+          <div id="shop-form" hidden>
+            <label>Product<select id="shop-product"></select></label>
+            <p id="shop-desc" class="muted small"></p>
+            <div class="grid2">
+              <label>Size<select id="shop-size"></select></label>
+              <label id="shop-frame-wrap" hidden>Frame<select id="shop-frame"></select></label>
+            </div>
+            <div class="grid2">
+              <label>Country<select id="shop-country" autocomplete="country"></select></label>
+              <label>Currency<select id="shop-currency"></select></label>
+            </div>
+            <p id="shop-price" class="price"></p>
+            <label>Email<input type="email" id="shop-email" autocomplete="email" placeholder="for the receipt and download" /></label>
+            <div id="shop-address" hidden></div>
+            <button id="shop-buy" class="btn primary wide">Buy</button>
+            <p class="muted small">Payment on Stripe’s secure page. The print is made from your tree’s public view: people presumed living stay off it.</p>
+          </div>
+          <p id="shop-status" class="muted small"></p>
         </section>
       </fieldset>
     </aside>

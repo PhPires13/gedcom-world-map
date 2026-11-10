@@ -77,6 +77,8 @@ export const api = {
   listTrees: () => request<TreeSummary[]>('GET', '/api/trees'),
   createTree: (name: string) => request<TreeSummary>('POST', '/api/trees', { name }),
   getTree: (treeId: string) => request<TreeDetail>('GET', t(treeId)),
+  /** The tree as others see it: `public` redacts people presumed living (used for prints). */
+  getTreeView: (treeId: string, view: 'owner' | 'public') => request<TreeDetail>('GET', `${t(treeId)}?view=${view}`),
   deleteTree: (treeId: string) => request<void>('DELETE', t(treeId)),
   importGedcom: (treeId: string, file: File) => {
     const form = new FormData();
