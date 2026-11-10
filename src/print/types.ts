@@ -29,6 +29,8 @@ export interface PrintData {
   people: PrintPerson[];
   /** Moves from `computeFlows` (src/flows.ts), already filtered to the chosen branches and generations. */
   flows: Flow[];
+  /** The person the print is centred on and their ancestors; their moves rank higher in essential routes. */
+  directLine?: string[];
 }
 
 export type PaperSize = 'A3' | 'A2' | 'A1';
@@ -73,6 +75,13 @@ export interface PrintOptions {
   finish?: FinishSpec;
   /** Size of the flag roundels relative to the style's (1 = as designed). */
   flagScale?: number;
+  /**
+   * Essential (the default): a few main routes between countries (or medallions), each merging
+   * everyone who made that move. Detailed: every move, generation by generation.
+   */
+  routes?: 'essential' | 'detailed';
+  /** Most routes in essential mode (by default 5 on A3, 7 on A2, 8 on A1). */
+  maxRoutes?: number;
   /** Size of the root <svg> element in pixels (for rasterising); defaults to the paper size in mm. */
   pixelSize?: { width: number; height: number };
 }

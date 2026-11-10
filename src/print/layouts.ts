@@ -134,6 +134,8 @@ export interface ArtMap {
   /** Where an ocean name written at lon/lat would go. */
   water(lon: number, lat: number): Pt | null;
   medallions: Medallion[];
+  /** Which medallion a place is in (medallion layouts only), for grouping routes. */
+  regionOf?: (p: GeoPlace) => string | undefined;
 }
 
 // ---------- Pieces of countries, flattened to the sheet ----------
@@ -637,6 +639,7 @@ export function planVignette(
   const cover = radii.reduce((s, r) => s + Math.PI * r * r, 0) / (frame.w * frame.h);
   if (cover > 0.38) radii = radii.map((r) => r * Math.sqrt(0.38 / cover));
   const homes = clusters.map((c) => proj(c));
+  const clusterOf = new Map<string, string>(clusters.flatMap((c, i) => c.places.map((p): [string, string] => [`${p.lat.toFixed(4)},${p.lon.toFixed(4)}`, `medallion-${i}`])));
   const banner = 9 * k;
 
   return {
@@ -658,6 +661,11 @@ export function planVignette(
         if (!clash && !blocked) break;
         radii = radii.map((r) => r * 0.9);
       }
+      // Whatever happened above, medallions never overlap: shrink them all until every pair is apart.
+      let fit = 1;
+      for (let i = 0; i < pos.length; i++)
+        for (let j = i + 1; j < pos.length; j++) fit = Math.min(fit, (len(sub(pos[i], pos[j])) - gap * 0.5) / (radii[i] + radii[j] + 2.6 * k));
+      if (fit < 1) radii = radii.map((r) => r * Math.max(0.2, fit));
       const pieces = piecesFor(locator, projection);
       const bounds = pieces.map((p) => ringsBounds(p.rings));
       const medallions: Medallion[] = [];
@@ -727,6 +735,7 @@ export function planVignette(
         countryLabel: () => null,
         water: (lon, lat) => proj({ lon, lat }),
         medallions,
+        regionOf: (p) => clusterOf.get(key(p)),
       };
     },
   };

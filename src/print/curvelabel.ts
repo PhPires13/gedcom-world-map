@@ -60,7 +60,8 @@ export interface CurveLabel {
  * Where to letter text of width `w` and height `h` along a route that bows to the left of its
  * direction of travel (as all routes do, see arcPoints): on that outer side, `gap` beyond the
  * stroke's half-width `half`, reading left to right. Tries the middle first, then either side of
- * it; returns null if the text doesn't fit on the curve or every spot collides.
+ * it, then (if `insideToo`) the inside of the curve; returns null if the text doesn't fit on the
+ * curve or every spot collides.
  */
 export function placeAlongCurve(
   route: Pt[],
@@ -69,18 +70,27 @@ export function placeAlongCurve(
   half: number,
   gap: number,
   blocked: (b: Box) => boolean,
+  insideToo = false,
 ): CurveLabel | null {
   if (route.length < 2) return null;
   const reversed = route[route.length - 1][0] < route[0][0];
   const reading = reversed ? [...route].reverse() : route;
   // Not reversed: the outside is to the reading line's left (where letters rise); letters sit on a
   // baseline just outside the stroke. Reversed: the outside is below, so the baseline goes lower
-  // by the letters' height and they rise towards the route.
-  const off = reversed ? -(half + gap + h * 0.78) : half + gap;
-  const baseline = offsetLine(reading, off);
+  // by the letters' height and they rise towards the route. The inside of the curve is the mirror.
+  const outside = reversed ? -(half + gap + h * 0.78) : half + gap;
+  const inside = reversed ? half + gap : -(half + gap + h * 0.78);
+  for (const off of insideToo ? [outside, inside] : [outside]) {
+    const spot = alongBaseline(offsetLine(reading, off), w, h, blocked, insideToo ? [0.5, 0.4, 0.6, 0.32, 0.68, 0.25, 0.75] : [0.5, 0.4, 0.6, 0.32, 0.68]);
+    if (spot) return spot;
+  }
+  return null;
+}
+
+function alongBaseline(baseline: Pt[], w: number, h: number, blocked: (b: Box) => boolean, spots: number[]): CurveLabel | null {
   const L = pathLength(baseline);
   if (w > L * 0.9) return null;
-  for (const at of [0.5, 0.4, 0.6, 0.32, 0.68]) {
+  for (const at of spots) {
     const start = L * at - w / 2;
     if (start < L * 0.04 || start + w > L * 0.96) continue;
     const boxes: Box[] = [];
