@@ -296,12 +296,12 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
       const barMm = km / kpm;
       const caption = o.area === 'world' && sphere ? T.scaleEquator : T.scale;
       const capW = measure(caption, S.fonts.italic, 3 * k);
-      const w = Math.max(barMm, capW) + 6 * k;
+      const w = Math.max(barMm + 8 * k, capW) + 6 * k; // room for "km" after the bar
       const h = scaleBarHeight(k) + 2 * k;
       const { box } = placePanel(frame, w, h, obs, placed, panelGap, ['bottom-right', 'bottom-left', 'bottom', 'top-right', 'top-left', 'top']);
       placed.push(box);
       scaleBoxPlaced = box;
-      scaleSvg = scaleBar(S, box.x + (box.w - barMm) / 2, box.y + k, barMm, km, caption, k);
+      scaleSvg = scaleBar(S, box.x + (box.w - barMm - 4 * k) / 2, box.y + k, barMm, km, caption, k);
     }
   }
 

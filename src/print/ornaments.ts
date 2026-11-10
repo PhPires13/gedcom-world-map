@@ -122,8 +122,9 @@ export function scaleBar(
       out += el('rect', { x: x + (i * barMm) / segs, y: by, width: barMm / segs, height: h, fill: i % 2 ? style.compass.fill : ink, stroke: ink, 'stroke-width': 0.2 * k });
     }
     for (const [i, v] of [0, km / 2, km].entries()) {
-      out += el('text', { x: x + (i * barMm) / 2, y: by + h + fs * 1.05, 'text-anchor': 'middle', fill: ink, ...fontAttrs(font, fs * 0.9) }, `${label(v)}${i === 2 ? ' km' : ''}`);
+      out += el('text', { x: x + (i * barMm) / 2, y: by + h + fs * 1.05, 'text-anchor': 'middle', fill: ink, ...fontAttrs(font, fs * 0.9) }, label(v));
     }
+    out += el('text', { x: x + barMm + fs * 0.5, y: by + h * 0.9, fill: ink, ...fontAttrs(font, fs * 0.9) }, 'km');
   } else {
     out += el('path', { d: `M${n(x)},${n(by)}v${n(h)}h${n(barMm)}v${n(-h)}M${n(x + barMm / 2)},${n(by + h * 0.4)}v${n(h * 0.6)}`, stroke: ink, 'stroke-width': 0.25 * k, fill: 'none' });
     out += el('text', { x: x + barMm / 2, y: by + h + fs * 1.05, 'text-anchor': 'middle', fill: ink, ...fontAttrs(style.fonts.body, fs * 0.9) }, `${label(km)} km`);

@@ -29,11 +29,11 @@ export const STRINGS = {
 export const WATERS: { name: Record<Lang, string>; at: [number, number][]; major: boolean }[] = [
   {
     name: { pt: 'Oceano Atlântico', en: 'Atlantic Ocean' },
-    at: [[-38, 32], [-28, 22], [-45, 40], [-20, 40], [-14, 5], [-25, -20], [-15, 45], [-12, 38]],
+    at: [[-38, 32], [-28, 22], [-45, 40], [-50, 28], [-55, 35], [-40, 45], [-60, 22], [-35, 15], [-20, 40], [-14, 5], [-25, -20], [-15, 45], [-12, 38]],
     major: true,
   },
   { name: { pt: 'Oceano Atlântico Sul', en: 'South Atlantic' }, at: [[-15, -30], [-25, -35]], major: true },
-  { name: { pt: 'Oceano Pacífico', en: 'Pacific Ocean' }, at: [[-140, 10], [-120, -15], [160, 20], [-95, 0], [-85, -15]], major: true },
+  { name: { pt: 'Oceano Pacífico', en: 'Pacific Ocean' }, at: [[-140, 10], [-120, -15], [160, 20], [-95, 0], [-100, -12], [-110, 8], [-85, -15]], major: true },
   { name: { pt: 'Oceano Índico', en: 'Indian Ocean' }, at: [[75, -20], [65, -10]], major: true },
   { name: { pt: 'Mar Mediterrâneo', en: 'Mediterranean Sea' }, at: [[18, 34.5], [5, 38.5]], major: false },
   { name: { pt: 'Mar do Norte', en: 'North Sea' }, at: [[3, 56]], major: false },
