@@ -1,0 +1,1 @@
+{ "id": "heirloom", "name": "Heirloom", "description": "Torn edges, browned borders and foxing: an heirloom kept for a century.", "deckle": { "inset": 5, "amplitude": 2.4, "mount": "#efebe2", "shadow": 0.4 }, "burn": { "width": 11, "strength": 0.6 }, "foxing": 2 }

@@ -1,0 +1,1 @@
+{ "id": "deckled", "name": "Deckled edge", "description": "Hand-torn paper edges on a light mount.", "deckle": { "inset": 5, "amplitude": 2.2, "mount": "#f4f1ea", "shadow": 0.35 }, "vignette": 0.35 }

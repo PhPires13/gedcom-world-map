@@ -1,0 +1,8 @@
+{
+  "id": "vignette",
+  "name": "Medallions",
+  "description": "Each homeland as a round inset map, joined by the family's voyages.",
+  "kind": "vignette",
+  "padding": 0.04,
+  "vignette": { "minRadius": 34, "maxRadius": 62, "clusterKm": 450, "minKm": 160, "fill": 0.62, "ghost": 0.3, "gap": 10 }
+}

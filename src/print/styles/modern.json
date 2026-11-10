@@ -92,40 +92,41 @@
       "#c2410c",
       "#be123c"
     ],
-    "minWidth": 0.5,
-    "maxWidth": 2.2,
+    "minWidth": 1.3,
+    "maxWidth": 4.2,
     "taper": false,
     "arrow": "triangle",
-    "arrowSize": 2.4,
+    "arrowSize": 6.5,
     "opacity": 0.95,
     "halo": "#fbfaf7",
-    "haloWidth": 0.8,
-    "dateSize": 2.6
+    "haloWidth": 1.2,
+    "dateSize": 3.6,
+    "surnameSize": 5.4
   },
   "marks": {
     "kind": "dot",
-    "size": 1.4,
+    "size": 2.6,
     "fill": "#222222",
     "stroke": "#fbfaf7"
   },
   "labels": {
-    "placeSize": 3,
+    "placeSize": 4.2,
     "placeColor": "#222222",
-    "countrySize": 4.2,
+    "countrySize": 5.6,
     "countryColor": "#a19e94",
     "countryLetterSpacing": 1.6,
-    "oceanSize": 5,
+    "oceanSize": 7,
     "oceanColor": "#b5b2a8",
     "oceanLetterSpacing": 2.5,
     "halo": "rgba(251,250,247,0.9)"
   },
   "flags": {
-    "radius": 5,
+    "radius": 10,
     "ring": "#fbfaf7",
-    "ringWidth": 0.6,
+    "ringWidth": 0.8,
     "outerRing": "",
     "tone": 0,
-    "labelSize": 2.6,
+    "labelSize": 3.6,
     "leader": "#8a8a8a"
   },
   "cartouche": {
@@ -140,8 +141,8 @@
   "legend": {
     "fill": "#fbfaf7",
     "stroke": "#222222",
-    "titleSize": 3.6,
-    "rowSize": 3.2
+    "titleSize": 5,
+    "rowSize": 4.4
   },
   "frame": {
     "kind": "simple",

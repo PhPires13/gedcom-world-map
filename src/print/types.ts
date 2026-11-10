@@ -3,6 +3,8 @@
 
 import type { Topology } from 'topojson-specification';
 import type { Flow } from '../flows';
+import type { BorderSpec, FinishSpec } from './borders';
+import type { LayoutSpec } from './layouts';
 import type { PrintStyle } from './style';
 
 export type Pt = [number, number];
@@ -49,8 +51,13 @@ export interface PrintOptions {
     dates: boolean;
     /** Names of the towns where people were born. */
     placeNames: boolean;
-    /** Flag roundels: at each country people moved away from, every country with a birth, or none. */
-    flags: 'origins' | 'all' | 'none';
+    /**
+     * Flag roundels: at each country people moved away from, at both ends of the moves, every
+     * country with a birth, or none.
+     */
+    flags: 'origins' | 'both' | 'all' | 'none';
+    /** The family's surname lettered along each route (on unless set to false). */
+    surnames?: boolean;
     countryNames: boolean;
     oceanNames: boolean;
     compass: boolean;
@@ -58,6 +65,14 @@ export interface PrintOptions {
     legend: boolean;
     graticule: boolean;
   };
+  /** How the map is laid out (layouts/*.json); the geographic layout if not given. */
+  layout?: LayoutSpec;
+  /** Decorative border (borders/*.json); the style's own frame if not given. */
+  border?: BorderSpec;
+  /** Finish on the paper (finishes/*.json); just the style's own ageing if not given. */
+  finish?: FinishSpec;
+  /** Size of the flag roundels relative to the style's (1 = as designed). */
+  flagScale?: number;
   /** Size of the root <svg> element in pixels (for rasterising); defaults to the paper size in mm. */
   pixelSize?: { width: number; height: number };
 }

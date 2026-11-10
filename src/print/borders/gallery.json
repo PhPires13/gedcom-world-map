@@ -1,0 +1,1 @@
+{ "id": "gallery", "name": "Gallery margin", "description": "A clean wide margin and hairline, the title set underneath like a gallery print.", "kind": "mat", "margin": 26, "band": 0, "caption": true }
