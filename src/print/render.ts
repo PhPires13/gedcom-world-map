@@ -8,10 +8,13 @@ import type { GeometryCollection, Topology } from 'topojson-specification';
 import { CountryLocator, countryName, topoFeatures } from './countries';
 import { applyFinish, drawBorder } from './borders';
 import { pathLength, placeAlongCurve, routeSurnames, smoothPath } from './curvelabel';
+import { regionOf as flowRegion } from '../flows';
+import { essentialRoutes, routeCap, routesAsFlows } from './simplify';
 import { frameTicks, inset, kmPerMm, makeProjection, niceScaleKm, pageSize, showsWholeSphere, sizeScale, topologyDetail } from './geo';
 import { buildStorybook, medallionBanner, planVignette, type ArtMap, type LayoutSpec, type Medallion, type VignettePlan } from './layouts';
 import {
   contains,
+  distToPolyline,
   estimateText,
   layoutCartouche,
   layoutLegend,
@@ -166,8 +169,43 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   let art: ArtMap | null = null;
   let plan: VignettePlan | null = null;
   if (L.kind === 'storybook') art = buildStorybook(data.people, locator, { ...L.storybook!, padding: L.padding ?? 0.05 }, drawCtx);
-  if (L.kind === 'vignette') plan = planVignette(data.people, locator, { ...L.vignette!, padding: L.padding ?? 0.04 }, drawCtx);
+  // Essential routes (the default) keep one medallion per country, so routes run between countries.
+  const essential = (o.routes ?? 'essential') === 'essential';
+  if (L.kind === 'vignette')
+    plan = planVignette(data.people, locator, { ...L.vignette!, padding: L.padding ?? 0.04, ...(essential ? { maxPerCountry: 1 } : {}) }, drawCtx);
   const place = (p: { lat: number; lon: number; place?: string }): Pt | null => (art ? art.place(p) : project(p));
+
+  // ---------- Which moves to draw ----------
+  // Essential: a few main routes between regions, each merging everyone who made that move.
+  // Regions are countries; on a close-up of mostly one country, its districts; on medallions,
+  // the medallions (where a couple of routes may stay inside one).
+  const subject = (() => {
+    if (!L.fitFamily) return '';
+    const counts = new Map<string, number>();
+    for (const p of data.people) counts.set(locator.locate(p), (counts.get(locator.locate(p)) ?? 0) + 1);
+    const [code, count] = [...counts].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+    return code && count >= data.people.length * 0.7 ? code : '';
+  })();
+  const medallionOf = plan ? new Map(plan.clusters.flatMap((c, i) => c.places.map((p): [string, string] => [`${p.lat.toFixed(4)},${p.lon.toFixed(4)}`, `medallion-${i}`]))) : null;
+  const regionOfPlace = (p: { lat: number; lon: number; place?: string }) => {
+    if (medallionOf) return medallionOf.get(`${p.lat.toFixed(4)},${p.lon.toFixed(4)}`) ?? `at:${p.lat},${p.lon}`;
+    const code = locator.locate(p);
+    if (code && code === subject) return `${code}:${flowRegion(p, 1)}`;
+    return code || flowRegion(p, 0);
+  };
+  const flows = essential
+    ? routesAsFlows(
+        essentialRoutes(data.flows, {
+          regionOf: regionOfPlace,
+          maxRoutes: o.maxRoutes ?? routeCap(o.paper),
+          directLine: new Set(data.directLine ?? []),
+          directBoost: 1,
+          internalRoutes: () => (plan ? 2 : 0),
+          // Medallions aren't placed yet; elsewhere avoid routes that would cross.
+          project: plan ? undefined : place,
+        }),
+      )
+    : data.flows;
 
   // ---------- Generations and inks ----------
   const gens = data.people.map((p) => p.gen);
@@ -193,8 +231,8 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   // Countries for the flags, with the family's places in each (to place the roundel near them).
   const flagMode = o.show.flags;
   const flagSources: { code: string; p: { lat: number; lon: number; place?: string }; count: number }[] = [];
-  if (flagMode === 'origins' || flagMode === 'both') for (const f of data.flows) flagSources.push({ code: locator.locate(f.from), p: f.from, count: f.parents.length });
-  if (flagMode === 'both') for (const f of data.flows) flagSources.push({ code: locator.locate(f.to), p: f.to, count: f.children.length });
+  if (flagMode === 'origins' || flagMode === 'both') for (const f of flows) flagSources.push({ code: locator.locate(f.from), p: f.from, count: f.parents.length });
+  if (flagMode === 'both') for (const f of flows) flagSources.push({ code: locator.locate(f.to), p: f.to, count: f.children.length });
   if (flagMode === 'all') for (const p of data.people) flagSources.push({ code: locator.locate(p), p, count: 1 });
   const flagCodes = [...new Set(flagSources.map((f) => f.code).filter(Boolean))].filter((c) => {
     if (assets.flags[c]) return true;
@@ -309,7 +347,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   let panels: Panels | null = null;
   if (plan) {
     const pl = plan;
-    panels = placePanels({ points: [], boxes: pl.circles.map(circleBox) }, moverGensOf(data.flows.map((f) => f.gen)));
+    panels = placePanels({ points: [], boxes: pl.circles.map(circleBox) }, moverGensOf(flows.map((f) => f.gen)));
     art = pl.settle(placed.map((b) => inset(b, -2 * k)));
   }
 
@@ -336,7 +374,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
 
   // ---------- Routes ----------
   const { strokes, mains } = projectRoutes(
-    data.flows,
+    flows,
     (p) => {
       const q = place(p);
       return q && inFrame(q, -Math.max(frame.w, frame.h) * 0.25) ? q : null;
@@ -424,7 +462,11 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
       if (routeLabels.length >= maxLabels) break;
       // Fathers first: their surname is the one the family passes on.
       const movers = [...m.movers].sort((a, b) => Number(sexOf.get(b) === 'M') - Number(sexOf.get(a) === 'M'));
-      const names = showSurnames ? routeSurnames(movers.map((id) => surnameOf.get(id) ?? '')) : [];
+      // The direct line's own surname comes first on a route it travelled (weighted, so it wins
+      // unless another family clearly dominates the route).
+      const direct = new Set(data.directLine ?? []);
+      const weighted = [...movers.filter((id) => direct.has(id)), ...movers].flatMap((id) => (direct.has(id) ? [id, id, id] : [id]));
+      const names = showSurnames ? routeSurnames(weighted.map((id) => surnameOf.get(id) ?? ''), movers.some((id) => direct.has(id)) ? 1 : 2) : [];
       const surname = upper(names.join(' & '));
       const years = o.show.dates ? m.years : '';
       // Try the full label, then fewer parts, then smaller text.
@@ -440,7 +482,12 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
         const sw = t.surname ? measure(t.surname, S.fonts.title, t.size, spacing) : 0;
         const ys = t.surname ? dateSize : t.size;
         const yw = t.years ? measure(`${t.surname ? ' · ' : ''}${t.years}`, S.fonts.italic, ys) : 0;
-        const spot = placeAlongCurve(m.pts, sw + yw, t.surname ? t.size : ys, m.width / 2, 0.9 * k, blocked);
+        // Essential routes are few, so their labels can also keep off every other route.
+        const offRoutes = (b: Box) => {
+          const c: Pt = [b.x + b.w / 2, b.y + b.h / 2];
+          return strokes.some((st) => st.pts !== m.pts && distToPolyline(c, st.pts) < b.w / 2 + st.width / 2 + 0.3 * k);
+        };
+        const spot = placeAlongCurve(m.pts, sw + yw, t.surname ? t.size : ys, m.width / 2, 0.9 * k, essential ? (b) => blocked(b) || offRoutes(b) : blocked, essential);
         if (!spot) continue;
         taken.push(...spot.boxes);
         const id = `route-label-${i}`;
@@ -508,7 +555,13 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
       // Near the middle of the country, and with the middle of the name still over the country.
       const spot = [0, -1.6, 1.6, -3.2, 3.2]
         .flatMap((dy) => [0, -0.3, 0.3].map((dx): Box => ({ x: cs.at[0] - w / 2 + dx * w, y: cs.at[1] + dy * size - h / 2, w, h })))
-        .find((b) => !blocked(b) && cs.inside([b.x + b.w / 2, b.y + b.h / 2]));
+        .find(
+          (b) =>
+            !blocked(b) &&
+            cs.inside([b.x + b.w / 2, b.y + b.h / 2]) &&
+            // With only a few routes drawn, names can keep clear of them too.
+            !(essential && strokes.some((st) => st.pts.some((p) => p[0] > b.x && p[0] < b.x + b.w && p[1] > b.y && p[1] < b.y + b.h))),
+        );
       if (!spot) {
         dropped.push(text);
         continue;

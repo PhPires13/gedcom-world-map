@@ -187,6 +187,7 @@ function currentOptions(data: PrintData): PrintOptions {
     border: borderById(val('border')),
     finish: finishById(val('finish')),
     flagScale: Number(val('flag-size')) || 1,
+    routes: val('routes') === 'detailed' ? 'detailed' : 'essential',
   };
 }
 

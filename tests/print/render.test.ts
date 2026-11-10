@@ -2,7 +2,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPrintData, defaultRoot } from '../../src/print/data';
-import { contains, overlaps } from '../../src/print/layout';
+import { contains, distToPolyline, overlaps } from '../../src/print/layout';
+import { makeProjection } from '../../src/print/geo';
+import { projectRoutes } from '../../src/print/routes';
+import { routeCap } from '../../src/print/simplify';
 import { defaultTexts, renderHeritageMap } from '../../src/print/render';
 import { BORDERS, FINISHES, LAYOUTS } from '../../src/print/catalog';
 import { MIN_SIZES } from '../../src/print/style';
@@ -152,5 +155,74 @@ describe('renderHeritageMap', () => {
         for (const n of perCountry.values()) expect(n).toBeLessThanOrEqual(2);
       }
     }
+  });
+
+  describe('essential routes', () => {
+    const denseTree = () => {
+      const t = parseGedcom(readFileSync(resolve(__dirname, 'fixtures/dense-portugal-brazil.ged'), 'utf8'));
+      const g = computeGenerations(t);
+      const loc = new Map([...t.people.values()].map((p) => [p.id, { lat: p.birth!.lat!, lon: p.birth!.lon!, place: p.birth!.place! }]));
+      return buildPrintData(t, loc, g, { branch: 'all' });
+    };
+    const dense = denseTree();
+
+    for (const [name, d] of [['sample', data], ['dense tree', dense]] as const) {
+      for (const layout of LAYOUTS) {
+        it(`draws a few labelled routes that never collide (${name}, ${layout.id})`, () => {
+          const res = renderHeritageMap(d, options({ layout }), { topology, flags, fontCss: '' });
+          const l = res.layout;
+          const arrows = l.routes.filter((s) => s.arrow);
+          const cap = routeCap('A2');
+          expect(arrows.length).toBeLessThanOrEqual(cap + Math.ceil(cap / 3));
+          expect(arrows.length).toBeGreaterThan(2);
+          // One label per arrow at most, and labels never overlap each other, a flag, a panel or another route.
+          expect(l.routeLabels.length).toBeLessThanOrEqual(arrows.length);
+          const panels = [l.cartouche, l.legend, l.compass, l.scaleBar].filter((b) => !!b);
+          const flagBoxes = l.flags.map((f) => ({ x: f.center[0] - f.r, y: f.center[1] - f.r, w: 2 * f.r, h: 2 * f.r }));
+          l.routeLabels.forEach((a, i) => {
+            for (const b of a.boxes) {
+              for (const p of [...panels, ...flagBoxes]) expect(overlaps(b, p)).toBe(false);
+              for (const other of l.routeLabels.slice(i + 1)) for (const c of other.boxes) expect(overlaps(b, c)).toBe(false);
+              const c: [number, number] = [b.x + b.w / 2, b.y + b.h / 2];
+              const near = l.routes.filter((s) => distToPolyline(c, s.pts) < b.w / 2 + s.width / 2);
+              // Only its own route may be that close.
+              expect(new Set(near.map((s) => s.pts)).size).toBeLessThanOrEqual(1);
+            }
+          });
+          if (layout.kind === 'vignette') {
+            const ms = l.medallions;
+            for (const [i, a] of ms.entries())
+              for (const b of ms.slice(i + 1)) expect(Math.hypot(a.center[0] - b.center[0], a.center[1] - b.center[1])).toBeGreaterThan(a.r + b.r);
+            // One medallion per country.
+            expect(new Set(ms.map((m) => m.code)).size).toBe(ms.length);
+          }
+        });
+      }
+    }
+
+    it('fits fewer routes on A3 than on A1', () => {
+      const count = (paper: 'A3' | 'A1') => renderHeritageMap(dense, options({ paper }), { topology, flags, fontCss: '' }).layout.routes.filter((s) => s.arrow).length;
+      expect(count('A3')).toBeLessThanOrEqual(routeCap('A3'));
+      expect(count('A3')).toBeLessThan(count('A1'));
+    });
+
+    it('names a route after the family of the direct line when it made the move', () => {
+      const res = renderHeritageMap(dense, options(), { topology, flags, fontCss: '' });
+      const root = dense.directLine![0];
+      const surname = dense.people.find((p) => p.id === root)!.surname.split(' ').pop()!.toUpperCase();
+      expect(res.layout.routeLabels.some((r) => r.text.toUpperCase().startsWith(surname))).toBe(true);
+    });
+
+    it('keeps the old behaviour when asked for detailed routes', () => {
+      const res = renderHeritageMap(dense, options({ routes: 'detailed' }), { topology, flags, fontCss: '' });
+      // The same strokes as drawing every move with the map's own projection.
+      const projection = makeProjection('family', dense.people, res.layout.map, STYLES[0].map.projection, 0.11);
+      const old = projectRoutes(dense.flows, (p) => projection([p.lon, p.lat]) as [number, number], { radius: 5, minWidth: 1.5, maxWidth: 4.6, endGap: 2, arrowSize: 7.5, wobble: 0, dateOffset: 2 }, () => undefined);
+      expect(res.layout.routes.length).toBe(old.strokes.length);
+      expect(res.layout.routes.length).toBeGreaterThan(renderHeritageMap(dense, options(), { topology, flags, fontCss: '' }).layout.routes.length * 3);
+      // Detailed medallions may still split a country in two.
+      const med = renderHeritageMap(dense, options({ routes: 'detailed', layout: LAYOUTS.find((l) => l.kind === 'vignette') }), { topology, flags, fontCss: '' });
+      expect(med.layout.medallions.length).toBeGreaterThan(new Set(med.layout.medallions.map((m) => m.code)).size);
+    });
   });
 });

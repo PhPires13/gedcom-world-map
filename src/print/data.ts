@@ -70,5 +70,8 @@ export function buildPrintData(tree: Tree, located: Map<string, Located>, gens: 
   const branchLocated = new Map([...located].filter(([id]) => members.has(id)));
   // A move shows when the generation of the parent who moved is shown.
   const flows = computeFlows(branchPeople, branchLocated, gens, (moverGen) => shownGen(moverGen));
-  return { people, flows };
+  // The direct line: the person the print is centred on and their ancestors.
+  const root = sel.rootId && tree.people.has(sel.rootId) ? sel.rootId : defaultRoot(tree, gens);
+  const directLine = root ? [root, ...lineage(tree, root, 'parents')] : [];
+  return { people, flows, directLine };
 }
