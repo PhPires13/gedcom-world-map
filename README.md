@@ -69,6 +69,12 @@ Open http://localhost:5173, click **Tree**, then **Use the sample family** (or i
 - `server/db/`: the `Db` interface (PGlite now, Postgres in production) and numbered SQL migrations, applied at startup.
 - `server/storage.ts`: where document bytes go (`LocalDiskStorage` in dev; S3-compatible storage implements the same interface).
 - `server/test/`: integration tests that run the API against an in-memory database.
+- `server/commerce/`, `server/print/`: the shop (orders, Stripe Checkout in test mode, print files made on the server, Prodigi and manual fulfilment). Setup, Stripe test cards, Brazil payment findings and the owner's open decisions are in [server/commerce/README.md](server/commerce/README.md); prices are in `config/catalogue.json`.
+
+### Shop
+
+- `FAKE_PAYMENTS=yes npm run dev:all`, then **Order** in the print designer (`/print.html`): pay on a local simulated Checkout, follow the order on `/order.html`, run operations on `/ops.html`.
+- With Stripe test keys instead: `STRIPE_SECRET_KEY=sk_test_… STRIPE_WEBHOOK_SECRET=whsec_… npm run dev:all` and `stripe listen --forward-to localhost:8787/api/webhooks/stripe` (details in the shop README).
 
 ```bash
 npm test             # unit tests and API integration tests

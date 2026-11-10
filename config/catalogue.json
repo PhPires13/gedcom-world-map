@@ -1,0 +1,85 @@
+{
+  "_comment": [
+    "THE SHOP'S CATALOGUE. Edit this file to change products, sizes, prices and partners; restart the server to apply.",
+    "Every price is a PLACEHOLDER until 'placeholderPrices' is set to false (the shop shows a 'test prices' banner and the server refuses live Stripe keys while it is true).",
+    "Prices are in major units (349.90 = R$ 349,90) and include VAT/taxes as shown to the customer. 'shipping' adds a flat amount per order; 0 = shipping included.",
+    "Where the placeholders come from (docs/research, seen 2026-11-10): digital migration maps on Etsy sell for BRL 32-98; framed migration prints BRL 240-1,198; the plan's framed hypothesis was USD 129-249. Partner wholesale costs are unknown until a Prodigi quote / local lab quote.",
+    "Prodigi SKUs: GLOBAL-HPR-A3 and GLOBAL-HPR-A2 (Hahnemuhle Photo Rag 308 gsm) were seen on Prodigi's product pages. GLOBAL-HPR-A1 and the framed GLOBAL-CFPM-A3/-A2 are UNVERIFIED guesses: check them with the Prodigi catalogue API or dashboard before going live.",
+    "Each market's 'fulfilment' picks who makes physical products: 'prodigi' (API) or 'manual' (an operator sends the file to a local lab and framer). Brazil is manual: no Brazilian framed-print partner with an API was found."
+  ],
+  "version": 1,
+  "placeholderPrices": true,
+  "currencies": ["BRL", "EUR", "USD"],
+  "defaultCurrency": "USD",
+  "products": [
+    {
+      "id": "digital",
+      "kind": "digital",
+      "name": { "en": "Digital heritage map", "pt": "Mapa de família digital" },
+      "description": {
+        "en": "Print-ready PDF and 300 dpi PNG of your map, to download right after payment. Print it anywhere.",
+        "pt": "PDF e PNG a 300 dpi do seu mapa, prontos para imprimir, para descarregar logo após o pagamento."
+      },
+      "variants": [{ "size": "A1", "prices": { "BRL": 69.9, "EUR": 14.9, "USD": 16.9 } }]
+    },
+    {
+      "id": "print",
+      "kind": "print",
+      "name": { "en": "Fine-art print (unframed)", "pt": "Impressão fine-art (sem moldura)" },
+      "description": {
+        "en": "Giclée print on museum-grade cotton rag paper, shipped rolled in a tube.",
+        "pt": "Impressão giclée em papel de algodão de qualidade museu, enviada enrolada num tubo."
+      },
+      "material": { "en": "Hahnemühle Photo Rag 308 gsm, giclée", "pt": "Hahnemühle Photo Rag 308 g/m², giclée" },
+      "variants": [
+        { "size": "A3", "prices": { "BRL": 149.9, "EUR": 39, "USD": 42 }, "skus": { "prodigi": "GLOBAL-HPR-A3" } },
+        { "size": "A2", "prices": { "BRL": 219.9, "EUR": 55, "USD": 59 }, "skus": { "prodigi": "GLOBAL-HPR-A2" } },
+        { "size": "A1", "prices": { "BRL": 299.9, "EUR": 79, "USD": 85 }, "skus": { "prodigi": "GLOBAL-HPR-A1" } }
+      ]
+    },
+    {
+      "id": "framed",
+      "kind": "framed",
+      "name": { "en": "Framed fine-art print", "pt": "Impressão fine-art emoldurada" },
+      "description": {
+        "en": "The giclée print with a mount, in a solid wood frame, ready to hang.",
+        "pt": "A impressão giclée com passe-partout, em moldura de madeira, pronta a pendurar."
+      },
+      "material": {
+        "en": "Giclée on fine-art paper, conservation mount, wood frame, glazed",
+        "pt": "Giclée em papel fine-art, passe-partout de conservação, moldura de madeira, com vidro"
+      },
+      "frameColours": ["black", "natural", "brown", "antique gold", "white"],
+      "variants": [
+        { "size": "A3", "prices": { "BRL": 449.9, "EUR": 119, "USD": 129 }, "skus": { "prodigi": "GLOBAL-CFPM-A3" } },
+        { "size": "A2", "prices": { "BRL": 649.9, "EUR": 169, "USD": 189 }, "skus": { "prodigi": "GLOBAL-CFPM-A2" } }
+      ]
+    }
+  ],
+  "markets": [
+    {
+      "id": "BR",
+      "name": "Brazil (local lab and framer, by hand)",
+      "countries": ["BR"],
+      "currency": "BRL",
+      "fulfilment": "manual",
+      "shipping": { "print": { "BRL": 0 }, "framed": { "BRL": 39.9 } }
+    },
+    {
+      "id": "EU",
+      "name": "Portugal and the EU (Prodigi, EU lab)",
+      "countries": ["PT", "ES", "IT", "FR", "DE", "NL", "BE", "LU", "IE", "AT", "DK", "SE", "FI", "PL", "CZ", "SK", "SI", "HR", "HU", "RO", "BG", "GR", "CY", "MT", "EE", "LV", "LT"],
+      "currency": "EUR",
+      "fulfilment": "prodigi",
+      "shipping": { "print": { "EUR": 0 }, "framed": { "EUR": 0 } }
+    },
+    {
+      "id": "ROW",
+      "name": "Rest of the world (Prodigi)",
+      "countries": ["*"],
+      "currency": "USD",
+      "fulfilment": "prodigi",
+      "shipping": { "print": { "USD": 9 }, "framed": { "USD": 25 } }
+    }
+  ]
+}

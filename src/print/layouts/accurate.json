@@ -1,0 +1,7 @@
+{
+  "id": "accurate",
+  "name": "Geographic",
+  "description": "True to the map: the chosen area in a real projection.",
+  "kind": "accurate",
+  "padding": 0.11
+}

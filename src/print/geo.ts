@@ -84,6 +84,8 @@ export function makeProjection(
   points: { lat: number; lon: number }[],
   frame: Box,
   pref: 'auto' | 'mercator' = 'auto',
+  /** Room around the family's places, as a share of the frame's shorter side. */
+  familyPadding = 0.11,
 ): GeoProjection {
   const box = area === 'family' ? familyBBox(points) : area === 'world' ? null : AREAS[area];
   const short = Math.min(frame.w, frame.h);
@@ -107,7 +109,7 @@ export function makeProjection(
     else if (e - w > 140) projection = geoNaturalEarth1().rotate([-cLon, 0]);
     else projection = geoAzimuthalEqualArea().rotate([-cLon, -cLat]);
     // The family's own places get more room around them, so marks and names don't touch the frame.
-    const fit = inset(frame, short * (area === 'family' ? 0.11 : 0.02));
+    const fit = inset(frame, short * (area === 'family' ? familyPadding : 0.02));
     projection.fitExtent(
       [
         [fit.x, fit.y],
