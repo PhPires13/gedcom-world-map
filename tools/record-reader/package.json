@@ -1,0 +1,40 @@
+{
+  "name": "record-reader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reads old parish and civil records (images/PDFs) with Claude and proposes structured, evidence-linked claims.",
+  "type": "module",
+  "bin": {
+    "record-reader": "bin/record-reader.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "make-synthetic": "npm run build && node dist/scripts/make-synthetic.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0",
+    "@napi-rs/canvas": "^1.1.0",
+    "pdfjs-dist": "^6.5.438",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

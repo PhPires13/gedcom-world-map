@@ -1,0 +1,1188 @@
+{
+  "document": {
+    "is_record": true,
+    "not_record_reason": null,
+    "kind": "parish_register",
+    "languages": [
+      "pt",
+      "la"
+    ],
+    "script": "handwritten",
+    "period_estimate": "1847",
+    "legibility": "good",
+    "repository_marks": "Livro dos Baptismos e Obitos da Freg.a de S. Pedro de Rates, fl. 23"
+  },
+  "transcription": [
+    {
+      "id": "l1",
+      "page": 1,
+      "text": "Livro dos Baptismos e Obitos da Freg.a de S. Pedro de Rates fl. 23",
+      "box": {
+        "page": 1,
+        "x0": 160,
+        "y0": 100,
+        "x1": 1349,
+        "y1": 151
+      },
+      "confidence": 0.95,
+      "has_illegible": false
+    },
+    {
+      "id": "l2",
+      "page": 1,
+      "text": "Aos vinte e tres dias do mez de Março de mil oitocentos e quarenta e",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 202,
+        "x1": 1484,
+        "y1": 253
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l3",
+      "page": 1,
+      "text": "sete nesta Igreja Parochial de S. Pedro de Rates baptizei",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 264,
+        "x1": 1296,
+        "y1": 315
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l4",
+      "page": 1,
+      "text": "solemnemente e puz os Santos Oleos a Maria, que nasceu aos",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 326,
+        "x1": 1368,
+        "y1": 377
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l5",
+      "page": 1,
+      "text": "dezanove do dito mez, filha legitima de Joaq.m Ferreira, lavrador, e",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 388,
+        "x1": 1471,
+        "y1": 439
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l6",
+      "page": 1,
+      "text": "de sua mulher Anna Rosa, naturaes e moradores no lugar de",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 450,
+        "x1": 1380,
+        "y1": 501
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l7",
+      "page": 1,
+      "text": "Gestrins desta freg.a; neta paterna de Manoel Ferreira e de Maria",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 513,
+        "x1": 1463,
+        "y1": 563
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l8",
+      "page": 1,
+      "text": "Joaquina, e materna de Ant.o Gomes e de Thereza de Jesus, do lugar",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 574,
+        "x1": 1491,
+        "y1": 625
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l9",
+      "page": 1,
+      "text": "da Pedreira. Forão padrinhos Jozé Pereira, solteiro, e Anna",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 636,
+        "x1": 1350,
+        "y1": 685
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l10",
+      "page": 1,
+      "text": "[illegible], sua irmã, os quaes sei serem os proprios. E para constar",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 698,
+        "x1": 1456,
+        "y1": 749
+      },
+      "confidence": 0.7,
+      "has_illegible": true
+    },
+    {
+      "id": "l11",
+      "page": 1,
+      "text": "fiz este assento que assignei. Era ut supra.",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 761,
+        "x1": 1066,
+        "y1": 811
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l12",
+      "page": 1,
+      "text": "O Abbade Fr.co Ant.o Lopes",
+      "box": {
+        "page": 1,
+        "x0": 1037,
+        "y0": 822,
+        "x1": 1500,
+        "y1": 873
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l13",
+      "page": 1,
+      "text": "Aos dous dias do mez de Abril do dito anno de mil oitocentos e",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 934,
+        "x1": 1392,
+        "y1": 985
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l14",
+      "page": 1,
+      "text": "quarenta e sete foi sepultado dentro desta Igreja Manoel Ferreira,",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 997,
+        "x1": 1454,
+        "y1": 1047
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l15",
+      "page": 1,
+      "text": "viuvo de Maria Joaquina, de idade de setenta e oito annos, morador",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 1058,
+        "x1": 1486,
+        "y1": 1108
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l16",
+      "page": 1,
+      "text": "no lugar de Gestrins desta freguezia, que faleceo no dia antecedente",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 1120,
+        "x1": 1468,
+        "y1": 1171
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l17",
+      "page": 1,
+      "text": "com todos os Sacramentos; não fez testamento. E para constar fiz",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 1182,
+        "x1": 1435,
+        "y1": 1233
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l18",
+      "page": 1,
+      "text": "este assento. Era ut supra.",
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 1245,
+        "x1": 809,
+        "y1": 1294
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    },
+    {
+      "id": "l19",
+      "page": 1,
+      "text": "O Abbade Fr.co Ant.o Lopes",
+      "box": {
+        "page": 1,
+        "x0": 1037,
+        "y0": 1308,
+        "x1": 1500,
+        "y1": 1357
+      },
+      "confidence": 0.93,
+      "has_illegible": false
+    }
+  ],
+  "expanded_text": "Book of Baptisms and Deaths of the parish of São Pedro de Rates, folio 23. Aos vinte e três dias do mês de Março de mil oitocentos e quarenta e sete, nesta Igreja Paroquial de São Pedro de Rates, baptizei solenemente e pus os Santos Óleos a Maria, que nasceu aos dezanove do dito mês, filha legítima de Joaquim Ferreira, lavrador, e de sua mulher Ana Rosa, naturais e moradores no lugar de Gestrins desta freguesia; neta paterna de Manuel Ferreira e de Maria Joaquina, e materna de António Gomes e de Teresa de Jesus, do lugar da Pedreira. Foram padrinhos José Pereira, solteiro, e Ana [illegible], sua irmã, os quais sei serem os próprios. E para constar fiz este assento que assinei. Era ut supra. O Abade Francisco António Lopes. — Aos dois dias do mês de Abril do dito ano de mil oitocentos e quarenta e sete foi sepultado dentro desta Igreja Manuel Ferreira, viúvo de Maria Joaquina, de idade de setenta e oito anos, morador no lugar de Gestrins desta freguesia, que faleceu no dia antecedente com todos os Sacramentos; não fez testamento. E para constar fiz este assento. Era ut supra. O Abade Francisco António Lopes.",
+  "translation_en": "On the twenty-third day of the month of March of the year one thousand eight hundred and forty-seven, in this Parish Church of São Pedro de Rates, I solemnly baptised and anointed with the Holy Oils Maria, born on the nineteenth of the said month, legitimate daughter of Joaquim Ferreira, farmer, and of his wife Anna Rosa, natives and residents of the place of Gestrins in this parish; paternal granddaughter of Manoel Ferreira and Maria Joaquina, and maternal granddaughter of Antonio Gomes and Thereza de Jesus, of the place of Pedreira. The godparents were José Pereira, single, and Anna [illegible], his sister, whom I know to be who they say. In witness whereof I made this entry, which I signed. Date as above. The Abbot Francisco Antonio Lopes. — On the second day of the month of April of the said year 1847, Manoel Ferreira, widower of Maria Joaquina, aged seventy-eight, resident in Gestrins in this parish, who died the day before having received all the Sacraments, was buried inside this Church; he made no will. In witness whereof I made this entry. Date as above. The Abbot Francisco Antonio Lopes.",
+  "illegible_regions": [
+    {
+      "page": 1,
+      "box": {
+        "page": 1,
+        "x0": 380,
+        "y0": 702,
+        "x1": 524,
+        "y1": 749
+      },
+      "context": "e Anna [illegible], sua irmã",
+      "reason": "ink blot",
+      "candidate_readings": []
+    }
+  ],
+  "entries": [
+    {
+      "id": "e1",
+      "type": "baptism",
+      "jurisdiction": "parish",
+      "box": {
+        "page": 1,
+        "x0": 80,
+        "y0": 192,
+        "x1": 1510,
+        "y1": 874
+      },
+      "line_ids": [
+        "l2",
+        "l3",
+        "l4",
+        "l5",
+        "l6",
+        "l7",
+        "l8",
+        "l9",
+        "l10",
+        "l11",
+        "l12"
+      ],
+      "margin_note": {
+        "as_written": "Maria",
+        "value": "Maria",
+        "box": {
+          "page": 1,
+          "x0": 90,
+          "y0": 203,
+          "x1": 194,
+          "y1": 245
+        },
+        "confidence": 0.95,
+        "legibility": "clear",
+        "note": null
+      },
+      "date": {
+        "as_written": "vinte e tres dias do mez de Março de mil oitocentos e quarenta e sete",
+        "value": "1847-03-23",
+        "box": {
+          "page": 1,
+          "x0": 380,
+          "y0": 202,
+          "x1": 1484,
+          "y1": 314
+        },
+        "confidence": 0.95,
+        "legibility": "clear",
+        "note": null
+      },
+      "other_dates": [
+        {
+          "kind": "birth",
+          "field": {
+            "as_written": "dezanove do dito mez",
+            "value": "1847-03-19",
+            "box": {
+              "page": 1,
+              "x0": 380,
+              "y0": 389,
+              "x1": 721,
+              "y1": 439
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": "Month and year from the baptism date."
+          }
+        }
+      ],
+      "place": {
+        "as_written": "S. Pedro de Rates",
+        "value": "São Pedro de Rates",
+        "box": {
+          "page": 1,
+          "x0": 872,
+          "y0": 264,
+          "x1": 1159,
+          "y1": 313
+        },
+        "confidence": 0.95,
+        "legibility": "clear",
+        "note": null
+      },
+      "people": [
+        {
+          "id": "e1.p1",
+          "roles": [
+            "subject"
+          ],
+          "name": {
+            "as_written": "Maria",
+            "value": "Maria",
+            "box": {
+              "page": 1,
+              "x0": 998,
+              "y0": 328,
+              "x1": 1107,
+              "y1": 374
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Maria",
+          "surnames": null,
+          "sex": "female",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": []
+        },
+        {
+          "id": "e1.p2",
+          "roles": [
+            "father"
+          ],
+          "name": {
+            "as_written": "Joaq.m Ferreira",
+            "value": "Joaquim Ferreira",
+            "box": {
+              "page": 1,
+              "x0": 1014,
+              "y0": 388,
+              "x1": 1278,
+              "y1": 435
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Joaquim",
+          "surnames": "Ferreira",
+          "sex": "male",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": {
+            "as_written": "lavrador",
+            "value": "lavrador (farmer)",
+            "box": {
+              "page": 1,
+              "x0": 1297,
+              "y0": 392,
+              "x1": 1437,
+              "y1": 438
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "residence": {
+            "as_written": "Gestrins",
+            "value": "Gestrins, São Pedro de Rates",
+            "box": {
+              "page": 1,
+              "x0": 380,
+              "y0": 515,
+              "x1": 511,
+              "y1": 562
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "parent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "filha legitima de",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            },
+            {
+              "type": "spouse_of",
+              "to": "e1.p3",
+              "evidence": {
+                "as_written": "sua mulher",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p3",
+          "roles": [
+            "mother"
+          ],
+          "name": {
+            "as_written": "Anna Rosa",
+            "value": "Ana Rosa",
+            "box": {
+              "page": 1,
+              "x0": 623,
+              "y0": 452,
+              "x1": 813,
+              "y1": 500
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Ana",
+          "surnames": "Rosa",
+          "sex": "female",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": {
+            "as_written": "Gestrins",
+            "value": "Gestrins, São Pedro de Rates",
+            "box": {
+              "page": 1,
+              "x0": 380,
+              "y0": 515,
+              "x1": 511,
+              "y1": 562
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "parent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "filha legitima de … e de sua mulher",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p4",
+          "roles": [
+            "paternal_grandfather"
+          ],
+          "name": {
+            "as_written": "Manoel Ferreira",
+            "value": "Manuel Ferreira",
+            "box": {
+              "page": 1,
+              "x0": 995,
+              "y0": 515,
+              "x1": 1270,
+              "y1": 563
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Manuel",
+          "surnames": "Ferreira",
+          "sex": "male",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "grandparent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "neta paterna de",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p5",
+          "roles": [
+            "paternal_grandmother"
+          ],
+          "name": {
+            "as_written": "Maria Joaquina",
+            "value": "Maria Joaquina",
+            "box": {
+              "page": 1,
+              "x0": 380,
+              "y0": 514,
+              "x1": 1463,
+              "y1": 624
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Maria",
+          "surnames": "Joaquina",
+          "sex": "female",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "grandparent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "neta paterna de",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p6",
+          "roles": [
+            "maternal_grandfather"
+          ],
+          "name": {
+            "as_written": "Ant.o Gomes",
+            "value": "António Gomes",
+            "box": {
+              "page": 1,
+              "x0": 775,
+              "y0": 574,
+              "x1": 981,
+              "y1": 621
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "António",
+          "surnames": "Gomes",
+          "sex": "male",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "grandparent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "e materna de",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p7",
+          "roles": [
+            "maternal_grandmother"
+          ],
+          "name": {
+            "as_written": "Thereza de Jesus",
+            "value": "Teresa de Jesus",
+            "box": {
+              "page": 1,
+              "x0": 1065,
+              "y0": 576,
+              "x1": 1334,
+              "y1": 625
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Teresa",
+          "surnames": "de Jesus",
+          "sex": "female",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "grandparent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "e materna de",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p8",
+          "roles": [
+            "godfather"
+          ],
+          "name": {
+            "as_written": "Jozé Pereira",
+            "value": "José Pereira",
+            "box": {
+              "page": 1,
+              "x0": 878,
+              "y0": 636,
+              "x1": 1076,
+              "y1": 685
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "José",
+          "surnames": "Pereira",
+          "sex": "male",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": {
+            "as_written": "solteiro",
+            "value": "single",
+            "box": null,
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "godparent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "Forão padrinhos",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            },
+            {
+              "type": "sibling_of",
+              "to": "e1.p9",
+              "evidence": {
+                "as_written": "sua irmã",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p9",
+          "roles": [
+            "godmother"
+          ],
+          "name": {
+            "as_written": "Anna [illegible]",
+            "value": "Ana [illegible]",
+            "box": {
+              "page": 1,
+              "x0": 1256,
+              "y0": 637,
+              "x1": 1350,
+              "y1": 684
+            },
+            "confidence": 0.6,
+            "legibility": "partly_illegible",
+            "note": "Surname under an ink blot."
+          },
+          "given_names": "Ana",
+          "surnames": null,
+          "sex": "female",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": [
+            {
+              "type": "godparent_of",
+              "to": "e1.p1",
+              "evidence": {
+                "as_written": "Forão padrinhos",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e1.p10",
+          "roles": [
+            "officiant"
+          ],
+          "name": {
+            "as_written": "Fr.co Ant.o Lopes",
+            "value": "Francisco António Lopes",
+            "box": {
+              "page": 1,
+              "x0": 1210,
+              "y0": 822,
+              "x1": 1500,
+              "y1": 872
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Francisco",
+          "surnames": "António Lopes",
+          "sex": "male",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [
+            {
+              "key": "title",
+              "field": {
+                "as_written": "O Abbade",
+                "value": "Abbot (parish priest)",
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ],
+          "relations": []
+        }
+      ],
+      "facts": [
+        {
+          "key": "legitimacy",
+          "field": {
+            "as_written": "filha legitima",
+            "value": "legitimate",
+            "box": null,
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          }
+        }
+      ],
+      "summary_en": "Baptism of Maria, legitimate daughter of Joaquim Ferreira and Anna Rosa of Gestrins, São Pedro de Rates, 23 March 1847 (born 19 March).",
+      "confidence": 0.9
+    },
+    {
+      "id": "e2",
+      "type": "burial",
+      "jurisdiction": "parish",
+      "box": {
+        "page": 1,
+        "x0": 80,
+        "y0": 924,
+        "x1": 1510,
+        "y1": 1358
+      },
+      "line_ids": [
+        "l13",
+        "l14",
+        "l15",
+        "l16",
+        "l17",
+        "l18",
+        "l19"
+      ],
+      "margin_note": {
+        "as_written": "Manoel Ferr.a",
+        "value": "Manuel Ferreira",
+        "box": {
+          "page": 1,
+          "x0": 90,
+          "y0": 935,
+          "x1": 318,
+          "y1": 978
+        },
+        "confidence": 0.95,
+        "legibility": "clear",
+        "note": null
+      },
+      "date": {
+        "as_written": "dous dias do mez de Abril do dito anno de mil oitocentos e quarenta e sete",
+        "value": "1847-04-02",
+        "box": {
+          "page": 1,
+          "x0": 380,
+          "y0": 934,
+          "x1": 1392,
+          "y1": 1047
+        },
+        "confidence": 0.95,
+        "legibility": "clear",
+        "note": null
+      },
+      "other_dates": [
+        {
+          "kind": "death",
+          "field": {
+            "as_written": "no dia antecedente",
+            "value": "1847-04-01",
+            "box": {
+              "page": 1,
+              "x0": 1167,
+              "y0": 1120,
+              "x1": 1468,
+              "y1": 1170
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": "The day before the burial."
+          }
+        }
+      ],
+      "place": {
+        "as_written": "S. Pedro de Rates",
+        "value": "São Pedro de Rates",
+        "box": {
+          "page": 1,
+          "x0": 929,
+          "y0": 100,
+          "x1": 1244,
+          "y1": 151
+        },
+        "confidence": 0.95,
+        "legibility": "clear",
+        "note": "From the register heading ('desta Igreja')."
+      },
+      "people": [
+        {
+          "id": "e2.p1",
+          "roles": [
+            "subject"
+          ],
+          "name": {
+            "as_written": "Manoel Ferreira",
+            "value": "Manuel Ferreira",
+            "box": {
+              "page": 1,
+              "x0": 1171,
+              "y0": 997,
+              "x1": 1446,
+              "y1": 1047
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Manuel",
+          "surnames": "Ferreira",
+          "sex": "male",
+          "is_real_person": true,
+          "age": {
+            "as_written": "setenta e oito annos",
+            "value": "78",
+            "box": {
+              "page": 1,
+              "x0": 1010,
+              "y0": 1060,
+              "x1": 1327,
+              "y1": 1107
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "marital_status": {
+            "as_written": "viuvo",
+            "value": "widower",
+            "box": {
+              "page": 1,
+              "x0": 380,
+              "y0": 1059,
+              "x1": 467,
+              "y1": 1105
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "occupation": null,
+          "residence": {
+            "as_written": "Gestrins",
+            "value": "Gestrins, São Pedro de Rates",
+            "box": {
+              "page": 1,
+              "x0": 577,
+              "y0": 1123,
+              "x1": 709,
+              "y1": 1170
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "origin": null,
+          "other_facts": [],
+          "relations": []
+        },
+        {
+          "id": "e2.p2",
+          "roles": [
+            "former_spouse"
+          ],
+          "name": {
+            "as_written": "Maria Joaquina",
+            "value": "Maria Joaquina",
+            "box": {
+              "page": 1,
+              "x0": 525,
+              "y0": 1059,
+              "x1": 798,
+              "y1": 1108
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Maria",
+          "surnames": "Joaquina",
+          "sex": "female",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [
+            {
+              "key": "deceased",
+              "field": {
+                "as_written": "viuvo de",
+                "value": "deceased before 1847-04-02",
+                "box": {
+                  "page": 1,
+                  "x0": 380,
+                  "y0": 1059,
+                  "x1": 467,
+                  "y1": 1105
+                },
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ],
+          "relations": [
+            {
+              "type": "former_spouse_of",
+              "to": "e2.p1",
+              "evidence": {
+                "as_written": "viuvo de",
+                "value": null,
+                "box": null,
+                "confidence": 0.95,
+                "legibility": "clear",
+                "note": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "e2.p3",
+          "roles": [
+            "officiant"
+          ],
+          "name": {
+            "as_written": "Fr.co Ant.o Lopes",
+            "value": "Francisco António Lopes",
+            "box": {
+              "page": 1,
+              "x0": 1210,
+              "y0": 1308,
+              "x1": 1500,
+              "y1": 1356
+            },
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          },
+          "given_names": "Francisco",
+          "surnames": "António Lopes",
+          "sex": "male",
+          "is_real_person": true,
+          "age": null,
+          "marital_status": null,
+          "occupation": null,
+          "residence": null,
+          "origin": null,
+          "other_facts": [],
+          "relations": []
+        }
+      ],
+      "facts": [
+        {
+          "key": "sacraments",
+          "field": {
+            "as_written": "com todos os Sacramentos",
+            "value": "received all the sacraments",
+            "box": null,
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          }
+        },
+        {
+          "key": "testament",
+          "field": {
+            "as_written": "não fez testamento",
+            "value": "no will",
+            "box": null,
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          }
+        },
+        {
+          "key": "burial_place",
+          "field": {
+            "as_written": "dentro desta Igreja",
+            "value": "inside the parish church",
+            "box": null,
+            "confidence": 0.95,
+            "legibility": "clear",
+            "note": null
+          }
+        }
+      ],
+      "summary_en": "Burial of Manoel Ferreira, widower of Maria Joaquina, aged 78, of Gestrins, on 2 April 1847; he died the day before.",
+      "confidence": 0.9
+    }
+  ],
+  "reader_notes": [
+    "The godmother's surname is covered by an ink blot."
+  ]
+}

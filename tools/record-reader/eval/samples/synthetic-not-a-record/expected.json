@@ -1,0 +1,19 @@
+{
+  "id": "synthetic-not-a-record",
+  "meta": {
+    "origin": "synthetic",
+    "description": "A drawing of a house; not a record.",
+    "record_types": [],
+    "century": null,
+    "year": null,
+    "language": null,
+    "script": "none",
+    "jurisdiction": null
+  },
+  "files": [
+    "page-1.png"
+  ],
+  "expect_record": false,
+  "entries": [],
+  "illegible": []
+}

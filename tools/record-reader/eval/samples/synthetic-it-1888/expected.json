@@ -1,0 +1,124 @@
+{
+  "id": "synthetic-it-1888",
+  "meta": {
+    "origin": "synthetic",
+    "description": "Rendered typewritten Italian civil birth registration (atto di nascita), Padula 1888.",
+    "record_types": [
+      "birth"
+    ],
+    "century": 19,
+    "year": 1888,
+    "language": "it",
+    "script": "typewritten",
+    "jurisdiction": "civil"
+  },
+  "files": [
+    "page-1.png"
+  ],
+  "expect_record": true,
+  "entries": [
+    {
+      "type": "birth",
+      "date": "1888-03-13",
+      "place": "Padula",
+      "other_dates": [
+        {
+          "kind": "registration",
+          "date": "1888-03-15"
+        }
+      ],
+      "people": [
+        {
+          "roles": [
+            "subject"
+          ],
+          "name": "Michele",
+          "sex": "male",
+          "box": {
+            "page": 1,
+            "x": 0.1941,
+            "y": 0.3678,
+            "w": 0.084,
+            "h": 0.0198
+          }
+        },
+        {
+          "roles": [
+            "father",
+            "declarant"
+          ],
+          "name": "Vincenzo Cardinale",
+          "sex": "male",
+          "age": "32",
+          "occupation": "contadino",
+          "box": {
+            "page": 1,
+            "x": 0.1941,
+            "y": 0.1836,
+            "w": 0.7201,
+            "h": 0.0463
+          }
+        },
+        {
+          "roles": [
+            "mother"
+          ],
+          "name": "Rosa Tancredi",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.5542,
+            "y": 0.2889,
+            "w": 0.156,
+            "h": 0.0198
+          }
+        },
+        {
+          "roles": [
+            "witness"
+          ],
+          "name": "Luigi Morello",
+          "sex": "male",
+          "age": "45",
+          "box": {
+            "page": 1,
+            "x": 0.3861,
+            "y": 0.3943,
+            "w": 0.156,
+            "h": 0.02
+          }
+        },
+        {
+          "roles": [
+            "witness"
+          ],
+          "name": "Pasquale Greco",
+          "sex": "male",
+          "age": "50",
+          "box": {
+            "page": 1,
+            "x": 0.3501,
+            "y": 0.4206,
+            "w": 0.168,
+            "h": 0.0199
+          }
+        },
+        {
+          "roles": [
+            "registrar"
+          ],
+          "name": "Giuseppe Rinaldi",
+          "sex": "male",
+          "box": {
+            "page": 1,
+            "x": 0.4702,
+            "y": 0.1568,
+            "w": 0.192,
+            "h": 0.0201
+          }
+        }
+      ]
+    }
+  ],
+  "illegible": []
+}

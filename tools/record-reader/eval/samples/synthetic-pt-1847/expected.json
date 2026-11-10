@@ -1,0 +1,247 @@
+{
+  "id": "synthetic-pt-1847",
+  "meta": {
+    "origin": "synthetic",
+    "description": "Rendered handwriting-style page: a baptism and a burial from a Portuguese parish register, 1847, with an ink blot over the godmother's surname.",
+    "record_types": [
+      "baptism",
+      "burial"
+    ],
+    "century": 19,
+    "year": 1847,
+    "language": "pt",
+    "script": "handwritten",
+    "jurisdiction": "parish"
+  },
+  "files": [
+    "page-1.png"
+  ],
+  "expect_record": true,
+  "entries": [
+    {
+      "type": "baptism",
+      "date": "1847-03-23",
+      "place": "São Pedro de Rates",
+      "other_dates": [
+        {
+          "kind": "birth",
+          "date": "1847-03-19"
+        }
+      ],
+      "people": [
+        {
+          "roles": [
+            "subject"
+          ],
+          "name": "Maria",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.6239,
+            "y": 0.149,
+            "w": 0.0682,
+            "h": 0.0211
+          }
+        },
+        {
+          "roles": [
+            "father"
+          ],
+          "name": "Joaquim Ferreira",
+          "sex": "male",
+          "occupation": "lavrador",
+          "box": {
+            "page": 1,
+            "x": 0.6335,
+            "y": 0.1764,
+            "w": 0.1651,
+            "h": 0.0214
+          }
+        },
+        {
+          "roles": [
+            "mother"
+          ],
+          "name": "Anna Rosa",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.3896,
+            "y": 0.2055,
+            "w": 0.1183,
+            "h": 0.0218
+          }
+        },
+        {
+          "roles": [
+            "paternal_grandfather"
+          ],
+          "name": "Manoel Ferreira",
+          "sex": "male",
+          "box": {
+            "page": 1,
+            "x": 0.6221,
+            "y": 0.2339,
+            "w": 0.1716,
+            "h": 0.0218
+          }
+        },
+        {
+          "roles": [
+            "paternal_grandmother"
+          ],
+          "name": "Maria Joaquina",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.2375,
+            "y": 0.2335,
+            "w": 0.6767,
+            "h": 0.0499
+          }
+        },
+        {
+          "roles": [
+            "maternal_grandfather"
+          ],
+          "name": "Antonio Gomes",
+          "sex": "male",
+          "box": {
+            "page": 1,
+            "x": 0.4843,
+            "y": 0.2611,
+            "w": 0.1289,
+            "h": 0.0212
+          }
+        },
+        {
+          "roles": [
+            "maternal_grandmother"
+          ],
+          "name": "Thereza de Jesus",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.6655,
+            "y": 0.2618,
+            "w": 0.1684,
+            "h": 0.0222
+          }
+        },
+        {
+          "roles": [
+            "godfather"
+          ],
+          "name": "José Pereira",
+          "sex": "male",
+          "marital_status": "solteiro",
+          "box": {
+            "page": 1,
+            "x": 0.5487,
+            "y": 0.2891,
+            "w": 0.1239,
+            "h": 0.0223
+          }
+        },
+        {
+          "roles": [
+            "godmother"
+          ],
+          "name": "Anna",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.7847,
+            "y": 0.2896,
+            "w": 0.059,
+            "h": 0.0211
+          },
+          "legibility": "partly_illegible"
+        },
+        {
+          "roles": [
+            "officiant"
+          ],
+          "name": "Francisco Antonio Lopes",
+          "sex": "male",
+          "box": {
+            "page": 1,
+            "x": 0.7563,
+            "y": 0.3737,
+            "w": 0.1812,
+            "h": 0.0227
+          }
+        }
+      ]
+    },
+    {
+      "type": "burial",
+      "date": "1847-04-02",
+      "place": "São Pedro de Rates",
+      "other_dates": [
+        {
+          "kind": "death",
+          "date": "1847-04-01"
+        }
+      ],
+      "people": [
+        {
+          "roles": [
+            "subject"
+          ],
+          "name": "Manoel Ferreira",
+          "sex": "male",
+          "age": "78",
+          "marital_status": "viuvo",
+          "box": {
+            "page": 1,
+            "x": 0.7321,
+            "y": 0.4531,
+            "w": 0.1716,
+            "h": 0.0227
+          }
+        },
+        {
+          "roles": [
+            "former_spouse"
+          ],
+          "name": "Maria Joaquina",
+          "sex": "female",
+          "box": {
+            "page": 1,
+            "x": 0.3282,
+            "y": 0.4814,
+            "w": 0.1706,
+            "h": 0.0221
+          }
+        },
+        {
+          "roles": [
+            "officiant"
+          ],
+          "name": "Francisco Antonio Lopes",
+          "sex": "male",
+          "box": {
+            "page": 1,
+            "x": 0.7563,
+            "y": 0.5945,
+            "w": 0.1812,
+            "h": 0.0221
+          }
+        }
+      ]
+    }
+  ],
+  "illegible": [
+    {
+      "box": {
+        "page": 1,
+        "x": 0.2375,
+        "y": 0.3193,
+        "w": 0.0902,
+        "h": 0.0211
+      },
+      "note": "Ink blot over the godmother's surname (it reads 'Custodia' underneath)."
+    }
+  ]
+}
