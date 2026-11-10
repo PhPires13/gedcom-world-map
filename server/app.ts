@@ -24,6 +24,8 @@
 //   GET    /api/trees/:t/relationships/:r/evidence             claims, sources, confidence explanation
 //   PATCH  /api/trees/:t/relationships/:r {argument}
 //   POST   /api/trees/:t/relationships/:r/recompute
+//
+// Commerce (orders, checkout, webhooks, print files, operations): see server/commerce/routes.ts.
 
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -41,6 +43,7 @@ import type {
   Stance,
 } from '../src/model';
 import { authenticate, type AuthEnv } from './auth';
+import type { Commerce } from './commerce/routes';
 import type { Db } from './db';
 import { badRequest, HttpError } from './errors';
 import * as repo from './repo';
@@ -54,6 +57,8 @@ export interface AppDeps {
   now?: () => Date;
   /** Origins allowed to call the API from a browser. Defaults to any localhost port (dev). */
   corsOrigin?: (origin: string) => string | null;
+  /** The shop (createCommerce); without it the commerce routes are absent. */
+  commerce?: Commerce;
 }
 
 const CLAIM_KINDS: readonly ClaimKind[] = [
@@ -132,7 +137,7 @@ async function readFile(v: unknown, allowed?: readonly string[]): Promise<repo.U
   return { name: v.name || 'document', type, bytes: new Uint8Array(await v.arrayBuffer()) };
 }
 
-export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin }: AppDeps) {
+export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce }: AppDeps) {
   const app = new Hono<AuthEnv>();
   const year = () => now().getUTCFullYear();
 
@@ -146,7 +151,10 @@ export function createApp({ db, storage, now = () => new Date(), corsOrigin = lo
   app.use('/api/*', cors({ origin: (o) => corsOrigin(o), allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] }));
   app.use('/api/*', bodyLimit({ maxSize: repo.MAX_UPLOAD_BYTES + 1024 * 1024, onError: (c) => c.json({ error: 'Request is too large' }, 413) }));
   app.get('/api/health', (c) => c.json({ ok: true }));
+  // Webhooks and signed file links prove themselves; they must not need a login.
+  commerce?.mountPublic(app);
   app.use('/api/*', authenticate);
+  commerce?.mountAuthed(app);
 
   app.get('/api/me', (c) => c.json(c.var.user));
 
