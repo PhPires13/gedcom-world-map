@@ -17,6 +17,7 @@ routes between birthplaces, flag roundels, a cartouche and a legend. Open `print
 | `layouts.ts`, `planar.ts` | The storybook and medallion layouts, on map geometry flattened to the sheet. |
 | `borders.ts` | Decorative borders and paper finishes. |
 | `curvelabel.ts` | Surnames and years lettered along the routes. |
+| `simplify.ts` | Essential routes: the few main moves, merged and ranked (pure; reusable by the map). |
 | `countries.ts` | Which country a place is in (Natural Earth polygons, then the place name) and country names in pt/en. |
 | `style.ts`, `styles/*.json` | Styles as data, and their validation. |
 | `designer.ts`, `assets-browser.ts` | The designer page and the browser loaders for map data, flags and fonts. |
@@ -42,6 +43,15 @@ the geographic map in the style's own frame).
   art deco, and a gallery margin that sets the title under the map instead of in a cartouche.
 - **Finishes** (`finishes/*.json`): clean sheet, soft vignette, aged edges (browned edges and
   foxing), deckled edge (torn paper on a mount) and heirloom (all of them).
+
+**Routes: essential (default) or detailed.** Essential (`simplify.ts`, `essentialRoutes`) merges all
+moves between two regions (countries; districts on a close-up of mostly one country; medallions)
+into one arrow, ranks them by the people who moved (direct-line movers count double), keeps 5 on
+A3, 7 on A2 and 8 on A1 (`options.maxRoutes` overrides), prefers routes that don't cross, and drops
+moves within a country (a couple may stay inside a medallion). Each arrow has one label: the
+direct line's surname where it took that route, else the main one or two, with the years.
+Medallions are one per country. `options.routes: 'detailed'` draws every move, as before.
+`buildPrintData` now also returns `directLine` (the centred person and their ancestors).
 
 Other print options: `flagScale` (roundel size), `show.flags: 'both'` (flags at both ends of each
 move), `show.surnames` (the family's surname lettered along each route; on by default).
