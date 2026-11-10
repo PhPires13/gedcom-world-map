@@ -24,7 +24,7 @@
 
 import type { Context, Hono } from 'hono';
 import { formatMoney, priceList, productById, quote, QuoteError, type Catalogue, type Currency } from '../../src/commerce/catalogue';
-import { DesignError, parseDesign } from '../../src/commerce/design';
+import { DesignError, parseDesign, type DesignOptionIds } from '../../src/commerce/design';
 import type { Address, OrderDetail } from '../../src/commerce/order';
 import { allowedNext, nextManualStep, ORDER_STATUSES, STATUS_LABELS } from '../../src/commerce/status';
 import type { AuthEnv, User } from '../auth';
@@ -49,8 +49,8 @@ export interface CommerceDeps {
   fulfilment: Partial<Record<'prodigi' | 'manual', FulfilmentAdapter>>;
   links: LinkSigner;
   render: RenderFiles;
-  /** Style ids the server can render (for design validation). */
-  styleIds: readonly string[];
+  /** The print options the server can render (styles, layouts, borders, finishes), for design validation. */
+  designOptions: DesignOptionIds;
   /** The web app's address, for Stripe's return pages (e.g. http://localhost:5173). */
   appUrl: string;
   /** Emails allowed on the operations routes. */
@@ -238,7 +238,7 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       let design;
       try {
         q = quote(catalogue, { productId: str(b.productId, 'productId', 50), size: str(b.size, 'size', 5), country, currency: optStr(b.currency, 'currency', 3) });
-        design = parseDesign(b.design, deps.styleIds);
+        design = parseDesign(b.design, deps.designOptions);
       } catch (e) {
         if (e instanceof QuoteError || e instanceof DesignError) throw badRequest(e.message);
         throw e;

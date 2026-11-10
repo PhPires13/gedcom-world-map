@@ -8,29 +8,54 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import * as fontkit from 'fontkit';
 import type { Topology } from 'topojson-specification';
+import type { DesignOptionIds } from '../../src/commerce/design';
+import { validateBorder, validateFinish, type BorderSpec, type FinishSpec } from '../../src/print/borders';
+import { validateLayout, type LayoutSpec } from '../../src/print/layouts';
 import { fontFaceCss, fontKey, styleFonts, validateStyle, type PrintStyle } from '../../src/print/style';
 import type { FontRef, MeasureText } from '../../src/print/types';
 import { woffToSfnt } from './woff';
 
 const require = createRequire(import.meta.url);
-const STYLES_DIR = fileURLToPath(new URL('../../src/print/styles/', import.meta.url));
+const PRINT_DIR = fileURLToPath(new URL('../../src/print/', import.meta.url));
 
-let styles: PrintStyle[] | undefined;
-/** The print styles (src/print/styles/*.json), validated; antique first as in the designer. */
-export function loadStyles(): PrintStyle[] {
-  if (!styles) {
-    styles = readdirSync(STYLES_DIR)
-      .filter((f) => f.endsWith('.json'))
-      .map((f) => ({ f, s: JSON.parse(readFileSync(`${STYLES_DIR}/${f}`, 'utf8')) as PrintStyle }))
-      .filter(({ f, s }) => {
-        const errors = validateStyle(s);
-        if (errors.length) console.error(`Print style ${f} is invalid:\n  ${errors.join('\n  ')}`);
-        return !errors.length;
-      })
-      .map(({ s }) => s)
-      .sort((a, b) => (a.id === 'antique' ? -1 : b.id === 'antique' ? 1 : a.name.localeCompare(b.name)));
+/** Every JSON file in src/print/<dir>/, validated like the designer does, `first` first. */
+function loadJsonDir<T extends { id: string; name: string }>(dir: string, validate: (x: unknown) => string[], first: string): T[] {
+  return readdirSync(`${PRINT_DIR}${dir}`)
+    .filter((f) => f.endsWith('.json'))
+    .sort()
+    .map((f) => ({ f, s: JSON.parse(readFileSync(`${PRINT_DIR}${dir}/${f}`, 'utf8')) as T }))
+    .filter(({ f, s }) => {
+      const errors = validate(s);
+      if (errors.length) console.error(`Print ${dir} ${f} is invalid:\n  ${errors.join('\n  ')}`);
+      return !errors.length;
+    })
+    .map(({ s }) => s)
+    .sort((a, b) => (a.id === first ? -1 : b.id === first ? 1 : 0));
+}
+
+let cache: { styles: PrintStyle[]; layouts: LayoutSpec[]; borders: BorderSpec[]; finishes: FinishSpec[] } | undefined;
+/** The designer's options, read from the same JSON files (src/print/{styles,layouts,borders,finishes}). */
+export function loadPrintOptions() {
+  if (!cache) {
+    const layoutOrder = ['accurate', 'closeup', 'storybook', 'vignette'];
+    cache = {
+      styles: loadJsonDir<PrintStyle>('styles', validateStyle, 'antique'),
+      layouts: loadJsonDir<LayoutSpec>('layouts', validateLayout, 'accurate').sort(
+        (a, b) => (layoutOrder.indexOf(a.id) + 1 || 99) - (layoutOrder.indexOf(b.id) + 1 || 99),
+      ),
+      borders: loadJsonDir<BorderSpec>('borders', validateBorder, 'engraved'),
+      finishes: loadJsonDir<FinishSpec>('finishes', validateFinish, 'clean'),
+    };
   }
-  return styles;
+  return cache;
+}
+
+export const loadStyles = () => loadPrintOptions().styles;
+
+/** Ids a design may use, for `parseDesign`. */
+export function designOptionIds(): DesignOptionIds {
+  const o = loadPrintOptions();
+  return { styles: o.styles.map((s) => s.id), layouts: o.layouts.map((l) => l.id), borders: o.borders.map((b) => b.id), finishes: o.finishes.map((f) => f.id) };
 }
 
 const topologies = new Map<string, Topology>();

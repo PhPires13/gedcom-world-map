@@ -17,7 +17,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseCatalogue } from '../../src/commerce/catalogue';
-import { loadStyles } from '../print/assets';
+import { designOptionIds } from '../print/assets';
 import { renderInWorker } from '../print/worker';
 import type { Db } from '../db';
 import type { DocumentStorage } from '../storage';
@@ -74,7 +74,7 @@ export function commerceFromEnv(env: NodeJS.ProcessEnv, opts: { db: Db; storage:
     fulfilment,
     links: new LinkSigner(linkSecret(env, opts.dataDir), apiUrl),
     render: renderFiles,
-    styleIds: loadStyles().map((s) => s.id),
+    designOptions: designOptionIds(),
     appUrl: (env.APP_URL || 'http://localhost:5173').replace(/\/$/, ''),
     operators: (env.OPERATOR_EMAILS || 'dev@localhost').split(',').map((s) => s.trim()).filter(Boolean),
     devRoutes,

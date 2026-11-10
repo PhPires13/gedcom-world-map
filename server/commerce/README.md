@@ -48,7 +48,8 @@ page follows it; `http://localhost:5173/ops.html` is the operations page (the de
 operator; set `OPERATOR_EMAILS` once there are accounts).
 
 `npx tsx server/scripts/render-sample.ts A2 antique out/` renders a print file from
-`public/sample.ged` without the API (about 25 s for A2).
+`public/sample.ged` without the API (about 25 s for A2); `LAYOUT=storybook BORDER=laurel
+FINISH=aged FLAG_SCALE=1.3` choose the other options.
 
 ## Stripe in test mode
 
@@ -112,6 +113,16 @@ thread (A2 ≈ 25 s, A1 ≈ 50 s of CPU):
 Files are big because they are lossless: an A2 PNG is ~50 MB (PDF ~45 MB), an A1 ~100 MB. Fonts come from the
 `@fontsource` WOFF files (converted with `woff.ts`; resvg's native build only loads font files,
 so they are cached as TTF in the OS temp folder).
+
+**Design options:** the order stores every choice the designer offers (`src/commerce/design.ts`):
+style, layout (geographic, close-up, storybook, medallions), decorative border, paper finish, flag
+choice and size, surnames on the routes, and the rest. The server checks the ids against the same
+JSON files the designer lists (`src/print/{styles,layouts,borders,finishes}/*.json`, read by
+`server/print/assets.ts`) and draws with exactly those options, picking map detail with
+`topologyDetailFor()` (medallions use the 1:10m coastlines). `server/test/print-options.test.ts`
+checks that the server's drawing equals the designer's preview for storybook + laurel + aged and
+medallions + rope + deckled at A2. The order page, the operations list and the production sheet
+show the chosen style, layout, border and finish.
 
 **Privacy:** `preparePrint` runs `redactPerson` on every person itself, whatever it is given, so
 presumed-living and private people never reach a print. The pipeline also loads the tree with

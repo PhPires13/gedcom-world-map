@@ -38,7 +38,8 @@ export function textOnlySvg(svg: string): string {
     .replace(new RegExp(`<${GRAPHICS}\\b[^>]*/>`, 'g'), '')
     .replace(new RegExp(`<(${GRAPHICS})\\b[^>]*>[\\s\\S]*?</\\1>`, 'g'), '')
     .replace(/\s(filter|mask)="[^"]*"/g, '')
-    .replace(/<text\b[^>]*>/g, (tag) => {
+    // Fonts can sit on the <text> or on its <tspan>s (labels along a route's <textPath>).
+    .replace(/<(?:text|tspan)\b[^>]*>/g, (tag) => {
       const attr = (name: string) => new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
       const family = (attr('font-family') ?? '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
       const key = fontKey({ family, weight: Number(attr('font-weight') ?? 400), style: attr('font-style') === 'italic' ? 'italic' : 'normal' });

@@ -2,7 +2,10 @@
 // take: advance a manual (Brazil) order, open its production sheet, retry, ask Prodigi, refund.
 
 import './shop.css';
+import { BORDERS, FINISHES, LAYOUTS } from '../print/catalog';
+import { STYLES } from '../print/styles';
 import { formatMoney } from './catalogue';
+import { describeDesign } from './design';
 import { shop, type OpsOrder } from './client';
 import { ORDER_STATUSES, STATUS_LABELS } from './status';
 
@@ -16,6 +19,10 @@ const status = (msg: string, error = false) => {
 $('#filter').innerHTML += ORDER_STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s].en}</option>`).join('');
 
 let rows: OpsOrder[] = [];
+const design = (o: OpsOrder) => {
+  const d = describeDesign(o.design, { styles: STYLES, layouts: LAYOUTS, borders: BORDERS, finishes: FINISHES });
+  return `${d.style} · ${d.layout} · ${d.border} · ${d.finish}`;
+};
 
 function row(o: OpsOrder) {
   const a = o.shippingAddress;
@@ -30,7 +37,7 @@ function row(o: OpsOrder) {
   const cls = o.status === 'delivered' ? 'ok' : o.status === 'cancelled' || o.status === 'refunded' ? 'bad' : o.status === 'created' ? 'warn' : '';
   return `<tr>
     <td><b>${esc(o.number)}</b><div class="sub">${new Date(o.createdAt).toLocaleString()}</div></td>
-    <td>${esc(o.productId)} ${o.size}${o.frameColour ? `<div class="sub">${esc(o.frameColour)}</div>` : ''}</td>
+    <td>${esc(o.productId)} ${o.size}${o.frameColour ? `<div class="sub">${esc(o.frameColour)} frame</div>` : ''}<div class="sub">${esc(design(o))}</div></td>
     <td>${esc(o.market)} · ${esc(o.fulfilment ?? 'download')}${o.fulfilmentRef ? `<div class="sub">${esc(o.fulfilmentRef)} (${esc(o.fulfilmentStatus ?? '')})</div>` : o.fulfilmentStatus ? `<div class="sub">${esc(o.fulfilmentStatus)}</div>` : ''}</td>
     <td><span class="badge ${cls}">${STATUS_LABELS[o.status].en}</span>${o.fileError ? `<div class="sub error">${esc(o.fileError)}</div>` : ''}</td>
     <td>${formatMoney(o.totalAmount, o.currency)}${o.refundedAmount ? `<div class="sub">refunded ${formatMoney(o.refundedAmount, o.currency)}</div>` : ''}</td>

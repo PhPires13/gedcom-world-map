@@ -3,7 +3,10 @@
 // delivery progress (prints).
 
 import './shop.css';
+import { BORDERS, FINISHES, LAYOUTS } from '../print/catalog';
+import { STYLES } from '../print/styles';
 import { formatMoney } from './catalogue';
+import { describeDesign } from './design';
 import { shop } from './client';
 import type { OrderDetail } from './order';
 import { STATUS_LABELS, type OrderStatus } from './status';
@@ -50,6 +53,7 @@ function render(o: OrderDetail) {
     ? `<h2>Tracking</h2><ul>${o.tracking.map((t) => `<li>${esc(t.carrier ?? '')} ${t.url ? `<a href="${esc(t.url)}">${esc(t.number ?? t.url)}</a>` : esc(t.number ?? '')}</li>`).join('')}</ul>`
     : '';
   const a = o.shippingAddress;
+  const d = describeDesign(o.design, { styles: STYLES, layouts: LAYOUTS, borders: BORDERS, finishes: FINISHES });
   box.innerHTML = `
     <div class="card">
       <div class="row" style="justify-content:space-between"><h1>Order ${esc(o.number)}</h1>${badge(o.status)}</div>
@@ -59,7 +63,9 @@ function render(o: OrderDetail) {
       ${downloads}${tracking}
       <h2>Details</h2>
       <dl>
-        <dt>Map</dt><dd>${esc(o.design.title || 'Heritage map')} · ${esc(o.design.styleId)} style</dd>
+        <dt>Map</dt><dd>${esc(o.design.title || 'Heritage map')}</dd>
+        <dt>Design</dt><dd>${esc(d.style)} style · ${esc(d.layout)} layout · ${esc(d.border)} border · ${esc(d.finish)} finish</dd>
+        <dt>Flags</dt><dd>${esc(d.flags)}${d.surnames ? ' · surnames on the routes' : ''}</dd>
         <dt>Price</dt><dd>${formatMoney(o.unitAmount, o.currency)}${o.shippingAmount ? ` + ${formatMoney(o.shippingAmount, o.currency)} shipping` : ''}${o.refundedAmount ? ` · refunded ${formatMoney(o.refundedAmount, o.currency)}` : ''}</dd>
         <dt>Email</dt><dd>${esc(o.email)}</dd>
         ${a ? `<dt>Deliver to</dt><dd>${esc(a.name)}, ${esc(a.line1)}${a.line2 ? `, ${esc(a.line2)}` : ''}, ${esc(a.postalCode)} ${esc(a.city)}, ${esc(a.country)}</dd>` : ''}

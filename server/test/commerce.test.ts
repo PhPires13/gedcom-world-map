@@ -5,6 +5,7 @@
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { DesignSpec } from '../../src/commerce/design';
 import type { OrderDetail } from '../../src/commerce/order';
 import type { TreeDetail, TreeSummary } from '../../src/model';
 import { createApp } from '../app';
@@ -18,6 +19,7 @@ import { stripePayments } from '../commerce/payments';
 import type { RenderFiles } from '../commerce/pipeline';
 import { createCommerce, type CommerceDeps } from '../commerce/routes';
 import { loadCatalogue } from '../commerce/setup';
+import { designOptionIds } from '../print/assets';
 import { migrate, openPglite, type Db } from '../db';
 import { MemoryStorage } from '../storage';
 
@@ -37,6 +39,7 @@ let app: ReturnType<typeof createApp>;
 let fake: ReturnType<typeof fakeStripe>;
 let tasks: Promise<void>[];
 let rendered: TreeDetail[];
+let renderedDesigns: DesignSpec[];
 let prodigiCalls: { method: string; url: string; headers: Record<string, string>; body?: Record<string, unknown> }[];
 
 const settle = async () => {
@@ -44,8 +47,9 @@ const settle = async () => {
 };
 
 /** A fast stand-in for the real renderer that records what it was given. */
-const fakeRender: RenderFiles = async (detail) => {
+const fakeRender: RenderFiles = async (detail, design) => {
   rendered.push(detail as TreeDetail);
+  renderedDesigns.push(design);
   return { png: new Uint8Array([137, 80, 78, 71]), pdf: new TextEncoder().encode('%PDF-1.7 test'), svg: '<svg/>', widthPx: 7016, heightPx: 4961, peopleOnMap: 21 };
 };
 
@@ -69,7 +73,7 @@ function build(over: Partial<CommerceDeps> = {}) {
     fulfilment: { manual: manualFulfilment, prodigi: prodigiFulfilment({ apiKey: 'sandbox_test', webhookSecret: PRODIGI_SECRET, fetch: prodigiFetch }) },
     links: new LinkSigner('a-long-enough-test-secret', API),
     render: fakeRender,
-    styleIds: ['antique', 'nautical', 'modern'],
+    designOptions: designOptionIds(),
     appUrl: 'http://app.test',
     operators: ['dev@localhost'],
     background: (t) => void tasks.push(t()),
@@ -89,6 +93,7 @@ beforeEach(() => {
   storage = new MemoryStorage();
   tasks = [];
   rendered = [];
+  renderedDesigns = [];
   prodigiCalls = [];
   build();
 });
@@ -173,6 +178,17 @@ describe('creating orders', () => {
     await call('POST', '/api/orders', { ...base, treeId: '00000000-0000-4000-8000-000000000099', shippingAddress: BR_ADDRESS }, 404);
   });
 
+  it('keeps every design option and renders the file with them', async () => {
+    const design = { styleId: 'nautical', layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, show: { surnames: false, flags: 'both' }, places: PLACES };
+    const o = await newOrder({ design });
+    expect(o.design).toMatchObject({ styleId: 'nautical', layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, show: { surnames: false, flags: 'both' } });
+    await checkoutAndPay(o.id);
+    expect(renderedDesigns.at(-1)).toMatchObject({ layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 1.6, show: { surnames: false } });
+    const t = await sampleTree();
+    for (const bad of [{ layoutId: 'globe' }, { borderId: 'baroque' }, { finishId: 'glossy' }, { flagScale: 9 }])
+      await call('POST', '/api/orders', { treeId: t, productId: 'digital', size: 'A1', country: 'PT', email: 'a@b.co', design: bad }, 400);
+  });
+
   it('keeps orders private to their owner', async () => {
     await db.query("insert into users (id, email, display_name) values ('00000000-0000-4000-8000-000000000002', 'other@example.com', 'Other') on conflict do nothing");
     const [{ id: otherTree }] = await db.query<{ id: string }>("insert into trees (id, owner_id, name) values (gen_random_uuid(), '00000000-0000-4000-8000-000000000002', 'Theirs') returning id");
@@ -181,7 +197,7 @@ describe('creating orders', () => {
       treeId: otherTree,
       quote: { productId: 'digital', kind: 'digital', size: 'A1', currency: 'EUR', market: 'EU', unitAmount: 1490, shippingAmount: 0, totalAmount: 1490 },
       country: 'PT',
-      design: { styleId: 'antique', orientation: 'landscape', area: 'family', lang: 'pt', title: '', subtitle: '', dedication: '', show: { dates: true, placeNames: true, flags: 'origins', countryNames: true, oceanNames: true, compass: true, scaleBar: true, legend: true, graticule: true }, selection: { branch: 'all' }, places: {} },
+      design: { styleId: 'antique', orientation: 'landscape', area: 'family', lang: 'pt', title: '', subtitle: '', dedication: '', layoutId: 'accurate', flagScale: 1, show: { dates: true, placeNames: true, flags: 'origins', countryNames: true, oceanNames: true, compass: true, scaleBar: true, legend: true, graticule: true, surnames: true }, selection: { branch: 'all' }, places: {} },
       email: 'other@example.com',
     });
     await call('GET', `/api/orders/${theirs.id}`, undefined, 404);

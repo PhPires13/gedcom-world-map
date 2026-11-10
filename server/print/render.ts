@@ -12,11 +12,11 @@ import { computeGenerations } from '../../src/generations';
 import { redactPerson, toGedcomTree, type TreeDetail } from '../../src/model';
 import { CountryLocator } from '../../src/print/countries';
 import { buildPrintData, defaultRoot, type Located } from '../../src/print/data';
-import { inset, kmPerMm, makeProjection, mmToPx, pageSize, sizeScale, topologyDetail } from '../../src/print/geo';
+import { mmToPx, pageSize } from '../../src/print/geo';
 import { setPngDpi } from '../../src/print/png';
-import { defaultTexts, renderHeritageMap } from '../../src/print/render';
+import { defaultTexts, renderHeritageMap, topologyDetailFor } from '../../src/print/render';
 import type { PaperSize, PrintAssets, PrintData, PrintOptions } from '../../src/print/types';
-import { embeddedFontCss, fontMeasure, loadFlags, loadStyleFonts, loadStyles, loadTopology, type LoadedFont } from './assets';
+import { embeddedFontCss, fontMeasure, loadFlags, loadPrintOptions, loadStyleFonts, loadTopology, type LoadedFont } from './assets';
 import { buildPdf, hideTextFill } from './pdf';
 
 export const PRINT_DPI = 300;
@@ -53,9 +53,10 @@ export function preparePrint(detail: Pick<TreeDetail, 'people' | 'relationships'
   const located = locate(tree, design.places);
   const rootId = design.selection.rootId && tree.people.has(design.selection.rootId) ? design.selection.rootId : defaultRoot(tree, gens);
   const data = buildPrintData(tree, located, gens, { ...design.selection, rootId });
-  const styles = loadStyles();
-  const style = styles.find((s) => s.id === design.styleId) ?? styles[0];
+  const all = loadPrintOptions();
+  const style = all.styles.find((s) => s.id === design.styleId) ?? all.styles[0];
   const defaults = defaultTexts(data, design.lang, rootId);
+  // Every choice the designer offers, read from the same JSON files the designer uses.
   const options: PrintOptions = {
     style,
     paper,
@@ -66,14 +67,14 @@ export function preparePrint(detail: Pick<TreeDetail, 'people' | 'relationships'
     subtitle: design.subtitle || defaults.subtitle,
     dedication: design.dedication,
     show: design.show,
+    layout: all.layouts.find((l) => l.id === design.layoutId) ?? all.layouts[0],
+    border: design.borderId ? all.borders.find((b) => b.id === design.borderId) : undefined,
+    finish: design.finishId ? all.finishes.find((f) => f.id === design.finishId) : undefined,
+    flagScale: design.flagScale,
   };
 
-  // Same choices as the designer: map detail for the scale, flags of the countries on the map.
-  const { w, h } = pageSize(paper, options.orientation);
-  const k = sizeScale(paper);
-  const frame = inset({ x: 0, y: 0, w, h }, (style.frame.margin + style.frame.band) * k);
-  const kpm = kmPerMm(makeProjection(options.area, data.people, frame, style.map.projection), [w / 2, h / 2]);
-  const topology = loadTopology(topologyDetail(kpm));
+  // Same map detail as the designer (medallions need the 1:10m coastlines).
+  const topology = loadTopology(topologyDetailFor(data, options));
   const locator = new CountryLocator(topology);
   const codes = new Set(data.people.map((p) => locator.locate(p)).filter(Boolean));
   const fonts = loadStyleFonts(style);

@@ -2,7 +2,9 @@
 // a local print lab and framer, with everything they need and nothing they don't.
 
 import { formatMoney, type Product } from '../../src/commerce/catalogue';
+import { describeDesign } from '../../src/commerce/design';
 import { STATUS_LABELS } from '../../src/commerce/status';
+import { loadPrintOptions } from '../print/assets';
 import { PAPER_MM } from '../../src/print/geo';
 import type { OrderRow } from './orders';
 
@@ -13,6 +15,7 @@ export function productionSheet(o: OrderRow, product: Product | undefined, files
   const landscape = o.design.orientation === 'landscape';
   const a = o.shippingAddress;
   const row = (k: string, v: string) => (v ? `<tr><th>${esc(k)}</th><td>${v}</td></tr>` : '');
+  const d = describeDesign(o.design, loadPrintOptions());
   const px = o.files.widthPx ? `${o.files.widthPx} × ${o.files.heightPx} px (300 dpi)` : 'not made yet';
   return `<!doctype html>
 <html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -36,6 +39,7 @@ ${row('Produto · Product', esc(product?.name.pt ?? o.productId))}
 ${row('Formato · Size', `${esc(o.size)}: ${landscape ? `${longMm} × ${shortMm}` : `${shortMm} × ${longMm}`} mm, ${landscape ? 'paisagem (landscape)' : 'retrato (portrait)'}`)}
 ${row('Papel · Paper', esc(product?.material?.pt ?? ''))}
 ${row('Moldura · Frame', o.kind === 'framed' ? `${esc(o.frameColour ?? '')}, com passe-partout e vidro` : 'sem moldura (enrolar em tubo)')}
+${row('Desenho · Design', `${esc(d.style)} · layout ${esc(d.layout)} · moldura desenhada ${esc(d.border)} · acabamento ${esc(d.finish)}`)}
 ${row('Impressão · Print', 'Giclée, 100% sem margens, sem redimensionar; perfil sRGB. Print at 100%, no scaling, borderless.')}
 ${row('Ficheiro · File', `${px}`)}
 ${row('PNG', files.png ? `<a href="${esc(files.png)}">${esc(files.png)}</a>` : 'ainda não disponível')}

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDesign } from '../../src/commerce/design';
 import { parseGedcom } from '../../src/gedcom';
 import { localTreeDetail } from '../../src/model';
-import { loadFont, loadStyles } from '../print/assets';
+import { designOptionIds, loadFont } from '../print/assets';
 import { textOnlySvg } from '../print/pdf';
 import { preparePrint, printPixels, renderPrintFiles } from '../print/render';
 import { woffToSfnt } from '../print/woff';
@@ -14,7 +14,7 @@ import { woffToSfnt } from '../print/woff';
 const places = JSON.parse(readFileSync(new URL('./fixtures/sample-places.json', import.meta.url), 'utf8'));
 delete places._comment;
 const detail = localTreeDetail(parseGedcom(readFileSync(new URL('../../public/sample.ged', import.meta.url), 'utf8')), 'sample', 2026);
-const styleIds = loadStyles().map((s) => s.id);
+const ids = designOptionIds();
 
 const pngInfo = (png: Uint8Array) => {
   const v = new DataView(png.buffer, png.byteOffset, png.byteLength);
@@ -40,7 +40,7 @@ describe('server print render', () => {
   });
 
   it('only draws people from the public view', () => {
-    const prepared = preparePrint(detail, parseDesign({ places }, styleIds), 'A3');
+    const prepared = preparePrint(detail, parseDesign({ places }, ids), 'A3');
     expect(prepared.privateCount).toBeGreaterThan(0);
     const privateIds = new Set(detail.people.filter((p) => p.isPrivate).map((p) => p.id));
     expect(prepared.data.people.length).toBeGreaterThan(0);
@@ -53,7 +53,7 @@ describe('server print render', () => {
   it(
     'renders an A3 at 300 dpi: PNG of the right size and resolution, PDF of the exact page size with fonts embedded',
     async () => {
-      const prepared = preparePrint(detail, parseDesign({ styleId: 'antique', lang: 'pt', places }, styleIds), 'A3');
+      const prepared = preparePrint(detail, parseDesign({ styleId: 'antique', lang: 'pt', places }, ids), 'A3');
       const files = await renderPrintFiles(prepared);
       expect(files).toMatchObject({ widthPx: 4961, heightPx: 3508 });
       expect(pngInfo(files.png)).toEqual({ width: 4961, height: 3508, pxPerMetre: Math.round(300 / 0.0254) });
@@ -91,5 +91,11 @@ describe('print helpers', () => {
     expect(out).toContain('<clipPath id="c"><rect width="1" height="1"/></clipPath>');
     expect(out).not.toMatch(/<path|<rect x="0"/);
     expect(out).toContain('<text x="1" y="2" fill="#000" font-family="IM Fell English|400|italic" font-size="3">Lisboa</text>');
+    // Labels along a route carry their fonts on <tspan>s inside a <textPath>.
+    const curved = textOnlySvg(
+      `<svg><defs><path id="r" d="M0 0L10 0"/></defs><text fill="#5a4a1c" stroke="#fff" paint-order="stroke"><textPath href="#r"><tspan font-family="'IM Fell English SC', serif" font-weight="400" font-style="normal" font-size="6">Almeida</tspan></textPath></text></svg>`,
+    );
+    expect(curved).toContain('<path id="r" d="M0 0L10 0"/>');
+    expect(curved).toContain('<text fill="#5a4a1c"><textPath href="#r"><tspan font-family="IM Fell English SC|400|normal" font-size="6">Almeida</tspan>');
   });
 });
