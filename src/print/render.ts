@@ -7,7 +7,7 @@ import { mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import { CountryLocator, countryName, topoFeatures } from './countries';
 import { applyFinish, drawBorder } from './borders';
-import { placeAlongCurve, routeSurnames, smoothPath } from './curvelabel';
+import { pathLength, placeAlongCurve, routeSurnames, smoothPath } from './curvelabel';
 import { frameTicks, inset, kmPerMm, makeProjection, niceScaleKm, pageSize, showsWholeSphere, sizeScale, topologyDetail } from './geo';
 import { buildStorybook, medallionBanner, planVignette, type ArtMap, type LayoutSpec, type Medallion, type VignettePlan } from './layouts';
 import {
@@ -361,8 +361,9 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   const routeLines = strokes.map((s) => s.pts);
   const medallions = map?.medallions ?? [];
   const R = flagR + ringOut;
+  // Medallions are off limits to ocean names, but town names and route labels go inside them.
+  const medallionBoxes = medallions.map((m): Box => ({ x: m.center[0] - m.r, y: m.center[1] - m.r, w: 2 * m.r, h: 2 * m.r }));
   for (const m of medallions) {
-    taken.push({ x: m.center[0] - m.r, y: m.center[1] - m.r, w: 2 * m.r, h: 2 * m.r });
     // On a medallion the flag sits on its ring, upper right.
     if (flagMode !== 'none' && assets.flags[m.code]) {
       const a = -Math.PI / 4;
@@ -414,7 +415,12 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   const showSurnames = o.show.surnames !== false;
   if (showSurnames || o.show.dates) {
     const spacing = surnameSize * 0.12;
-    for (const [i, m] of [...mains].sort((a, b) => b.width - a.width || b.movers.length - a.movers.length).entries()) {
+    // Only routes long enough to carry their name, most travelled first, and not so many that
+    // a busy map turns into a page of words.
+    const maxLabels = 14;
+    const longEnough = mains.filter((m) => pathLength(m.pts) >= 28 * k);
+    for (const [i, m] of longEnough.sort((a, b) => b.width - a.width || b.movers.length - a.movers.length).entries()) {
+      if (routeLabels.length >= maxLabels) break;
       const names = showSurnames ? routeSurnames(m.movers.map((id) => surnameOf.get(id) ?? '')) : [];
       const surname = upper(names.join(' & '));
       const years = o.show.dates ? m.years : '';
@@ -537,7 +543,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
         const box: Box = { x: pt[0] - w / 2, y: pt[1] - h / 2, w, h };
         // The whole name has to be over the sea, not just its middle.
         if (Array.from({ length: 11 }, (_, i) => [box.x + (i / 10) * box.w, pt[1]] as Pt).some(isLand)) continue;
-        if (!contains(inset(frame, 2 * k), box) || taken.some((t) => overlaps(t, box, k))) continue;
+        if (!contains(inset(frame, 2 * k), box) || [...taken, ...medallionBoxes].some((t) => overlaps(t, box, k))) continue;
         if (strokes.some((s) => s.pts.some((p) => p[0] > box.x && p[0] < box.x + box.w && p[1] > box.y && p[1] < box.y + box.h))) continue;
         taken.push(box);
         labels.push({ text, box });

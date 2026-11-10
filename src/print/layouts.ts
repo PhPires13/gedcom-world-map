@@ -40,8 +40,10 @@ export interface LayoutSpec {
     maxScale: number;
     /** How far continents move towards each other across an ocean (0 = not at all, 0.5 = halfway). */
     pull: number;
-    /** Overlap allowed between enlarged neighbours before they're pushed apart (share of their size). */
+    /** Overlap allowed between enlarged regions before they're pushed apart (share of their size). */
     overlap: number;
+    /** Homelands closer than this (share of the family's extent) are enlarged together as one region. */
+    regionShare: number;
     /** Strength of the shadow under the enlarged countries (0..1). */
     shadow: number;
     /** Opacity of the rest of the world (0..1). */
@@ -61,6 +63,10 @@ export interface LayoutSpec {
     ghost: number;
     /** Space between medallions, in mm on A2. */
     gap: number;
+    /** Most medallions on one print; groups in the same country are merged to stay under it. */
+    maxMedallions?: number;
+    /** Most medallions for one country (its home region plus, say, its islands). */
+    maxPerCountry?: number;
   };
 }
 
@@ -81,6 +87,7 @@ export function validateLayout(s: unknown): string[] {
     num('storybook.maxScale', b.maxScale, 1, 10);
     num('storybook.pull', b.pull, 0, 0.9);
     num('storybook.overlap', b.overlap, 0, 0.9);
+    num('storybook.regionShare', b.regionShare, 0, 1);
     num('storybook.shadow', b.shadow, 0, 1);
     num('storybook.background', b.background, 0, 1);
   }
@@ -94,6 +101,8 @@ export function validateLayout(s: unknown): string[] {
     num('vignette.fill', v.fill, 0.1, 1);
     num('vignette.ghost', v.ghost, 0, 1);
     num('vignette.gap', v.gap, 0, 100);
+    if (v.maxMedallions !== undefined) num('vignette.maxMedallions', v.maxMedallions, 1, 30);
+    if (v.maxPerCountry !== undefined) num('vignette.maxPerCountry', v.maxPerCountry, 1, 30);
   }
   return e;
 }
@@ -269,67 +278,103 @@ export function buildStorybook(
   // The piece of its country each place is on (or the nearest one: towns on the coast).
   const pieceOf = (p: GeoPlace, pt: Pt): Piece | undefined => {
     const own = byCode.get(locator.locate(p)) ?? [];
-    return own.find((x) => pointInRings(pt, x.rings)) ?? own.sort((a, b) => len(sub(a.centroid, pt)) - len(sub(b.centroid, pt)))[0];
+    return own.find((x) => pointInRings(pt, x.rings)) ?? [...own].sort((a, b) => len(sub(a.centroid, pt)) - len(sub(b.centroid, pt)))[0];
   };
   const placed = people.map((p) => ({ p, pt: proj(p) })).filter((x): x is { p: GeoPlace; pt: Pt } => !!x.pt);
-  const featured = new Set(placed.map(({ p, pt }) => pieceOf(p, pt)).filter((x): x is Piece => !!x));
+  const featured = [...new Set(placed.map(({ p, pt }) => pieceOf(p, pt)).filter((x): x is Piece => !!x))];
   const pb = ringsBounds([placed.map((x) => x.pt)]);
   const extent = Math.max(Math.hypot(pb.w, pb.h), Math.min(frame.w, frame.h) * 0.25);
 
-  // Enlarge each featured piece so it's at least targetShare of the family's extent across.
-  const scale = new Map<Piece, number>();
-  for (const f of featured) scale.set(f, Math.max(1, Math.min(spec.maxScale, (spec.targetShare * extent) / Math.sqrt(f.area))));
+  // Regions: neighbouring homelands on the same land mass (Portugal, Spain, France…) are
+  // enlarged together, so they keep their places beside each other.
+  const regions = clusterRegions(featured, extent * spec.regionShare);
+  interface Region {
+    pieces: Set<Piece>;
+    featured: Piece[];
+    center: Pt;
+    scale: number;
+    plate: string;
+    size: number;
+  }
+  const regs: Region[] = regions.map((members) => {
+    const box = ringsBounds(members.map((m) => m.rings[0]));
+    const grown = inset(box, -Math.max(box.w, box.h) * 0.08);
+    const plate = plateOf(members[0].lon, members[0].lat);
+    // Neighbours whose middle is within the region come along, so its coasts stay whole.
+    const all = new Set(members);
+    for (const p of pieces) {
+      const [x, y] = p.centroid;
+      if (x >= grown.x && x <= grown.x + grown.w && y >= grown.y && y <= grown.y + grown.h && plateOf(p.lon, p.lat) === plate) all.add(p);
+    }
+    // Enlarge until a typical homeland in it is targetShare of the family's extent (tiny islands aside).
+    const largest = Math.max(...members.map((m) => m.area));
+    const sizes = members.filter((m) => m.area > largest * 0.05).map((m) => Math.sqrt(m.area)).sort((a, b) => a - b);
+    const typical = sizes[Math.floor(sizes.length / 2)];
+    const scale = Math.max(1, Math.min(spec.maxScale, (spec.targetShare * extent) / typical));
+    return { pieces: all, featured: members, center: [box.x + box.w / 2, box.y + box.h / 2], scale, plate, size: Math.hypot(box.w, box.h) / 2 };
+  });
+  const regionOf = new Map<Piece, Region>();
+  // Smaller regions win a piece both want (it's more likely to be one of their own).
+  for (const r of [...regs].sort((a, b) => b.size - a.size)) for (const p of r.pieces) regionOf.set(p, r);
+  for (const r of regs) for (const p of r.featured) regionOf.set(p, r);
 
   // Pull the land masses across the ocean towards each other.
-  const plates = new Map<string, Pt[]>();
-  for (const f of featured) {
-    const pl = plateOf(f.lon, f.lat);
-    plates.set(pl, [...(plates.get(pl) ?? []), f.centroid]);
+  const anchors = new Map<string, Pt>();
+  for (const pl of new Set(regs.map((r) => r.plate))) {
+    const rs = regs.filter((r) => r.plate === pl);
+    anchors.set(pl, mul(rs.map((r) => r.center).reduce(add, [0, 0]), 1 / rs.length));
   }
-  const anchors = new Map([...plates].map(([pl, pts]) => [pl, mul(pts.reduce(add, [0, 0]), 1 / pts.length)] as const));
   const center = mul([...anchors.values()].reduce(add, [0, 0] as Pt), 1 / Math.max(1, anchors.size));
   const shiftFor = (pull: number) => (pl: string): Pt => (anchors.size > 1 && anchors.has(pl) ? mul(sub(center, anchors.get(pl)!), pull) : [0, 0]);
 
-  // Land points of each plate near the family, to keep the plates from colliding when pulled.
+  // Small islands far from their region's coast (Madeira, the Azores) would be thrown far out to
+  // sea by the enlargement; instead each is brought in until it sits just off the enlarged coast.
+  const islandCentre = new Map<Piece, Pt>();
+  for (const r of regs) {
+    if (r.scale <= 1) continue;
+    const members = [...r.pieces];
+    const largest = Math.max(...members.map((m) => m.area));
+    const big = members.filter((m) => m.area >= largest * 0.03);
+    const grow = scaleAbout(r.center, r.scale);
+    const bigRings = big.map((m) => m.rings.map((ring) => ring.map(grow)));
+    const gap = extent * 0.015;
+    for (const isl of members) {
+      if (big.includes(isl)) continue;
+      const box = ringsBounds([isl.rings[0]]);
+      const half: Pt = [(box.w * r.scale) / 2 + gap, (box.h * r.scale) / 2 + gap];
+      const clear = (c: Pt) =>
+        ![c, add(c, half), sub(c, half), [c[0] + half[0], c[1] - half[1]] as Pt, [c[0] - half[0], c[1] + half[1]] as Pt].some((q) => bigRings.some((rings) => pointInRings(q, rings)));
+      let at = r.center;
+      for (let m = 1; m <= r.scale + 1e-9; m += 0.1) {
+        at = add(r.center, mul(sub(isl.centroid, r.center), m));
+        if (clear(at)) break;
+      }
+      islandCentre.set(isl, at);
+    }
+  }
+  // Land points of each plate near the family, as enlarged, to keep the plates from colliding
+  // when pulled (an enlarged Europe reaches further into the ocean than the real one).
   const near = inset(pb, -extent * 0.4);
   const platePts = new Map<string, Pt[]>();
   for (const p of pieces) {
     if (!overlaps(ringsBounds(p.rings), near)) continue;
-    const pl = plateOf(p.lon, p.lat);
+    const r = regionOf.get(p);
+    const ic = islandCentre.get(p);
+    const grow: Transform = ic && r ? (q) => add(ic, mul(sub(q, p.centroid), r.scale)) : r ? scaleAbout(r.center, r.scale) : (q) => q;
+    const pl = r?.plate ?? plateOf(p.lon, p.lat);
     const step = Math.max(1, Math.floor(p.rings[0].length / 40));
     const pts = platePts.get(pl) ?? [];
-    for (const r of p.rings) for (let i = 0; i < r.length; i += step) pts.push(r[i]);
+    for (const ring of p.rings) for (let i = 0; i < ring.length; i += step) pts.push(grow(ring[i]));
     platePts.set(pl, pts);
   }
-
-  let pull = anchors.size > 1 ? spec.pull : 0;
-  const minGap = extent * 0.05;
-  const transformsFor = (pullNow: number) => {
-    const shift = shiftFor(pullNow);
-    // Enlarged neighbours (Portugal and Spain, say) are pushed apart so each reads on its own.
-    const list = [...featured];
-    const circles = list.map((f) => ({ c: add(f.centroid, shift(plateOf(f.lon, f.lat))), r: (Math.sqrt(f.area) * scale.get(f)!) / 1.6, w: f.area * scale.get(f)! ** 2 }));
-    const pos = relaxCircles(circles, { gap: 0, overlap: spec.overlap, iterations: 80 });
-    const offset = new Map(list.map((f, i) => [f, sub(pos[i], circles[i].c)] as const));
-    return (p: Piece): Transform => {
-      const sh = shift(plateOf(p.lon, p.lat));
-      const s = scale.get(p);
-      if (s === undefined) return (q) => add(q, sh);
-      return scaleAbout(p.centroid, s, add(sh, offset.get(p)!));
-    };
-  };
-  // Narrow the ocean only as far as the coasts stay apart.
+  const minGap = extent * 0.06;
   const platesClear = (pullNow: number) => {
     if (platePts.size < 2) return true;
     const shift = shiftFor(pullNow);
     const moved = [...platePts].map(([pl, pts]) => pts.map((q) => add(q, shift(pl))));
     // A grid of cells the size of the gap: points closer than that are in the same or adjacent cells.
     const cell = (p: Pt) => [Math.floor(p[0] / minGap), Math.floor(p[1] / minGap)];
-    const grids = moved.map((pts) => {
-      const g = new Set<string>();
-      for (const p of pts) g.add(cell(p).join(','));
-      return g;
-    });
+    const grids = moved.map((pts) => new Set(pts.map((p) => cell(p).join(','))));
     for (let a = 0; a < moved.length; a++)
       for (let b = 0; b < moved.length; b++) {
         if (a === b) continue;
@@ -340,61 +385,84 @@ export function buildStorybook(
       }
     return true;
   };
+  let pull = anchors.size > 1 ? spec.pull : 0;
+  // Narrow the ocean only as far as the coasts stay apart.
   while (pull > 0.02 && !platesClear(pull)) pull *= 0.8;
   if (pull <= 0.02) pull = 0;
-  const T = transformsFor(pull);
+  const shift = shiftFor(pull);
 
-  // Fit the enlarged countries and the places into the frame.
+  // Enlarged regions are pushed apart where they'd cover each other.
+  const circles = regs.map((r) => ({ c: add(r.center, shift(r.plate)), r: r.size * r.scale, w: (r.size * r.scale) ** 2 }));
+  const pos = relaxCircles(circles, { gap: extent * 0.02, overlap: spec.overlap, iterations: 120 });
+  const offset = new Map(regs.map((r, i) => [r, sub(pos[i], circles[i].c)] as const));
+  const T = (p: Piece): Transform => {
+    const r = regionOf.get(p);
+    if (!r) {
+      const sh = shift(plateOf(p.lon, p.lat));
+      return (q) => add(q, sh);
+    }
+    const move = add(shift(r.plate), offset.get(r)!);
+    const c = islandCentre.get(p);
+    // An island keeps its own shape enlarged, around its new centre.
+    if (c) return (q) => add(add(c, mul(sub(q, p.centroid), r.scale)), move);
+    return scaleAbout(r.center, r.scale, move);
+  };
+
+  // Fit the enlarged regions and the places into the frame.
   const tPiece = new Map(pieces.map((p) => [p, T(p)] as const));
   const placeT = new Map<string, Pt>();
   const key = (p: GeoPlace) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
   const content: Pt[] = [];
   for (const { p, pt } of placed) {
     const piece = pieceOf(p, pt);
-    const q = piece ? tPiece.get(piece)!(pt) : add(pt, shiftFor(pull)(plateOf(p.lon, p.lat)));
+    const q = piece ? tPiece.get(piece)!(pt) : add(pt, shift(plateOf(p.lon, p.lat)));
     placeT.set(key(p), q);
     content.push(q);
   }
   for (const f of featured) for (const q of f.rings[0]) content.push(tPiece.get(f)!(q));
   const pad = Math.min(frame.w, frame.h) * spec.padding;
   const G = fitBox(ringsBounds([content]), inset(frame, pad));
-  const full = (p: Piece): Transform => {
-    const t = tPiece.get(p)!;
-    return (q) => G(t(q));
-  };
+  for (const [kk, q] of placeT) placeT.set(kk, G(q));
 
   // ---------- Drawing ----------
   const clip = inset(frame, -2 * k);
-  const tRings = new Map(pieces.map((p) => [p, p.rings.map((r) => r.map(full(p)))] as const));
+  const tRings = new Map(pieces.map((p) => [p, p.rings.map((r) => r.map((q) => G(tPiece.get(p)!(q))))] as const));
   const visible = pieces.filter((p) => overlaps(ringsBounds(tRings.get(p)!), clip));
-  const bgPieces = visible.filter((p) => !featured.has(p));
-  const fgPieces = [...featured].filter((p) => visible.includes(p)).sort((a, b) => b.area * scale.get(b)! ** 2 - a.area * scale.get(a)! ** 2);
   const pathOf = (p: Piece) => ringsPath(tRings.get(p)!, undefined, clip);
-  const allLand = visible.map(pathOf).join('');
+  const isFeatured = new Set(featured);
   const defs = [
-    el('path', { id: 'land', d: allLand }),
+    el('path', { id: 'land', d: visible.map(pathOf).join('') }),
     el(
       'filter',
       { id: 'lift', x: '-10%', y: '-10%', width: '120%', height: '120%' },
-      el('feGaussianBlur', { in: 'SourceAlpha', stdDeviation: 1.6 * k }) +
-        el('feOffset', { dx: 0.9 * k, dy: 1.3 * k, result: 'b' }) +
+      el('feGaussianBlur', { in: 'SourceAlpha', stdDeviation: 1.8 * k }) +
+        el('feOffset', { dx: 1 * k, dy: 1.5 * k, result: 'b' }) +
         el('feFlood', { 'flood-color': S.paper.ageColor, 'flood-opacity': spec.shadow }) +
         el('feComposite', { in2: 'b', operator: 'in' }) +
         '<feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>',
     ),
   ];
-  let base = el('rect', { x: frame.x, y: frame.y, width: frame.w, height: frame.h, fill: S.map.sea });
-  base += waterLines(S, k, ctx.frame);
-  base += `<g opacity="${n(spec.background)}">${el('path', { d: bgPieces.map(pathOf).join(''), fill: S.map.land, stroke: S.map.borders.color, 'stroke-width': S.map.borders.width * k, 'stroke-linejoin': 'round' })}</g>`;
-  for (const f of fgPieces) {
-    const d = pathOf(f);
-    const id = `fg-${fgPieces.indexOf(f)}`;
-    base += `<clipPath id="${id}">${el('path', { d })}</clipPath>`;
-    base += el('path', { d, fill: S.map.land, filter: spec.shadow > 0 ? 'url(#lift)' : undefined });
-    if (S.map.landShade.opacity > 0 && S.map.landShade.width > 0)
-      base += `<g clip-path="url(#${id})">${el('path', { d, fill: 'none', stroke: S.map.landShade.color, 'stroke-width': S.map.landShade.width * 2.4 * k, opacity: S.map.landShade.opacity })}</g>`;
-    base += el('path', { d, fill: 'none', stroke: S.map.coast.color, 'stroke-width': S.map.coast.width * 1.6 * k, 'stroke-linejoin': 'round' });
-  }
+  let base = waterLines(S, k, frame);
+  // The rest of the world, faded.
+  const background = visible.filter((p) => !regionOf.has(p));
+  base += `<g opacity="${n(spec.background)}">${el('path', { d: background.map(pathOf).join(''), fill: S.map.land, stroke: S.map.borders.color, 'stroke-width': S.map.borders.width * k, 'stroke-linejoin': 'round' })}</g>`;
+  // Each enlarged region lifted off the page: its neighbours muted, the family's countries clear.
+  regs
+    .sort((a, b) => b.size * b.scale - a.size * a.scale)
+    .forEach((r, i) => {
+      const members = visible.filter((p) => regionOf.get(p) === r);
+      const all = members.map(pathOf).join('');
+      const others = members.filter((p) => !isFeatured.has(p)).map(pathOf).join('');
+      const own = members.filter((p) => isFeatured.has(p)).map(pathOf).join('');
+      base += el('path', { d: all, fill: S.map.land, filter: spec.shadow > 0 ? 'url(#lift)' : undefined });
+      base += el('path', { d: others, fill: S.map.sea, opacity: 0.35, stroke: S.map.borders.color, 'stroke-width': S.map.borders.width * k, 'stroke-dasharray': S.map.borders.dash.length ? S.map.borders.dash.map((d) => n(d * k)).join(' ') : undefined });
+      if (S.map.landShade.opacity > 0 && S.map.landShade.width > 0) {
+        base += `<clipPath id="region-${i}">${el('path', { d: own })}</clipPath>`;
+        base += `<g clip-path="url(#region-${i})">${el('path', { d: own, fill: 'none', stroke: S.map.landShade.color, 'stroke-width': S.map.landShade.width * 2.4 * k, opacity: S.map.landShade.opacity })}</g>`;
+      }
+      base += el('path', { d: own, fill: 'none', stroke: S.map.borders.color, 'stroke-width': S.map.borders.width * 1.6 * k, 'stroke-linejoin': 'round' });
+      base += el('path', { d: all, fill: 'none', stroke: S.map.coast.color, 'stroke-width': S.map.coast.width * 1.5 * k, 'stroke-linejoin': 'round' });
+    });
 
   const land = visible.map((p) => tRings.get(p)!);
   return {
@@ -403,7 +471,7 @@ export function buildStorybook(
     defs,
     isLand: (pt) => land.some((r) => pointInRings(pt, r)),
     countryLabel: (code) => {
-      const own = fgPieces.filter((p) => p.code === code);
+      const own = featured.filter((p) => p.code === code);
       if (!own.length) return null;
       const main = own.reduce((a, b) => (a.area > b.area ? a : b));
       const rings = tRings.get(main)!;
@@ -411,25 +479,43 @@ export function buildStorybook(
     },
     water: (lon, lat) => {
       const q = projection([lon, lat]);
-      return q ? G(add([q[0], q[1]], shiftFor(pull)(plateOf(lon, lat)))) : null;
+      return q ? G(add([q[0], q[1]], shift(plateOf(lon, lat)))) : null;
     },
     medallions: [],
   };
 }
 
+/**
+ * Groups pieces whose centres are within `maxDist` of each other (directly or through others)
+ * on the same land mass, so neighbouring countries are enlarged as one region.
+ */
+export function clusterRegions<P extends { centroid: Pt; lon: number; lat: number }>(pieces: P[], maxDist: number): P[][] {
+  const groups: P[][] = [];
+  for (const p of pieces) {
+    const plate = plateOf(p.lon, p.lat);
+    const joins = groups.filter((g) => plateOf(g[0].lon, g[0].lat) === plate && g.some((q) => len(sub(q.centroid, p.centroid)) <= maxDist));
+    if (!joins.length) groups.push([p]);
+    else {
+      joins[0].push(p, ...joins.slice(1).flat());
+      for (const g of joins.slice(1)) groups.splice(groups.indexOf(g), 1);
+    }
+  }
+  return groups;
+}
+
 /** Engraved lines out to sea around the coasts (masked from #land, as on the geographic map). */
-function waterLines(S: PrintStyle, k: number, frame: Box): string {
+function waterLines(S: PrintStyle, k: number, frame: Box, land = '#land', id = 'art-water', scale = 1): string {
   const wl = S.map.waterLines;
   if (!(wl.count > 0 && wl.spacing > 0)) return '';
   let rings = '';
   for (let i = wl.count; i >= 1; i--) {
     const grey = Math.round(255 * (1 - ((i - 1) / wl.count) * 0.65));
-    rings += el('use', { href: '#land', fill: 'none', stroke: `rgb(${grey},${grey},${grey})`, 'stroke-width': (2 * i * wl.spacing + wl.width) * k });
-    rings += el('use', { href: '#land', fill: 'none', stroke: '#000', 'stroke-width': Math.max(0, (2 * i * wl.spacing - wl.width) * k) });
+    rings += el('use', { href: land, fill: 'none', stroke: `rgb(${grey},${grey},${grey})`, 'stroke-width': (2 * i * wl.spacing + wl.width) * k * scale });
+    rings += el('use', { href: land, fill: 'none', stroke: '#000', 'stroke-width': Math.max(0, (2 * i * wl.spacing - wl.width) * k * scale) });
   }
   return (
-    `<mask id="art-water" maskUnits="userSpaceOnUse" x="${n(frame.x)}" y="${n(frame.y)}" width="${n(frame.w)}" height="${n(frame.h)}">${rings}</mask>` +
-    el('rect', { x: frame.x, y: frame.y, width: frame.w, height: frame.h, fill: wl.color, opacity: wl.opacity, mask: 'url(#art-water)' })
+    `<mask id="${id}" maskUnits="userSpaceOnUse" x="${n(frame.x)}" y="${n(frame.y)}" width="${n(frame.w)}" height="${n(frame.h)}">${rings}</mask>` +
+    el('rect', { x: frame.x, y: frame.y, width: frame.w, height: frame.h, fill: wl.color, opacity: wl.opacity, mask: `url(#${id})` })
   );
 }
 
@@ -449,7 +535,14 @@ interface Cluster {
  * Groups the family's places into medallions: by country, then by distance, so an island group
  * far from the mainland (Madeira, the Azores) gets a medallion of its own.
  */
-export function clusterPlaces(people: GeoPlace[], codeOf: (p: GeoPlace) => string, maxKm: number, lang: Lang): Cluster[] {
+export function clusterPlaces(
+  people: GeoPlace[],
+  codeOf: (p: GeoPlace) => string,
+  maxKm: number,
+  lang: Lang,
+  maxGroups = Infinity,
+  maxPerCountry = Infinity,
+): Cluster[] {
   const byPlace = new Map<string, { p: GeoPlace; n: number; code: string }>();
   for (const p of people) {
     const key = `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
@@ -470,6 +563,33 @@ export function clusterPlaces(people: GeoPlace[], codeOf: (p: GeoPlace) => strin
         groups[i].items.push(...groups[j].items);
         groups.splice(j, 1);
       }
+  // Too many medallions (in all, or for one country): merge the two closest groups in the same
+  // country, again and again.
+  const centre = (g: (typeof groups)[number]) => {
+    const w = g.items.reduce((s, x) => s + x.n, 0);
+    return { lat: g.items.reduce((s, x) => s + x.p.lat * x.n, 0) / w, lon: g.items.reduce((s, x) => s + x.p.lon * x.n, 0) / w };
+  };
+  const perCountry = () => {
+    const c = new Map<string, number>();
+    for (const g of groups) c.set(g.code, (c.get(g.code) ?? 0) + 1);
+    return c;
+  };
+  for (;;) {
+    const counts = perCountry();
+    const crowded = [...counts].filter(([, n]) => n > maxPerCountry).map(([code]) => code);
+    if (groups.length <= maxGroups && !crowded.length) break;
+    let best: [number, number, number] | null = null;
+    for (let i = 0; i < groups.length; i++)
+      for (let j = i + 1; j < groups.length; j++) {
+        if (groups[i].code !== groups[j].code) continue;
+        if (crowded.length && !crowded.includes(groups[i].code)) continue;
+        const d = distanceKm(centre(groups[i]), centre(groups[j]));
+        if (!best || d < best[2]) best = [i, j, d];
+      }
+    if (!best) break; // every group is in a different country
+    groups[best[0]].items.push(...groups[best[1]].items);
+    groups.splice(best[1], 1);
+  }
   const out = groups.map((g) => {
     const people = g.items.reduce((s, x) => s + x.n, 0);
     const lat = g.items.reduce((s, x) => s + x.p.lat * x.n, 0) / people;
@@ -507,7 +627,7 @@ export function planVignette(
     const q = projection([p.lon, p.lat]);
     return q ? [q[0], q[1]] : [frame.x + frame.w / 2, frame.y + frame.h / 2];
   };
-  const clusters = clusterPlaces(people, (p) => locator.locate(p), spec.clusterKm, lang);
+  const clusters = clusterPlaces(people, (p) => locator.locate(p), spec.clusterKm, lang, spec.maxMedallions ?? 9, spec.maxPerCountry ?? 2);
   const maxPeople = Math.max(1, ...clusters.map((c) => c.people));
   let radii = clusters.map((c) => (spec.minRadius + (spec.maxRadius - spec.minRadius) * Math.sqrt(c.people / maxPeople)) * k);
   // Never cover more than ~38% of the map with medallions.
@@ -525,7 +645,7 @@ export function planVignette(
       // Leave room below each medallion for its name banner by treating it as a little taller.
       // Settle near home first, then let them drift apart freely; if they still touch, shrink them.
       let pos = homes;
-      for (let attempt = 0; attempt < 8; attempt++) {
+      for (let attempt = 0; attempt < 16; attempt++) {
         const circles = homes.map((h, i) => ({ c: pos[i], r: radii[i] + banner * 0.5, w: radii[i] ** 2, home: h }));
         const box = { ...within, h: within.h - banner * 0.5 };
         pos = relaxCircles(circles, { gap, within: box, keepOut, spring: 0.03, iterations: 200 });
@@ -571,14 +691,20 @@ export function planVignette(
         base += `<clipPath id="${id}">${el('circle', { cx: center[0], cy: center[1], r })}</clipPath>`;
         base += `<g clip-path="url(#${id})">`;
         base += el('circle', { cx: center[0], cy: center[1], r, fill: S.map.sea });
-        base += el('path', { d: others.map(tr).join(''), fill: S.map.land, opacity: 0.55, stroke: S.map.borders.color, 'stroke-width': S.map.borders.width * k });
+        // Engraved water lines round every coast in the medallion, a little wider than on the map.
+        const allD = near.map(tr).join('');
+        base += el('path', { id: `${id}-all`, d: allD, fill: 'none' });
+        base += waterLines(S, k, box, `#${id}-all`, `${id}-water`, 1.25);
+        base += el('path', { d: others.map(tr).join(''), fill: S.map.land, stroke: S.map.borders.color, 'stroke-width': S.map.borders.width * k });
+        base += el('path', { d: others.map(tr).join(''), fill: S.map.sea, opacity: 0.35 });
         const ownD = own.map(tr).join('');
         base += el('path', { d: ownD, fill: S.map.land });
         if (S.map.landShade.opacity > 0 && S.map.landShade.width > 0) {
           base += `<clipPath id="${id}-land">${el('path', { d: ownD })}</clipPath>`;
           base += `<g clip-path="url(#${id}-land)">${el('path', { d: ownD, fill: 'none', stroke: S.map.landShade.color, 'stroke-width': S.map.landShade.width * 2.4 * k, opacity: S.map.landShade.opacity })}</g>`;
         }
-        base += el('path', { d: ownD, fill: 'none', stroke: S.map.coast.color, 'stroke-width': S.map.coast.width * 1.4 * k, 'stroke-linejoin': 'round' });
+        base += el('path', { d: allD, fill: 'none', stroke: S.map.coast.color, 'stroke-width': S.map.coast.width * 1.2 * k, 'stroke-linejoin': 'round' });
+        base += el('path', { d: ownD, fill: 'none', stroke: S.map.coast.color, 'stroke-width': S.map.coast.width * 1.8 * k, 'stroke-linejoin': 'round' });
         base += '</g>';
         // Engraved double ring.
         base += el('circle', { cx: center[0], cy: center[1], r, fill: 'none', stroke: S.frame.color, 'stroke-width': 0.9 * k });

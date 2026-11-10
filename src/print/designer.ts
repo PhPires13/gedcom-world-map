@@ -285,7 +285,7 @@ export async function exportBlob(kind: 'svg' | 'png' | 'pdf'): Promise<{ blob: B
   const data = currentData();
   const o = currentOptions(data);
   const assets = await assetsFor(data, o, true);
-  const name = `heritage-map-${o.style.id}-${o.paper}-${o.orientation}`;
+  const name = ['heritage-map', o.style.id, o.layout?.id, o.border?.id, o.finish?.id, o.paper, o.orientation].filter(Boolean).join('-');
   if (kind === 'svg') return { blob: new Blob([renderHeritageMap(data, o, assets).svg], { type: 'image/svg+xml' }), name: `${name}.svg` };
   const { w, h } = pageSize(o.paper, o.orientation);
   const px = { width: mmToPx(w, DPI), height: mmToPx(h, DPI) };
@@ -349,3 +349,6 @@ $('#design').addEventListener('change', () => scheduleRender());
 for (const b of document.querySelectorAll<HTMLButtonElement>('[data-export]')) {
   b.addEventListener('click', () => exportFile(b.dataset.export as 'svg' | 'png' | 'pdf'));
 }
+
+// For checking exports from the browser's console while developing (not in production builds).
+if (import.meta.env.DEV) Object.assign(window, { heritagePrint: { exportBlob } });

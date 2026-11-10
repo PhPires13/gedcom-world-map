@@ -299,7 +299,8 @@ export function deckleOutline(w: number, h: number, insetMm: number, amplitude: 
   side([w, 0], [w, h], [-1, 0], 10);
   side([w, h], [0, h], [0, -1], 20);
   side([0, h], [0, 0], [1, 0], 30);
-  return pts;
+  // Where two sides meet, keep the corner inside the sheet's inset on both edges.
+  return pts.map(([x, y]) => [Math.min(w - insetMm, Math.max(insetMm, x)), Math.min(h - insetMm, Math.max(insetMm, y))] as Pt);
 }
 
 /** Deterministic pseudo-random numbers (mulberry32), so a print always looks the same. */
