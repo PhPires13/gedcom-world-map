@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 // Pages: the map (index.html), the heritage print designer (print.html), the customer's order
-// page (order.html) and the shop's operations page (ops.html).
+// page (order.html), the shop's operations page (ops.html) and a shared family map (share.html).
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -11,6 +11,7 @@ export default defineConfig({
         print: fileURLToPath(new URL('./print.html', import.meta.url)),
         order: fileURLToPath(new URL('./order.html', import.meta.url)),
         ops: fileURLToPath(new URL('./ops.html', import.meta.url)),
+        share: fileURLToPath(new URL('./share.html', import.meta.url)),
       },
     },
   },

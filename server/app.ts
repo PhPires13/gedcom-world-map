@@ -26,6 +26,7 @@
 //   POST   /api/trees/:t/relationships/:r/recompute
 //
 // Commerce (orders, checkout, webhooks, print files, operations): see server/commerce/routes.ts.
+// Public share links (/api/shares…, /s/:id link previews): see server/shares.ts.
 
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -47,6 +48,7 @@ import type { Commerce } from './commerce/routes';
 import type { Db } from './db';
 import { badRequest, HttpError } from './errors';
 import * as repo from './repo';
+import { mountPublicShares, mountShareRoutes, type ShareDeps } from './shares';
 import type { DocumentStorage } from './storage';
 import { arr, obj, oneOf, optStr, str, uuid } from './validate';
 
@@ -59,6 +61,8 @@ export interface AppDeps {
   corsOrigin?: (origin: string) => string | null;
   /** The shop (createCommerce); without it the commerce routes are absent. */
   commerce?: Commerce;
+  /** Share links: where share.html is served, this server's public address, the preview picture renderer. */
+  shares?: Pick<ShareDeps, 'appUrl' | 'publicUrl' | 'renderImage'>;
 }
 
 const CLAIM_KINDS: readonly ClaimKind[] = [
@@ -137,7 +141,7 @@ async function readFile(v: unknown, allowed?: readonly string[]): Promise<repo.U
   return { name: v.name || 'document', type, bytes: new Uint8Array(await v.arrayBuffer()) };
 }
 
-export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce }: AppDeps) {
+export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce, shares }: AppDeps) {
   const app = new Hono<AuthEnv>();
   const year = () => now().getUTCFullYear();
 
@@ -153,8 +157,11 @@ export function createApp({ db, storage, now = () => new Date(), corsOrigin = lo
   app.get('/api/health', (c) => c.json({ ok: true }));
   // Webhooks and signed file links prove themselves; they must not need a login.
   commerce?.mountPublic(app);
+  const shareDeps: ShareDeps = { db, storage, now, ...shares };
+  mountPublicShares(app, shareDeps);
   app.use('/api/*', authenticate);
   commerce?.mountAuthed(app);
+  mountShareRoutes(app, shareDeps);
 
   app.get('/api/me', (c) => c.json(c.var.user));
 

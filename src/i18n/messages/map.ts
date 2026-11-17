@@ -8,6 +8,8 @@ const pt = {
   // Header
   'header.print': 'Imprimir',
   'header.printTitle': 'Crie um quadro com o mapa das origens da sua família',
+  'header.share': 'Compartilhar',
+  'header.shareTitle': 'Crie um link do mapa para enviar à família (pessoas vivas ficam de fora)',
   'header.hide': 'Ocultar painel',
   'header.show': 'Mostrar painel',
 
@@ -138,6 +140,8 @@ type Key = keyof typeof pt;
 const en: Record<Key, Message> = {
   'header.print': 'Print',
   'header.printTitle': 'Design a framed heritage map print',
+  'header.share': 'Share',
+  'header.shareTitle': 'Create a link to the map to send to your family (living people are left out)',
   'header.hide': 'Hide panel',
   'header.show': 'Show panel',
 
@@ -252,6 +256,8 @@ const en: Record<Key, Message> = {
 const es: Record<Key, Message> = {
   'header.print': 'Imprimir',
   'header.printTitle': 'Diseña un cuadro con el mapa de los orígenes de tu familia',
+  'header.share': 'Compartir',
+  'header.shareTitle': 'Crea un enlace del mapa para enviar a la familia (las personas vivas quedan fuera)',
   'header.hide': 'Ocultar panel',
   'header.show': 'Mostrar panel',
 

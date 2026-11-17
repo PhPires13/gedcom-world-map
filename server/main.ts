@@ -6,6 +6,8 @@
 //   PORT          default 8787
 //   DATA_DIR      where the dev database and documents live (default server/.data)
 //   CORS_ORIGINS  comma-separated browser origins allowed to call the API (default: any localhost port)
+//   APP_URL       where the web pages are served, for share links (default http://localhost:5173 in dev)
+//   PUBLIC_URL    this server's public address, for link previews (default: the request's origin)
 //   Shop settings (Stripe, Prodigi, links, operators): see server/commerce/setup.ts
 
 import { serve } from '@hono/node-server';
@@ -36,6 +38,10 @@ const app = createApp({
   storage,
   now,
   commerce,
+  shares: {
+    appUrl: process.env.APP_URL || (process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:5173'),
+    publicUrl: process.env.PUBLIC_URL || undefined,
+  },
   corsOrigin: origins ? (o) => (origins.includes(o) ? o : null) : undefined,
 });
 
