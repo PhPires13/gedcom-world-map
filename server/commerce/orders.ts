@@ -1,6 +1,7 @@
 // Orders in the database. Every status change goes through `transition`, which locks the row,
 // checks the state machine (src/commerce/status.ts) and writes the history, so concurrent webhooks
 // and operators can't push an order backwards or skip a step. Repeating a change is a no-op.
+// The commerce routes wrap it (createCommerce → `transition`) to e-mail the customer after a change.
 
 import { randomUUID } from 'node:crypto';
 import type { Quote } from '../../src/commerce/catalogue';
@@ -184,18 +185,18 @@ export async function transition(
   actor: Actor,
   note?: string,
   patch: OrderPatch = {},
-): Promise<{ order: OrderRow; changed: boolean }> {
+): Promise<{ order: OrderRow; changed: boolean; from: OrderStatus }> {
   return db.transaction(async (tx) => {
     const [row] = await tx.query('select * from orders where id = $1 for update', [orderId]);
     if (!row) throw notFound('Order');
     const from = row.status as OrderStatus;
-    if (from === to) return { order: toRow(row), changed: false };
+    if (from === to) return { order: toRow(row), changed: false, from };
     if (!canTransition(from, to, row.kind as Order['kind'])) throw new HttpError(409, `Order ${String(row.number)} can't go from ${from} to ${to}`);
     const params: unknown[] = [orderId];
     const sets = [`status = $${params.push(to)}`, 'updated_at = now()', ...patchSql(patch, params)];
     const [updated] = await tx.query(`update orders set ${sets.join(', ')} where id = $1 returning *`, params);
     await tx.query('insert into order_events (order_id, from_status, to_status, actor, note) values ($1, $2, $3, $4, $5)', [orderId, from, to, actor, note ?? null]);
-    return { order: toRow(updated), changed: true };
+    return { order: toRow(updated), changed: true, from };
   });
 }
 

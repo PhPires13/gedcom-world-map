@@ -41,6 +41,8 @@ export interface PipelineDeps {
   fulfilment: Partial<Record<'prodigi' | 'manual', FulfilmentAdapter>>;
   links: LinkSigner;
   now: () => Date;
+  /** orders.transition, or a wrapper of it that also tells the customer (createCommerce). */
+  transition?: typeof orders.transition;
 }
 
 /** How long a partner's file link stays valid (labs may fetch it days later, or again for a reprint). */
@@ -52,7 +54,10 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export class Pipeline {
   private running = new Set<string>();
-  constructor(private deps: PipelineDeps) {}
+  private readonly transition: typeof orders.transition;
+  constructor(private deps: PipelineDeps) {
+    this.transition = deps.transition ?? orders.transition;
+  }
 
   /** Moves a paid order as far as it can go on its own. Concurrent calls for one order are merged. */
   async processOrder(orderId: string): Promise<void> {
@@ -79,7 +84,7 @@ export class Pipeline {
       await storage.put(fileKey(order.id, 'png'), files.png);
       await storage.put(fileKey(order.id, 'pdf'), files.pdf);
       await storage.put(fileKey(order.id, 'svg'), new TextEncoder().encode(files.svg));
-      const { order: next } = await orders.transition(
+      const { order: next } = await this.transition(
         db,
         order.id,
         'file_ready',
@@ -98,7 +103,7 @@ export class Pipeline {
   private async fulfil(order: orders.OrderRow) {
     const { db, links } = this.deps;
     if (order.kind === 'digital') {
-      await orders.transition(db, order.id, 'delivered', 'system', 'Download ready on the order page');
+      await this.transition(db, order.id, 'delivered', 'system', 'Download ready on the order page');
       return;
     }
     if (order.fulfilmentRef || order.fulfilmentStatus) return; // already with the partner / the operators
@@ -126,7 +131,7 @@ export class Pipeline {
       });
       const patch = { fulfilment_ref: res.ref, fulfilment_status: res.partnerStatus };
       if (res.sentToProduction) {
-        await orders.transition(db, order.id, 'sent_to_production', 'system', `Sent to ${adapter.route}${res.ref ? ` (order ${res.ref})` : ''}`, patch);
+        await this.transition(db, order.id, 'sent_to_production', 'system', `Sent to ${adapter.route}${res.ref ? ` (order ${res.ref})` : ''}`, patch);
       } else {
         await orders.updateOrder(db, order.id, patch, { actor: 'system', note: res.note ?? `Waiting for ${adapter.route} fulfilment` });
       }
@@ -149,7 +154,7 @@ export class Pipeline {
       for (const step of path.slice(0, path.indexOf(update.status) + 1)) {
         if (current.status === step || !canTransition(current.status, step, current.kind)) continue;
         const tracking = step === 'shipped' && update.tracking?.length ? `: ${update.tracking.map((t) => [t.carrier, t.number].filter(Boolean).join(' ')).join(', ')}` : '';
-        current = (await orders.transition(db, order.id, step, actor, `${actor} status ${update.partnerStatus}${tracking}`)).order;
+        current = (await this.transition(db, order.id, step, actor, `${actor} status ${update.partnerStatus}${tracking}`)).order;
       }
     }
     return current;

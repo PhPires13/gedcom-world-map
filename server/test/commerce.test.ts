@@ -20,6 +20,8 @@ import type { RenderFiles } from '../commerce/pipeline';
 import { createCommerce, type CommerceDeps } from '../commerce/routes';
 import { loadCatalogue } from '../commerce/setup';
 import { designOptionIds } from '../print/assets';
+import { ConsoleMailer } from '../mail/console';
+import { renderOrderMail } from '../mail/order-mails';
 import { migrate, openPglite, type Db } from '../db';
 import { MemoryStorage } from '../storage';
 
@@ -487,5 +489,100 @@ describe('manual fulfilment (Brazil) and operations', () => {
     broken = false;
     expect(await c.pipeline.resume()).toBeGreaterThanOrEqual(1);
     expect((await call<OrderDetail>('GET', `/api/orders/${o.id}`)).status).toBe('delivered');
+  });
+});
+
+describe('customer e-mails', () => {
+  const mailsOf = (m: ConsoleMailer, orderEmail: string) => m.sent.filter((x) => x.to === orderEmail).map((x) => x.tag);
+
+  it('confirms the payment and sends the download links of a digital order, in the order’s language', async () => {
+    const mailer = new ConsoleMailer({ log: false });
+    build({ mailer });
+    const o = await newOrder({ email: 'digital@example.com', design: { styleId: 'antique', places: PLACES, lang: 'es', title: 'Familia Costa' } });
+    const done = await checkoutAndPay(o.id);
+    expect(done.status).toBe('delivered');
+    expect(mailsOf(mailer, 'digital@example.com')).toEqual(['order_paid', 'order_file_ready']);
+    const paid = mailer.last('digital@example.com', 'order_paid')!;
+    expect(paid.subject).toBe(`Pedido ${o.number} confirmado`);
+    expect(paid.text).toContain('Familia Costa');
+    expect(paid.html).toContain('<html lang="es">');
+    const ready = mailer.last('digital@example.com', 'order_file_ready')!;
+    expect(ready.subject).toContain('Tu mapa está listo');
+    expect(ready.html).toMatch(/href="http:\/\/api\.test\/api\/files\/[^"]+\/pdf\?exp=/);
+    // The order link in the mail opens the order without signing in.
+    const link = /http:\/\/app\.test\/order\.html\?id=[^\s"]+/.exec(ready.text)![0];
+    expect(link).toContain(`id=${o.id}&k=`);
+    expect(ready.idempotencyKey).toBe(`${o.id}:order_file_ready`);
+    // A digital order's "delivered" sends nothing more; each mail is noted in the history.
+    const after = await call<OrderDetail>('GET', `/api/orders/${o.id}`);
+    expect(after.events.filter((e) => e.note?.startsWith('E-mail sent')).map((e) => e.note)).toEqual([
+      'E-mail sent to the customer: order confirmed',
+      'E-mail sent to the customer: download links',
+    ]);
+  });
+
+  it('tells a print customer it shipped (with the tracking typed by the operator) and that it arrived', async () => {
+    const mailer = new ConsoleMailer({ log: false });
+    build({ mailer });
+    const o = await newOrder({ email: 'print@example.com', productId: 'framed', size: 'A3', country: 'BR', frameColour: 'antique gold', shippingAddress: BR_ADDRESS });
+    await checkoutAndPay(o.id);
+    expect(mailsOf(mailer, 'print@example.com')).toEqual(['order_paid']);
+    expect(mailer.last('print@example.com', 'order_paid')!.subject).toBe(`Pedido ${o.number} confirmado`);
+    await call('POST', `/api/ops/orders/${o.id}/advance`, {});
+    await call('POST', `/api/ops/orders/${o.id}/advance`, { note: 'Correios AA123456789BR' });
+    await settle();
+    const shipped = mailer.last('print@example.com', 'order_shipped')!;
+    expect(shipped.subject).toBe(`Seu pedido ${o.number} foi enviado`);
+    expect(shipped.text).toContain('Rastreamento: Correios AA123456789BR');
+    expect(shipped.text).toContain('moldura dourada antiga');
+    await call('POST', `/api/ops/orders/${o.id}/advance`, {});
+    await settle();
+    expect(mailsOf(mailer, 'print@example.com')).toEqual(['order_paid', 'order_shipped', 'order_delivered']);
+    expect(mailer.last('print@example.com', 'order_delivered')!.text).toMatch(/Poderia nos contar o que achou/);
+  });
+
+  it('sends the refund mail', async () => {
+    const mailer = new ConsoleMailer({ log: false });
+    build({ mailer });
+    const o = await newOrder({ email: 'refund@example.com' });
+    await checkoutAndPay(o.id);
+    await call('POST', `/api/ops/orders/${o.id}/refund`, {});
+    await settle();
+    const mail = mailer.last('refund@example.com', 'order_refunded')!;
+    expect(mail.subject).toBe(`Reembolso do pedido ${o.number}`);
+    expect(mail.text).toMatch(/Devolvemos .*14,90/);
+  });
+
+  it('never lets a failing mail provider break an order', async () => {
+    const mailer = new ConsoleMailer({ log: false });
+    mailer.failWith = new Error('provider down');
+    build({ mailer });
+    const o = await newOrder({ email: 'unlucky@example.com' });
+    const done = await checkoutAndPay(o.id);
+    await settle();
+    expect(done.status).toBe('delivered');
+    const after = await call<OrderDetail>('GET', `/api/orders/${o.id}`);
+    expect(statuses(after)).toEqual(['created', 'paid', 'file_ready', 'delivered']);
+    expect(after.events.map((e) => e.note)).toContain('E-mail to the customer (order confirmed) could not be sent: provider down');
+    expect(mailer.sent).toHaveLength(0);
+  });
+
+  it('renders every template in the three languages, as HTML and text', async () => {
+    const o = await newOrder({ productId: 'print', size: 'A2', country: 'PT', shippingAddress: PT_ADDRESS });
+    const row = await orders.getOrderById(db, o.id);
+    const deps = { db, mailer: new ConsoleMailer({ log: false }), catalogue: loadCatalogue(), orderUrl: (id: string) => `http://app.test/order.html?id=${id}`, downloads: () => ({ pdf: 'http://x/pdf', png: 'http://x/png', expiresAt: '2026-06-08T00:00:00Z' }) };
+    for (const lang of ['pt', 'en', 'es'] as const) {
+      const order = { ...row, design: { ...row.design, lang }, tracking: [{ carrier: 'DPD', number: 'TRK1', url: 'https://track/TRK1' }] };
+      for (const [kind, to] of [['order_paid', 'paid'], ['order_shipped', 'shipped'], ['order_delivered', 'delivered'], ['order_refunded', 'refunded']] as const) {
+        const m = renderOrderMail(deps, kind, { order, from: 'paid', to, actor: 'system' })!;
+        expect(m.subject).toContain(o.number);
+        expect(m.html).toContain(`http://app.test/order.html?id=${o.id}`);
+        expect(m.text).toContain(o.number);
+        expect(m.html).not.toMatch(/\{\w+\}/);
+        expect(m.text).not.toMatch(/\{\w+\}/);
+      }
+      const digital = { ...order, kind: 'digital' as const };
+      expect(renderOrderMail(deps, 'order_file_ready', { order: digital, from: 'paid', to: 'file_ready', actor: 'system' })!.text).toContain('http://x/pdf');
+    }
   });
 });

@@ -3,7 +3,8 @@
 // Routes (all JSON unless noted; every tree route is scoped to the current user):
 //
 //   GET    /api/health
-//   GET    /api/me
+//   POST   /api/auth/request  · GET /api/auth/verify  · POST /api/auth/logout   sign-in by e-mail (accounts.ts)
+//   GET    /api/me                                            the signed-in user (+ operator flag), or 401
 //   GET    /api/trees                                         list my trees
 //   POST   /api/trees                      {name}              create a tree
 //   GET    /api/trees/:t[?view=public]                         people, relationships (with confidence), health
@@ -26,6 +27,11 @@
 //   POST   /api/trees/:t/relationships/:r/recompute
 //
 // Commerce (orders, checkout, webhooks, print files, operations): see server/commerce/routes.ts.
+//
+// Who may call what (server/auth.ts): webhooks, signed file links, sign-in and the order pages
+// (reached by their unguessable id) need no login; everything else needs a signed-in user
+// (401 without one), and /api/ops/* an operator (403). In AUTH_MODE=dev a request without a
+// session is the dev user.
 
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -42,11 +48,14 @@ import type {
   SourceKind,
   Stance,
 } from '../src/model';
-import { authenticate, type AuthEnv } from './auth';
+import { DEFAULT_LIMITS, mountAccountRoutes, type AccountOptions } from './accounts';
+import { identify, requireUser, type AuthEnv, type AuthMode } from './auth';
 import type { Commerce } from './commerce/routes';
 import type { Db } from './db';
 import { badRequest, HttpError } from './errors';
 import * as repo from './repo';
+import { ConsoleMailer } from './mail/console';
+import type { Mailer } from './mail/types';
 import type { DocumentStorage } from './storage';
 import { arr, obj, oneOf, optStr, str, uuid } from './validate';
 
@@ -59,6 +68,15 @@ export interface AppDeps {
   corsOrigin?: (origin: string) => string | null;
   /** The shop (createCommerce); without it the commerce routes are absent. */
   commerce?: Commerce;
+  /** Sends sign-in links. Default: the console mailer (nothing leaves the machine). */
+  mailer?: Mailer;
+  /** Sign-in settings; see AuthSettings. */
+  auth?: AuthSettings;
+}
+
+export interface AuthSettings extends Partial<Omit<AccountOptions, 'mailer' | 'now'>> {
+  /** Default: AUTH_MODE from the environment, `required` unless it says `dev`. */
+  mode?: AuthMode;
 }
 
 const CLAIM_KINDS: readonly ClaimKind[] = [
@@ -137,8 +155,9 @@ async function readFile(v: unknown, allowed?: readonly string[]): Promise<repo.U
   return { name: v.name || 'document', type, bytes: new Uint8Array(await v.arrayBuffer()) };
 }
 
-export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce }: AppDeps) {
+export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce, mailer, auth = {} }: AppDeps) {
   const app = new Hono<AuthEnv>();
+  const mode: AuthMode = auth.mode ?? (process.env.AUTH_MODE === 'dev' ? 'dev' : 'required');
   const year = () => now().getUTCFullYear();
 
   app.onError((err, c) => {
@@ -148,15 +167,29 @@ export function createApp({ db, storage, now = () => new Date(), corsOrigin = lo
   });
   app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
-  app.use('/api/*', cors({ origin: (o) => corsOrigin(o), allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] }));
+  // credentials: the web app (another port in dev) sends the session cookie with its requests.
+  app.use('/api/*', cors({ origin: (o) => corsOrigin(o), allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], credentials: true }));
   app.use('/api/*', bodyLimit({ maxSize: repo.MAX_UPLOAD_BYTES + 1024 * 1024, onError: (c) => c.json({ error: 'Request is too large' }, 413) }));
   app.get('/api/health', (c) => c.json({ ok: true }));
   // Webhooks and signed file links prove themselves; they must not need a login.
   commerce?.mountPublic(app);
-  app.use('/api/*', authenticate);
+  app.use('/api/*', identify(db, mode, now));
+  mountAccountRoutes(app, db, {
+    mailer: mailer ?? new ConsoleMailer(),
+    apiUrl: auth.apiUrl ?? 'http://localhost:8787',
+    appUrl: auth.appUrl ?? 'http://localhost:5173',
+    secureCookies: auth.secureCookies ?? mode === 'required',
+    trustProxy: auth.trustProxy ?? false,
+    limits: auth.limits ?? DEFAULT_LIMITS,
+    brand: auth.brand,
+    now,
+  });
+  // Order pages work for guests too: an order's id is its key.
+  commerce?.mountGuest(app);
+  app.use('/api/*', requireUser);
   commerce?.mountAuthed(app);
 
-  app.get('/api/me', (c) => c.json(c.var.user));
+  app.get('/api/me', (c) => c.json({ ...c.var.user, operator: commerce?.isOperator(c.var.user) ?? false }));
 
   // ----- Trees -----
 

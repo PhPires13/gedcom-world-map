@@ -35,7 +35,8 @@ export class ApiError extends Error {
 export const apiUrl = (path: string) => `${API_BASE}${path}`;
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method };
+  // credentials: the session cookie (accounts); the API is on another port in dev.
+  const init: RequestInit = { method, credentials: 'include' };
   if (body instanceof FormData) init.body = body;
   else if (body !== undefined) {
     init.body = JSON.stringify(body);
