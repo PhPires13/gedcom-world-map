@@ -4,6 +4,10 @@
 // - checkout.sessions.create returns a session whose URL is a local "simulated Checkout" page;
 // - refunds.create answers "succeeded".
 //
+// Promotion codes: when a session allows them, the simulated page has a code field. The codes are
+// in `promotionCodes` (TESTE10 = 10% off, TESTE20REAIS = 20.00 off BRL orders, plus any a test adds);
+// the completed session carries the discount the way Stripe's does.
+//
 // Paying on the simulated page sends a `checkout.session.completed` event to the shop's own
 // webhook URL, signed with the webhook secret exactly like Stripe signs it, so the real signature
 // check and order logic run. Nothing here talks to Stripe.
@@ -17,6 +21,16 @@ interface FakeSession {
   id: string;
   params: Stripe.Checkout.SessionCreateParams;
   status: 'open' | 'complete' | 'expired';
+  /** The promotion code applied on the simulated page (a key of `promotionCodes`). */
+  promotionCode?: string;
+}
+
+export interface FakePromotionCode {
+  id: string;
+  percentOff?: number;
+  /** Minor units, in `currency` only. */
+  amountOff?: number;
+  currency?: string;
 }
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -26,6 +40,10 @@ export function fakeStripe(apiUrl: string, webhookSecret: string, post: (body: s
   const sessions = new Map<string, FakeSession>();
   const created: Stripe.Checkout.SessionCreateParams[] = [];
   const refunds: Stripe.RefundCreateParams[] = [];
+  const promotionCodes = new Map<string, FakePromotionCode>([
+    ['TESTE10', { id: 'promo_fake_teste10', percentOff: 10 }],
+    ['TESTE20REAIS', { id: 'promo_fake_teste20reais', amountOff: 2000, currency: 'brl' }],
+  ]);
 
   (stripe.checkout.sessions as unknown as { create: unknown }).create = async (params: Stripe.Checkout.SessionCreateParams) => {
     const id = `cs_test_fake_${randomUUID().replace(/-/g, '')}`;
@@ -44,19 +62,38 @@ export function fakeStripe(apiUrl: string, webhookSecret: string, post: (body: s
     return { payload, signature: Stripe.webhooks.generateTestHeaderString({ payload, secret: webhookSecret }) };
   }
 
+  /** Applies a promotion code to an open session, as typing it on Checkout would; an error message if refused. */
+  function applyPromotionCode(sessionId: string, input: string): string | undefined {
+    const s = sessions.get(sessionId);
+    if (!s || s.status !== 'open') return 'Unknown or finished session';
+    if (!s.params.allow_promotion_codes) return 'This session does not take promotion codes';
+    const code = input.trim().toUpperCase();
+    const promo = promotionCodes.get(code);
+    const currency = s.params.line_items?.[0]?.price_data?.currency;
+    if (!promo || (promo.amountOff && promo.currency !== currency)) return 'This code is invalid';
+    s.promotionCode = code;
+    return undefined;
+  }
+
   function sessionObject(s: FakeSession, paid: boolean) {
     const p = s.params;
-    const total = (p.line_items ?? []).reduce((sum, l) => sum + (l.price_data?.unit_amount ?? 0) * (l.quantity ?? 1), 0);
+    const subtotal = (p.line_items ?? []).reduce((sum, l) => sum + (l.price_data?.unit_amount ?? 0) * (l.quantity ?? 1), 0);
+    const promo = s.promotionCode ? promotionCodes.get(s.promotionCode) : undefined;
+    const discount = promo ? Math.min(subtotal, promo.amountOff ?? Math.round((subtotal * (promo.percentOff ?? 0)) / 100)) : 0;
+    const total = subtotal - discount;
     return {
       id: s.id,
       object: 'checkout.session',
       client_reference_id: p.client_reference_id,
       metadata: p.metadata,
+      amount_subtotal: subtotal,
       amount_total: total,
+      total_details: { amount_discount: discount, amount_shipping: 0, amount_tax: 0 },
+      discounts: promo ? [{ coupon: `co_fake_${s.promotionCode!.toLowerCase()}`, promotion_code: promo.id }] : [],
       currency: p.line_items?.[0]?.price_data?.currency,
-      payment_status: paid ? 'paid' : 'unpaid',
+      payment_status: paid ? (total === 0 ? 'no_payment_required' : 'paid') : 'unpaid',
       status: paid ? 'complete' : 'expired',
-      payment_intent: paid ? `pi_fake_${s.id.slice(-12)}` : null,
+      payment_intent: paid && total > 0 ? `pi_fake_${s.id.slice(-12)}` : null,
     };
   }
 
@@ -75,7 +112,11 @@ table{width:100%;border-collapse:collapse;margin:16px 0}td{padding:6px 0;border-
 <p class="warn"><b>Simulated Stripe Checkout.</b> This server has no Stripe keys (FAKE_PAYMENTS=yes). Paying here sends a signed test-mode <code>checkout.session.completed</code> event to the shop's webhook. No money moves.</p>
 <p>Order ${esc(s.params.metadata?.order_number)} · ${esc(s.params.customer_email)}</p>
 <table>${lines}</table>
-${s.status === 'open' ? `<form method="post" action="${esc(apiUrl)}/api/dev/checkout/${esc(s.id)}/pay" style="display:inline"><button class="pay">Pay with test card 4242 4242 4242 4242</button></form>
+${s.status === 'open' ? `<form method="post" action="${esc(apiUrl)}/api/dev/checkout/${esc(s.id)}/pay" style="display:inline">${
+        s.params.allow_promotion_codes
+          ? `<p><label>Promotion code (try ${[...promotionCodes.keys()].map(esc).join(', ')}): <input name="promo" autocomplete="off" style="font:inherit;padding:6px"></label></p>`
+          : ''
+      }<button class="pay">Pay with test card 4242 4242 4242 4242</button></form>
 <form method="post" action="${esc(apiUrl)}/api/dev/checkout/${esc(s.id)}/expire" style="display:inline"><button>Let it expire</button></form>
 <p><a href="${esc(s.params.cancel_url)}">← Back</a></p>` : `<p>This session is ${s.status}.</p>`}
 </body></html>`);
@@ -85,6 +126,12 @@ ${s.status === 'open' ? `<form method="post" action="${esc(apiUrl)}/api/dev/chec
       const action = c.req.param('action');
       if (!s || s.status !== 'open' || (action !== 'pay' && action !== 'expire')) return c.text('Unknown or finished session', 404);
       const paid = action === 'pay';
+      if (paid) {
+        const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+        const promo = typeof form.promo === 'string' ? form.promo.trim() : '';
+        const problem = promo ? applyPromotionCode(s.id, promo) : undefined;
+        if (problem) return c.text(`${problem}. Go back and try another code.`, 400);
+      }
       s.status = paid ? 'complete' : 'expired';
       const e = event(paid ? 'checkout.session.completed' : 'checkout.session.expired', sessionObject(s, paid));
       const res = await post(e.payload, e.signature);
@@ -93,7 +140,7 @@ ${s.status === 'open' ? `<form method="post" action="${esc(apiUrl)}/api/dev/chec
     });
   }
 
-  return { stripe, mount, event, sessionObject, sessions, created, refunds };
+  return { stripe, mount, event, sessionObject, applyPromotionCode, promotionCodes, sessions, created, refunds };
 }
 
 const defaultPost = (apiUrl: string) => (body: string, signature: string) =>

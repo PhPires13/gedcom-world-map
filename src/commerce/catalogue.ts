@@ -7,8 +7,14 @@
 export const CURRENCIES = ['BRL', 'EUR', 'USD'] as const;
 export type Currency = (typeof CURRENCIES)[number];
 
-export const PRODUCT_KINDS = ['digital', 'print', 'framed'] as const;
+export const PRODUCT_KINDS = ['digital', 'print', 'poster', 'framed', 'canvas', 'giftcard'] as const;
 export type ProductKind = (typeof PRODUCT_KINDS)[number];
+
+/** Kinds that are made and shipped (they need an address, a fulfilment route and shipping). */
+export const PHYSICAL_KINDS: readonly ProductKind[] = ['print', 'poster', 'framed', 'canvas'];
+export const isPhysical = (kind: ProductKind) => PHYSICAL_KINDS.includes(kind);
+/** Kinds drawn from a family tree (everything but the gift card). */
+export const isMap = (kind: ProductKind) => kind !== 'giftcard';
 
 export const FULFILMENT_ROUTES = ['prodigi', 'manual'] as const;
 /** Who makes and ships a physical product. Digital products need no fulfilment. */
@@ -16,6 +22,16 @@ export type FulfilmentRoute = (typeof FULFILMENT_ROUTES)[number];
 
 export const SIZES = ['A3', 'A2', 'A1'] as const;
 export type Size = (typeof SIZES)[number];
+export const isPaperSize = (v: unknown): v is Size => SIZES.includes(v as Size);
+
+/**
+ * A gift card's variants are value tiers instead of paper sizes: its "prices" are the card's value
+ * in each currency (V1 = BRL 200 / EUR 50 …). The shop shows the amount, never the tier id.
+ */
+export const GIFT_VALUES = ['V1', 'V2', 'V3'] as const;
+export type GiftValue = (typeof GIFT_VALUES)[number];
+/** A variant key: a paper size, or a gift card's value tier. */
+export type VariantSize = Size | GiftValue;
 
 /** Text the customer reads, in each site language (src/i18n): Portuguese, English and Spanish. */
 export type Localised = { pt: string; en: string; es: string };
@@ -27,7 +43,7 @@ export const localised = (text: Localised, locale: keyof Localised): string => t
 export type PriceTable = Partial<Record<Currency, number>>;
 
 export interface Variant {
-  size: Size;
+  size: VariantSize;
   prices: PriceTable;
   /** Partner product codes, e.g. { "prodigi": "GLOBAL-HPR-A2" }. */
   skus?: Partial<Record<FulfilmentRoute, string>>;
@@ -42,6 +58,11 @@ export interface Product {
   material?: Localised;
   /** Frame colours a customer can pick (framed products only). First one is the default. */
   frameColours?: string[];
+  /**
+   * Fixed product options sent to a partner with every order, e.g. a canvas's edge
+   * { "prodigi": { "wrap": "MirrorWrap" } }.
+   */
+  partnerAttributes?: Partial<Record<FulfilmentRoute, Record<string, string>>>;
   variants: Variant[];
 }
 
@@ -118,6 +139,17 @@ export function validateCatalogue(c: unknown): string[] {
     if (p.material !== undefined && !isLocalised(p.material)) errors.push(`${at}.material needs "pt", "en" and "es"`);
     if (p.kind === 'framed' && (!Array.isArray(p.frameColours) || !p.frameColours.length || p.frameColours.some((x) => typeof x !== 'string')))
       errors.push(`${at}.frameColours must list at least one colour`);
+    if (p.kind !== 'framed' && p.frameColours !== undefined) errors.push(`${at}.frameColours is only for framed products`);
+    if (p.partnerAttributes !== undefined) {
+      if (!isObj(p.partnerAttributes) || !isPhysical(p.kind as ProductKind)) errors.push(`${at}.partnerAttributes must be an object, on a physical product`);
+      else
+        for (const [route, attrs] of Object.entries(p.partnerAttributes)) {
+          if (!FULFILMENT_ROUTES.includes(route as FulfilmentRoute)) errors.push(`${at}.partnerAttributes: unknown route ${route}`);
+          if (!isObj(attrs) || Object.values(attrs).some((x) => typeof x !== 'string' || !x)) errors.push(`${at}.partnerAttributes.${route} must map attribute names to text`);
+        }
+    }
+    const giftcard = p.kind === 'giftcard';
+    const variantKeys: readonly string[] = giftcard ? GIFT_VALUES : SIZES;
     const variants = Array.isArray(p.variants) ? p.variants : [];
     if (!variants.length) errors.push(`${at}.variants must list at least one size`);
     const sizes = new Set<string>();
@@ -127,11 +159,12 @@ export function validateCatalogue(c: unknown): string[] {
         errors.push(`${vat} must be an object`);
         continue;
       }
-      if (!SIZES.includes(v.size as Size)) errors.push(`${vat}.size must be one of ${SIZES.join(', ')}`);
+      if (!variantKeys.includes(v.size as string)) errors.push(`${vat}.size must be one of ${variantKeys.join(', ')}${giftcard ? ' (a gift card’s value tiers)' : ''}`);
       else if (sizes.has(v.size as string)) errors.push(`${vat}.size ${String(v.size)} is listed twice`);
       sizes.add(v.size as string);
       checkPrices(v.prices, `${vat}.prices`, false);
-      if (v.skus !== undefined) {
+      if (giftcard && v.skus !== undefined) errors.push(`${vat}.skus: a gift card is not made by a partner`);
+      else if (v.skus !== undefined) {
         if (!isObj(v.skus)) errors.push(`${vat}.skus must be an object`);
         else for (const [route, sku] of Object.entries(v.skus)) {
           if (!FULFILMENT_ROUTES.includes(route as FulfilmentRoute)) errors.push(`${vat}.skus: unknown route ${route}`);
@@ -174,13 +207,14 @@ export function validateCatalogue(c: unknown): string[] {
       else
         for (const [kind, table] of Object.entries(m.shipping)) {
           if (!PRODUCT_KINDS.includes(kind as ProductKind)) errors.push(`${at}.shipping: unknown product kind ${kind}`);
+          else if (!isPhysical(kind as ProductKind)) errors.push(`${at}.shipping: ${kind} products are not shipped`);
           checkPrices(table, `${at}.shipping.${kind}`, true);
         }
     }
     // Every physical product sold in a market that goes to a partner needs that partner's SKU.
     if (m.fulfilment === 'prodigi') {
       for (const p of products) {
-        if (!isObj(p) || p.kind === 'digital') continue;
+        if (!isObj(p) || !isPhysical(p.kind as ProductKind)) continue;
         if (Array.isArray(m.products) && !m.products.includes(p.id)) continue;
         for (const v of Array.isArray(p.variants) ? p.variants : []) {
           if (isObj(v) && !(isObj(v.skus) && typeof v.skus.prodigi === 'string'))
@@ -218,10 +252,10 @@ export function formatMoney(minor: number, currency: Currency, locale = currency
 export interface Quote {
   productId: string;
   kind: ProductKind;
-  size: Size;
+  size: VariantSize;
   currency: Currency;
   market: string;
-  /** Who makes it; undefined for digital products. */
+  /** Who makes it; undefined for digital products and gift cards. */
   fulfilment?: FulfilmentRoute;
   sku?: string;
   /** Minor units. */
@@ -248,7 +282,7 @@ export function quote(cat: Catalogue, input: { productId: string; size: string; 
   if (!cat.currencies.includes(currency)) throw new QuoteError(`Unsupported currency ${input.currency}`);
   const price = variant.prices[currency];
   if (price === undefined) throw new QuoteError(`No ${currency} price for ${product.name.en} ${variant.size}`);
-  const physical = product.kind !== 'digital';
+  const physical = isPhysical(product.kind);
   const shipping = physical ? (market.shipping?.[product.kind]?.[currency] ?? 0) : 0;
   const unitAmount = toMinor(price);
   const shippingAmount = toMinor(shipping);

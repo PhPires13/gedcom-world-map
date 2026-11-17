@@ -1,7 +1,8 @@
 // The production sheet for manual fulfilment: one printable page an operator sends (or hands) to
-// a local print lab and framer, with everything they need and nothing they don't.
+// a local print lab and framer, with everything they need and nothing they don't. A gift order
+// also carries the message card to print and put in the parcel, and the rule: no prices inside.
 
-import { formatMoney, type Product } from '../../src/commerce/catalogue';
+import { formatMoney, isPaperSize, type Product } from '../../src/commerce/catalogue';
 import { describeDesign } from '../../src/commerce/design';
 import { STATUS_LABELS } from '../../src/commerce/status';
 import { loadPrintOptions } from '../print/assets';
@@ -11,11 +12,30 @@ import type { OrderRow } from './orders';
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 export function productionSheet(o: OrderRow, product: Product | undefined, files: { png?: string; pdf?: string }): string {
+  if (!isPaperSize(o.size)) throw new Error(`Order ${o.number} is not a print`);
   const [shortMm, longMm] = PAPER_MM[o.size];
-  const landscape = o.design.orientation === 'landscape';
+  const landscape = o.design?.orientation === 'landscape';
   const a = o.shippingAddress;
   const row = (k: string, v: string) => (v ? `<tr><th>${esc(k)}</th><td>${v}</td></tr>` : '');
+  if (!o.design) throw new Error(`Order ${o.number} has no design`);
   const d = describeDesign(o.design, loadPrintOptions());
+  const finishing =
+    o.kind === 'framed'
+      ? `${esc(o.frameColour ?? '')}, com passe-partout e vidro`
+      : o.kind === 'canvas'
+        ? 'tela canvas esticada em chassi de madeira, bordas espelhadas (mirror wrap), sem vidro · stretched canvas, mirrored edges'
+        : 'sem moldura (enrolar em tubo)';
+  const gift = o.gift;
+  const giftSection = gift
+    ? `<h2>Presente · Gift</h2>
+<div class="box gift"><b>É UM PRESENTE: NÃO coloque preços, recibo ou nota com valores dentro da embalagem.</b><br>
+This is a gift: no prices, receipt or invoice with amounts inside the parcel.${gift.message ? '<br>Imprima o cartão abaixo, recorte e coloque-o na embalagem. Print, cut out and put this card in the parcel.' : ''}</div>
+${
+  gift.message
+    ? `<div class="card"><p class="to">Para ${esc(gift.recipientName)}</p><p class="msg">${esc(gift.message)}</p></div>`
+    : `<p class="muted">Sem mensagem: só não incluir preços. Para: ${esc(gift.recipientName)}.</p>`
+}`
+    : '';
   const px = o.files.widthPx ? `${o.files.widthPx} × ${o.files.heightPx} px (300 dpi)` : 'not made yet';
   return `<!doctype html>
 <html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -26,6 +46,10 @@ export function productionSheet(o: OrderRow, product: Product | undefined, files
   table { border-collapse: collapse; width: 100%; } th { text-align: left; width: 34%; color: #555; font-weight: 600; vertical-align: top; }
   th, td { padding: 4px 8px 4px 0; } .big { font-size: 18px; font-weight: 700; } .muted { color: #666; font-size: 12px; }
   .box { border: 2px solid #222; padding: 10px 14px; margin-top: 10px; } a { word-break: break-all; }
+  .box.gift { border-color: #b42318; }
+  .card { width: 148mm; min-height: 105mm; box-sizing: border-box; border: 1px dashed #888; margin: 14px 0; padding: 14mm 12mm;
+    font: 17px/1.5 Georgia, 'Times New Roman', serif; page-break-inside: avoid; }
+  .card .to { font-style: italic; margin: 0 0 10px; } .card .msg { white-space: pre-wrap; margin: 0; }
   @media print { .noprint { display: none; } body { margin: 0; } }
 </style></head><body>
 <p class="noprint"><button onclick="print()">Imprimir / Print</button></p>
@@ -38,7 +62,7 @@ export function productionSheet(o: OrderRow, product: Product | undefined, files
 ${row('Produto · Product', esc(product?.name.pt ?? o.productId))}
 ${row('Formato · Size', `${esc(o.size)}: ${landscape ? `${longMm} × ${shortMm}` : `${shortMm} × ${longMm}`} mm, ${landscape ? 'paisagem (landscape)' : 'retrato (portrait)'}`)}
 ${row('Papel · Paper', esc(product?.material?.pt ?? ''))}
-${row('Moldura · Frame', o.kind === 'framed' ? `${esc(o.frameColour ?? '')}, com passe-partout e vidro` : 'sem moldura (enrolar em tubo)')}
+${row('Moldura · Frame', finishing)}
 ${row('Desenho · Design', `${esc(d.style)} · layout ${esc(d.layout)} · moldura desenhada ${esc(d.border)} · acabamento ${esc(d.finish)}`)}
 ${row('Rotas · Routes', `${d.routes === 'detailed (every move)' ? 'detalhadas (todas as mudanças)' : 'essenciais (as rotas principais)'} · ${esc(d.routes)}`)}
 ${row('Impressão · Print', 'Giclée, 100% sem margens, sem redimensionar; perfil sRGB. Print at 100%, no scaling, borderless.')}
@@ -54,7 +78,8 @@ ${
     ? `<div class="box">${esc(a.name)}<br>${esc(a.line1)}${a.line2 ? `<br>${esc(a.line2)}` : ''}<br>${esc(a.postalCode)} ${esc(a.city)}${a.state ? ` – ${esc(a.state)}` : ''}<br>${esc(a.country)}${a.phone ? `<br>Tel. ${esc(a.phone)}` : ''}${a.taxId ? `<br>CPF/CNPJ ${esc(a.taxId)}` : ''}</div>`
     : '<p>(produto digital: sem envio)</p>'
 }
-<p class="muted">Contacto do cliente: ${esc(o.email)} · valor declarado: ${esc(formatMoney(o.totalAmount, o.currency))}</p>
+<p class="muted">Contacto do cliente: ${esc(o.email)} · valor declarado: ${esc(formatMoney(o.totalAmount, o.currency))}${gift ? ' (só para a transportadora, nunca dentro da embalagem)' : ''}</p>
+${giftSection}
 
 <h2>Depois · Afterwards</h2>
 <p>Quando o laboratório aceitar o trabalho, marque a encomenda como <b>Em produção</b>; quando sair, <b>Enviado</b> (com o código de rastreio na nota); quando chegar, <b>Entregue</b>.</p>

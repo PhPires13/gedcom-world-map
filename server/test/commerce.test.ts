@@ -152,7 +152,7 @@ describe('shop catalogue', () => {
   it('prices products for the visitor’s country', async () => {
     const list = await call<{ currency: string; placeholderPrices: boolean; paymentsReady: boolean; products: { id: string }[] }>('GET', '/api/shop/catalogue?country=BR');
     expect(list).toMatchObject({ currency: 'BRL', placeholderPrices: true, paymentsReady: true });
-    expect(list.products.map((p) => p.id)).toEqual(['digital', 'print', 'framed']);
+    expect(list.products.map((p) => p.id)).toEqual(['digital', 'print', 'framed', 'poster', 'canvas', 'giftcard']);
   });
 });
 
@@ -199,6 +199,7 @@ describe('creating orders', () => {
       country: 'PT',
       design: { styleId: 'antique', orientation: 'landscape', area: 'family', lang: 'pt', title: '', subtitle: '', dedication: '', layoutId: 'accurate', flagScale: 1, show: { dates: true, placeNames: true, flags: 'origins', countryNames: true, oceanNames: true, compass: true, scaleBar: true, legend: true, graticule: true, surnames: true }, selection: { branch: 'all' }, places: {} },
       email: 'other@example.com',
+      lang: 'pt',
     });
     await call('GET', `/api/orders/${theirs.id}`, undefined, 404);
     await call('POST', `/api/orders/${theirs.id}/checkout`, undefined, 404);
@@ -400,8 +401,8 @@ describe('Prodigi fulfilment (Portugal)', () => {
     await prodigiEvent({ id: 'evt_2', type: 'shipment.delivered', data: { orderId: ref } });
     now = await call<OrderDetail>('GET', `/api/orders/${o.id}`);
     expect(statuses(now)).toEqual(['created', 'paid', 'file_ready', 'sent_to_production', 'shipped', 'delivered']);
-    // Physical orders don't hand the print file to the customer.
-    expect(now.downloads).toBeUndefined();
+    // Physical orders include the digital file: the customer gets the same signed links.
+    expect(now.downloads?.pdf).toMatch(new RegExp(`^${API}/api/files/${o.id}/pdf\\?exp=\\d+&sig=`));
   });
 
   it('polls Prodigi for the status from the operations page', async () => {
@@ -487,5 +488,275 @@ describe('manual fulfilment (Brazil) and operations', () => {
     broken = false;
     expect(await c.pipeline.resume()).toBeGreaterThanOrEqual(1);
     expect((await call<OrderDetail>('GET', `/api/orders/${o.id}`)).status).toBe('delivered');
+  });
+});
+
+// ---------- Promotion codes, gift orders, gift cards, more formats ----------
+
+/** Creates the Checkout Session, types a promotion code on it, pays, and lets background work finish. */
+async function payWithPromotionCode(orderId: string, code: string) {
+  const { url } = await call<{ url: string }>('POST', `/api/orders/${orderId}/checkout`);
+  const id = url.split('/').pop()!;
+  expect(fake.applyPromotionCode(id, code)).toBeUndefined();
+  const res = await stripeEvent('checkout.session.completed', fake.sessionObject(fake.sessions.get(id)!, true));
+  expect(res.status, await res.clone().text()).toBe(200);
+  await settle();
+  return call<OrderDetail>('GET', `/api/orders/${orderId}`);
+}
+
+/** Buys a gift card and pays for it; returns the paid order and its code. */
+async function boughtGiftCard(size = 'V1', country = 'BR') {
+  const o = await call<OrderDetail>('POST', '/api/orders', { productId: 'giftcard', size, country, email: 'giver@example.com', lang: 'pt' }, 201);
+  const paid = await checkoutAndPay(o.id);
+  expect(paid.giftCard?.code).toMatch(/^[2-9A-HJKMNP-TV-Z]{4}-[2-9A-HJKMNP-TV-Z]{4}-[2-9A-HJKMNP-TV-Z]{4}$/);
+  return { order: paid, code: paid.giftCard!.code };
+}
+
+const checkCard = (code: string, currency = 'BRL') =>
+  call<{ valid: boolean; amount?: number; reason?: string; currency?: string }>('POST', '/api/shop/gift-cards/check', { code, currency });
+
+describe('promotion codes', () => {
+  it('lets Checkout take promotion codes and records the discount from the webhook', async () => {
+    const o = await newOrder({ productId: 'print', size: 'A3', country: 'PT', shippingAddress: PT_ADDRESS });
+    const paid = await payWithPromotionCode(o.id, 'TESTE10');
+    expect(fake.created.at(-1)).toMatchObject({ allow_promotion_codes: true });
+    expect(paid).toMatchObject({ status: 'sent_to_production', totalAmount: 3900, discountAmount: 390, discountCode: 'promo_fake_teste10', amountPaid: 3510 });
+    expect(paid.events.find((e) => e.toStatus === 'paid')?.note).toMatch(/Paid 35,10.*3,90.*off with promotion code promo_fake_teste10/);
+
+    // Ops see it, and only what Stripe took can be refunded.
+    const row = (await call<(OrderDetail & { refundable: number })[]>('GET', '/api/ops/orders')).find((r) => r.id === o.id)!;
+    expect(row).toMatchObject({ discountAmount: 390, amountPaid: 3510, refundable: 3510 });
+    await call('POST', `/api/ops/orders/${o.id}/refund`, { amount: 3900 }, 400);
+    const refunded = await call<OrderDetail>('POST', `/api/ops/orders/${o.id}/refund`, {});
+    expect(refunded).toMatchObject({ status: 'refunded', refundedAmount: 3510 });
+    expect(fake.refunds.at(-1)?.amount).toBeUndefined(); // a full refund of the charge
+  });
+
+  it('accepts a code that leaves nothing to pay (no payment intent)', async () => {
+    fake.promotionCodes.set('FREE', { id: 'promo_fake_free', percentOff: 100 });
+    const o = await newOrder();
+    const paid = await payWithPromotionCode(o.id, 'FREE');
+    expect(paid).toMatchObject({ status: 'delivered', amountPaid: 0, discountAmount: o.totalAmount });
+  });
+
+  it('can be switched off, and refuses a payment whose discount does not add up', async () => {
+    const f = fake;
+    build({ payments: stripePayments(f.stripe, 'sk_test_x', STRIPE_SECRET, { promotionCodes: false }) });
+    fake = f; // events are signed by the fake whose sessions they are
+    const o = await newOrder();
+    const { url } = await call<{ url: string }>('POST', `/api/orders/${o.id}/checkout`);
+    expect(f.created.at(-1)?.allow_promotion_codes).toBe(false);
+    const s = f.sessions.get(url.split('/').pop()!)!;
+    // A discount Stripe did not report (amount_total lower, no total_details) is a mismatch.
+    await stripeEvent('checkout.session.completed', { ...fake.sessionObject(s, true), amount_total: 100 });
+    // A subtotal that is not the order's price is a mismatch even with a matching discount.
+    await stripeEvent('checkout.session.completed', { ...fake.sessionObject(s, true), amount_subtotal: 100, amount_total: 50, total_details: { amount_discount: 50 } });
+    const after = await call<OrderDetail>('GET', `/api/orders/${o.id}`);
+    expect(after.status).toBe('created');
+    expect(after.events.filter((e) => /does not match/.test(e.note ?? ''))).toHaveLength(2);
+  });
+});
+
+describe('gift orders', () => {
+  it('sends a print as a gift: recipient, card message, no prices in the parcel', async () => {
+    const message = 'Para a vovó Maria,\ncom as nossas raízes e todo o nosso carinho.\n\n\n\nAna';
+    const o = await newOrder({ productId: 'framed', size: 'A3', country: 'BR', frameColour: 'black', shippingAddress: BR_ADDRESS, gift: { message } });
+    expect(o.gift).toEqual({ recipientName: 'Ana Costa', message: 'Para a vovó Maria,\ncom as nossas raízes e todo o nosso carinho.\n\nAna' });
+    expect(o.email).toBe('ana@example.com'); // the buyer stays the contact
+    const ready = await checkoutAndPay(o.id);
+    expect(ready.status).toBe('file_ready');
+
+    const sheet = await call<string>('GET', `/api/ops/orders/${o.id}/sheet`);
+    expect(sheet).toContain('É UM PRESENTE: NÃO coloque preços');
+    expect(sheet).toContain('Para Ana Costa');
+    expect(sheet).toContain('com as nossas raízes e todo o nosso carinho.');
+    expect(sheet).toContain('só para a transportadora, nunca dentro da embalagem');
+
+    const row = (await call<OrderDetail[]>('GET', '/api/ops/orders')).find((r) => r.id === o.id)!;
+    expect(row.gift).toMatchObject({ recipientName: 'Ana Costa' });
+  });
+
+  it('takes another name for the card and escapes the message on the sheet', async () => {
+    const o = await newOrder({
+      productId: 'print',
+      size: 'A3',
+      country: 'BR',
+      shippingAddress: BR_ADDRESS,
+      gift: { recipientName: '  Vovó   Maria ', message: '<script>alert(1)</script>​' },
+    });
+    expect(o.gift).toEqual({ recipientName: 'Vovó Maria', message: '<script>alert(1)</script>' });
+    await checkoutAndPay(o.id);
+    const sheet = await call<string>('GET', `/api/ops/orders/${o.id}/sheet`);
+    expect(sheet).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(sheet).not.toContain('<script>alert');
+  });
+
+  it('refuses bad gifts', async () => {
+    const t = await sampleTree();
+    const base = { treeId: t, productId: 'print', size: 'A3', country: 'BR', email: 'a@b.co', design: {}, shippingAddress: BR_ADDRESS };
+    await call('POST', '/api/orders', { ...base, productId: 'digital', size: 'A1', shippingAddress: undefined, gift: { message: 'hi' } }, 400);
+    await call('POST', '/api/orders', { ...base, gift: { message: 'x'.repeat(301) } }, 400);
+    await call('POST', '/api/orders', { ...base, gift: { message: Array(9).fill('line').join('\n') } }, 400);
+    await call('POST', '/api/orders', { ...base, gift: { message: 42 } }, 400);
+    await call('POST', '/api/orders', { ...base, gift: { recipientName: 'x'.repeat(101) } }, 400);
+    await call('POST', '/api/orders', { ...base, gift: 'yes' }, 400);
+    await call('POST', '/api/orders', { ...base, gift: { message: 'x'.repeat(300) } }, 201);
+  });
+
+  it('tells operators that Prodigi does not get the gift message', async () => {
+    const o = await newOrder({ productId: 'print', size: 'A2', shippingAddress: PT_ADDRESS, gift: { message: 'Parabéns!' } });
+    const sent = await checkoutAndPay(o.id);
+    expect(sent.status).toBe('sent_to_production');
+    expect(sent.events.some((e) => /Prodigi has no field for the gift message/.test(e.note ?? ''))).toBe(true);
+    expect(JSON.stringify(prodigiCalls.at(-1)?.body)).not.toContain('Parabéns');
+  });
+});
+
+describe('gift cards', () => {
+  it('sells a gift card without a tree and delivers its code once paid', async () => {
+    const o = await call<OrderDetail>('POST', '/api/orders', { productId: 'giftcard', size: 'V2', country: 'BR', email: 'giver@example.com', lang: 'es' }, 201);
+    expect(o).toMatchObject({ kind: 'giftcard', size: 'V2', currency: 'BRL', totalAmount: 35000, shippingAmount: 0, lang: 'es', status: 'created' });
+    expect(o.design).toBeUndefined();
+    expect(o.treeId).toBeUndefined();
+    expect(o.giftCard).toBeUndefined();
+    const paid = await checkoutAndPay(o.id);
+    expect(fake.created.at(-1)?.line_items?.[0]?.price_data?.product_data?.name).toMatch(/^Tarjeta regalo R\$\s?350,00$/);
+    expect(statuses(paid)).toEqual(['created', 'paid', 'delivered']);
+    expect(paid.giftCard).toMatchObject({ amount: 35000, currency: 'BRL', status: 'active' });
+    expect(paid.downloads).toBeUndefined();
+    expect(rendered).toHaveLength(0);
+
+    // Operators see it masked; running the pipeline again issues nothing new.
+    const ops = await call<OrderDetail>('GET', `/api/ops/orders/${o.id}`);
+    expect(ops.giftCard?.code).toBe(`••••-••••-${paid.giftCard!.code.slice(-4)}`);
+    await call('POST', `/api/ops/orders/${o.id}/retry`);
+    expect((await call<OrderDetail>('GET', `/api/orders/${o.id}`)).giftCard?.code).toBe(paid.giftCard!.code);
+    await call('GET', `/api/ops/orders/${o.id}/sheet`, undefined, 409);
+  });
+
+  it('refuses bad gift card orders', async () => {
+    const base = { productId: 'giftcard', size: 'V1', country: 'BR', email: 'a@b.co' };
+    await call('POST', '/api/orders', { ...base, size: 'A3' }, 400);
+    await call('POST', '/api/orders', { ...base, gift: { message: 'hi' } }, 400);
+    const { code } = await boughtGiftCard();
+    await call('POST', '/api/orders', { ...base, giftCardCode: code }, 400); // no card with a card
+  });
+
+  it('pays a whole map order with a gift card, without Stripe', async () => {
+    const { code, order: card } = await boughtGiftCard('V1');
+    expect(await checkCard(code.toLowerCase().replace(/-/g, ' '))).toEqual({ valid: true, amount: 20000, currency: 'BRL' });
+    const sessions = fake.created.length;
+    const o = await newOrder({ country: 'BR', giftCardCode: code });
+    expect(o).toMatchObject({ status: 'paid', totalAmount: 6990, giftCardAmount: 6990, amountPaid: 0 });
+    await settle();
+    const done = await call<OrderDetail>('GET', `/api/orders/${o.id}`);
+    expect(statuses(done)).toEqual(['created', 'paid', 'file_ready', 'delivered']);
+    expect(done.downloads?.png).toBeDefined();
+    expect(fake.created.length).toBe(sessions);
+    // Single use: the rest of the value is not kept, and the code is spent.
+    expect(await checkCard(code)).toMatchObject({ valid: false, reason: 'used' });
+    expect((await call<OrderDetail>('GET', `/api/orders/${card.id}`)).giftCard).toMatchObject({ status: 'redeemed', redeemedOrderNumber: o.number });
+    await call('POST', '/api/orders', { treeId: await sampleTree(), productId: 'digital', size: 'A1', country: 'BR', email: 'a@b.co', design: {}, giftCardCode: code }, 409);
+  });
+
+  it('charges the rest through Checkout when the card covers part of the order', async () => {
+    const { code } = await boughtGiftCard('V1'); // R$ 200
+    const o = await newOrder({ productId: 'framed', size: 'A2', country: 'BR', frameColour: 'natural', shippingAddress: BR_ADDRESS, giftCardCode: code });
+    expect(o).toMatchObject({ status: 'created', totalAmount: 68980, giftCardAmount: 20000 });
+    const paid = await checkoutAndPay(o.id);
+    expect(fake.created.at(-1)?.line_items?.map((l) => l.price_data?.unit_amount)).toEqual([44990, 3990]);
+    expect(fake.created.at(-1)?.line_items?.[0]?.price_data?.product_data?.description).toMatch(/vale-presente −R\$\s?200,00/);
+    expect(paid).toMatchObject({ status: 'file_ready', amountPaid: 48980 });
+    expect(paid.events.find((e) => e.toStatus === 'paid')?.note).toMatch(/200,00 by gift card/);
+    await call('POST', `/api/ops/orders/${o.id}/refund`, { amount: 48981 }, 400);
+  });
+
+  it('can never be spent twice, even by orders placed at the same time', async () => {
+    const { code } = await boughtGiftCard('V3');
+    const body = { treeId: await sampleTree(), productId: 'digital', size: 'A1', country: 'BR', email: 'a@b.co', design: { places: PLACES }, giftCardCode: code };
+    const send = () => app.request('/api/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const results = await Promise.all([send(), send(), send()]);
+    expect(results.map((r) => r.status).sort()).toEqual([201, 409, 409]);
+    await settle();
+    const spentOn = await db.query<{ id: string }>(`select o.id from orders o join gift_cards g on g.redeemed_order_id = o.id where g.code = $1`, [code.replace(/-/g, '')]);
+    expect(spentOn).toHaveLength(1);
+    // A refused order is rolled back entirely: no order counts a card it doesn't hold.
+    const orphans = await db.query(
+      `select id from orders where gift_card_amount > 0 and status not in ('cancelled', 'refunded') and id not in (select redeemed_order_id from gift_cards where redeemed_order_id is not null)`,
+    );
+    expect(orphans).toEqual([]);
+  });
+
+  it('only pays in its own currency, and unknown codes are refused', async () => {
+    const { code } = await boughtGiftCard('V1', 'BR');
+    expect(await checkCard(code, 'EUR')).toEqual({ valid: false, reason: 'currency', currency: 'BRL' });
+    expect(await checkCard('ABCD-EFGH-JKMN')).toEqual({ valid: false, reason: 'unknown' });
+    expect(await checkCard('nope')).toEqual({ valid: false, reason: 'unknown' });
+    const t = await sampleTree();
+    await call('POST', '/api/orders', { treeId: t, productId: 'digital', size: 'A1', country: 'PT', email: 'a@b.co', design: {}, giftCardCode: code }, 400);
+    await call('POST', '/api/orders', { treeId: t, productId: 'digital', size: 'A1', country: 'BR', email: 'a@b.co', design: {}, giftCardCode: 'ABCD-EFGH-JKMN' }, 400);
+    expect(await checkCard(code)).toMatchObject({ valid: true }); // still unspent
+  });
+
+  it('comes back when the order it paid for is cancelled, expires or is refunded', async () => {
+    const { code } = await boughtGiftCard('V1');
+    const first = await newOrder({ productId: 'print', size: 'A2', country: 'BR', shippingAddress: BR_ADDRESS, giftCardCode: code });
+    expect(await checkCard(code)).toMatchObject({ reason: 'used' });
+    const cancelled = await call<OrderDetail>('POST', `/api/orders/${first.id}/cancel`);
+    expect(cancelled.events.some((e) => /can be used again/.test(e.note ?? ''))).toBe(true);
+    expect(await checkCard(code)).toMatchObject({ valid: true });
+
+    const second = await newOrder({ productId: 'print', size: 'A2', country: 'BR', shippingAddress: BR_ADDRESS, giftCardCode: code });
+    const { url } = await call<{ url: string }>('POST', `/api/orders/${second.id}/checkout`);
+    await stripeEvent('checkout.session.expired', fake.sessionObject(fake.sessions.get(url.split('/').pop()!)!, false));
+    expect(await checkCard(code)).toMatchObject({ valid: true });
+
+    // Fully refunding a paid order gives the card back too.
+    const third = await newOrder({ productId: 'print', size: 'A2', country: 'BR', shippingAddress: BR_ADDRESS, giftCardCode: code });
+    await checkoutAndPay(third.id);
+    await call('POST', `/api/ops/orders/${third.id}/refund`, {});
+    expect(await checkCard(code)).toMatchObject({ valid: true });
+  });
+
+  it('is voided when its purchase is refunded, and can’t be refunded once spent', async () => {
+    const unused = await boughtGiftCard('V1');
+    const refunded = await call<OrderDetail>('POST', `/api/ops/orders/${unused.order.id}/refund`, {});
+    expect(refunded).toMatchObject({ status: 'refunded', giftCard: { status: 'void' } });
+    expect(await checkCard(unused.code)).toMatchObject({ valid: false, reason: 'unknown' });
+
+    const spent = await boughtGiftCard('V1');
+    await call('POST', `/api/ops/orders/${spent.order.id}/refund`, { amount: 100 }, 400); // whole or nothing
+    await newOrder({ country: 'BR', giftCardCode: spent.code });
+    await settle();
+    await call('POST', `/api/ops/orders/${spent.order.id}/refund`, {}, 409);
+    expect(await checkCard(spent.code)).toMatchObject({ reason: 'used' });
+  });
+});
+
+describe('more formats', () => {
+  it('sends a canvas to Prodigi with its wrap and SKU', async () => {
+    const o = await newOrder({ productId: 'canvas', size: 'A2', shippingAddress: PT_ADDRESS });
+    expect(o).toMatchObject({ kind: 'canvas', sku: 'GLOBAL-CAN-A2', fulfilment: 'prodigi', totalAmount: 13900 });
+    expect((await checkoutAndPay(o.id)).status).toBe('sent_to_production');
+    const post = prodigiCalls.find((c) => c.method === 'POST' && c.url.endsWith('/orders'))!;
+    expect(post.body).toMatchObject({ items: [{ sku: 'GLOBAL-CAN-A2', attributes: { wrap: 'MirrorWrap' } }] });
+  });
+
+  it('makes posters and canvases by hand in Brazil, with the right sheet', async () => {
+    const poster = await newOrder({ productId: 'poster', size: 'A1', country: 'BR', shippingAddress: BR_ADDRESS });
+    expect(poster).toMatchObject({ kind: 'poster', totalAmount: 16990, shippingAmount: 0, fulfilment: 'manual' });
+    expect((await checkoutAndPay(poster.id)).status).toBe('file_ready');
+    const posterSheet = await call<string>('GET', `/api/ops/orders/${poster.id}/sheet`);
+    expect(posterSheet).toContain('Pôster (sem moldura)');
+    expect(posterSheet).toContain('sem moldura (enrolar em tubo)');
+    expect(posterSheet).toContain('Enhanced Matte Art');
+
+    const canvas = await newOrder({ productId: 'canvas', size: 'A3', country: 'BR', shippingAddress: BR_ADDRESS });
+    expect(canvas).toMatchObject({ totalAmount: 39990 + 3990 });
+    const ready = await checkoutAndPay(canvas.id);
+    expect(ready.downloads?.png).toBeDefined(); // the digital file comes with it
+    expect(await call<string>('GET', `/api/ops/orders/${canvas.id}/sheet`)).toContain('tela canvas esticada em chassi');
+    await call('POST', `/api/ops/orders/${canvas.id}/advance`, {});
+    expect((await call<OrderDetail>('GET', `/api/orders/${canvas.id}`)).status).toBe('sent_to_production');
   });
 });

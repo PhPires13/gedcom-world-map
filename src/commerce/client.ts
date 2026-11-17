@@ -3,7 +3,8 @@
 import { API_BASE, ApiError } from '../tree/api';
 import { countryForTimeZone } from '../i18n/core';
 import type { Currency, PriceList } from './catalogue';
-import type { Address, Order, OrderDetail } from './order';
+import type { GiftDetails } from './gift';
+import type { Address, IssuedGiftCard, Order, OrderDetail } from './order';
 import type { OrderStatus } from './status';
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -25,25 +26,44 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export type ShopCatalogue = PriceList & { paymentsReady: boolean; paymentMode?: 'test' | 'live' };
 
 export interface NewOrder {
-  treeId: string;
+  /** A map's tree and design (not for a gift card). */
+  treeId?: string;
   productId: string;
   size: string;
   frameColour?: string;
-  design: unknown;
+  design?: unknown;
   country: string;
   currency?: Currency;
   email: string;
   shippingAddress?: Address;
+  /** A present (printed products only): the recipient defaults to the address's name. */
+  gift?: Partial<GiftDetails>;
+  /** A gift card code to pay with. */
+  giftCardCode?: string;
+  /** The page's language (gift cards; a map's comes from its design). */
+  lang?: string;
 }
 
-export type OpsOrder = Order & { next: OrderStatus[]; manualNext?: OrderStatus; fileUrl?: string; pdfUrl?: string };
+export type GiftCardCheck = { valid: true; amount: number; currency: Currency } | { valid: false; reason: 'unknown' | 'used' | 'currency'; currency?: Currency };
+
+export type OpsOrder = Order & {
+  next: OrderStatus[];
+  manualNext?: OrderStatus;
+  fileUrl?: string;
+  pdfUrl?: string;
+  giftCard?: IssuedGiftCard;
+  /** What can still be refunded through Stripe. */
+  refundable: number;
+};
 
 export const shop = {
   catalogue: (country: string, currency?: string) =>
     request<ShopCatalogue>('GET', `/api/shop/catalogue?country=${encodeURIComponent(country)}${currency ? `&currency=${currency}` : ''}`),
   createOrder: (o: NewOrder) => request<OrderDetail>('POST', '/api/orders', o),
   order: (id: string) => request<OrderDetail>('GET', `/api/orders/${id}`),
-  checkout: (id: string) => request<{ url: string }>('POST', `/api/orders/${id}/checkout`),
+  /** A Checkout page to go to, or `paid` when a gift card covered the order. */
+  checkout: (id: string) => request<{ url: string } | { paid: true }>('POST', `/api/orders/${id}/checkout`),
+  checkGiftCard: (code: string, currency: string) => request<GiftCardCheck>('POST', '/api/shop/gift-cards/check', { code, currency }),
   cancel: (id: string) => request<OrderDetail>('POST', `/api/orders/${id}/cancel`),
   ops: {
     list: (status?: string) => request<OpsOrder[]>('GET', `/api/ops/orders${status ? `?status=${status}` : ''}`),

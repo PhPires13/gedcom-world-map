@@ -5,6 +5,7 @@
 //   STRIPE_WEBHOOK_SECRET   whsec_… (from `stripe listen` or the Dashboard) } off, unless:
 //   FAKE_PAYMENTS=yes       dev only: a local simulated Checkout instead of Stripe (fake-stripe.ts)
 //   STRIPE_PIX=yes          offer Pix for BRL orders (enable Pix in the Stripe Dashboard too)
+//   STRIPE_PROMOTION_CODES=no  hide Checkout's promotion code field (shown by default; codes are made in the Dashboard)
 //   PRODIGI_API_KEY         sandbox_… (live keys are refused); without it Prodigi orders wait for an operator
 //   PRODIGI_WEBHOOK_SECRET  secret of the Prodigi webhook subscription
 //   PUBLIC_API_URL          the API's address as partners and Stripe see it (default http://localhost:PORT);

@@ -28,6 +28,17 @@ describe('order status machine', () => {
     expect(canTransition('created', 'refunded')).toBe(false);
   });
 
+  it('delivers a gift card straight after payment, and only a gift card', () => {
+    expect(canTransition('paid', 'delivered', 'giftcard')).toBe(true);
+    expect(canTransition('paid', 'delivered', 'digital')).toBe(false);
+    expect(canTransition('paid', 'delivered')).toBe(false);
+    expect(canTransition('paid', 'file_ready', 'giftcard')).toBe(false);
+    expect(allowedNext('paid', 'giftcard')).toEqual(['delivered', 'cancelled', 'refunded']);
+    expect(allowedNext('paid', 'canvas')).toEqual(['file_ready', 'cancelled', 'refunded']);
+    expect(nextManualStep('paid', 'giftcard')).toBeUndefined();
+    expect(nextManualStep('file_ready', 'poster')).toBe('sent_to_production');
+  });
+
   it('ends at refunded', () => {
     expect(allowedNext('refunded')).toEqual([]);
     expect(isFinal('refunded')).toBe(true);

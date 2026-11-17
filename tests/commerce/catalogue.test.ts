@@ -21,6 +21,18 @@ describe('the shipped catalogue (config/catalogue.json)', () => {
     expect(sizes('digital')).toEqual(['A1']);
     expect(sizes('print')).toEqual(['A3', 'A2', 'A1']);
     expect(sizes('framed')).toEqual(['A3', 'A2']);
+    expect(sizes('poster')).toEqual(['A3', 'A2', 'A1']);
+    expect(sizes('canvas')).toEqual(['A3', 'A2']);
+    expect(sizes('giftcard')).toEqual(['V1', 'V2', 'V3']);
+  });
+
+  it('sells gift cards of BRL 200/350/500 and EUR/USD 50/90/130', () => {
+    const card = parseCatalogue(real).products.find((p) => p.kind === 'giftcard')!;
+    expect(card.variants.map((v) => v.prices)).toEqual([
+      { BRL: 200, EUR: 50, USD: 50 },
+      { BRL: 350, EUR: 90, USD: 90 },
+      { BRL: 500, EUR: 130, USD: 130 },
+    ]);
   });
 
   it('routes Brazil to manual fulfilment in BRL and Portugal to Prodigi in EUR', () => {
@@ -71,6 +83,41 @@ describe('validateCatalogue', () => {
     expect(errors).toContain('products[1].variants[1].size A3 is listed twice');
   });
 
+  it('checks gift cards: value tiers, no partner, no shipping', () => {
+    const c = clone();
+    const card = c.products.find((p) => p.kind === 'giftcard')!;
+    const i = c.products.indexOf(card);
+    (card.variants[0] as { size: string }).size = 'A3';
+    card.variants[1].skus = { prodigi: 'GIFT' };
+    (c.markets[0].shipping as Record<string, unknown>).giftcard = { BRL: 5 };
+    const errors = validateCatalogue(c);
+    expect(errors).toContain(`products[${i}].variants[0].size must be one of V1, V2, V3 (a gift card’s value tiers)`);
+    expect(errors).toContain(`products[${i}].variants[1].skus: a gift card is not made by a partner`);
+    expect(errors).toContain('markets[0].shipping: giftcard products are not shipped');
+    // …and a print can't use a value tier.
+    const d = clone();
+    (d.products[1].variants[0] as { size: string }).size = 'V1';
+    expect(validateCatalogue(d)).toContain('products[1].variants[0].size must be one of A3, A2, A1');
+  });
+
+  it('checks partner attributes and frame colours on the right products', () => {
+    const c = clone();
+    const canvas = c.products.findIndex((p) => p.kind === 'canvas');
+    c.products[canvas].partnerAttributes = { prodigi: { wrap: '' } };
+    c.products[1].frameColours = ['black'];
+    c.products[0].partnerAttributes = { prodigi: { wrap: 'MirrorWrap' } };
+    const errors = validateCatalogue(c);
+    expect(errors).toContain(`products[${canvas}].partnerAttributes.prodigi must map attribute names to text`);
+    expect(errors).toContain('products[1].frameColours is only for framed products');
+    expect(errors).toContain('products[0].partnerAttributes must be an object, on a physical product');
+  });
+
+  it('needs Prodigi SKUs for the new physical formats too', () => {
+    const c = clone();
+    delete c.products.find((p) => p.id === 'poster')!.variants[2].skus;
+    expect(validateCatalogue(c)).toContain('markets[1]: product poster A1 has no "prodigi" SKU but this market is fulfilled by Prodigi');
+  });
+
   it('parseCatalogue throws with every problem listed', () => {
     expect(() => parseCatalogue({ version: 2 })).toThrow(/version must be 1[\s\S]*products must list/);
   });
@@ -100,6 +147,24 @@ describe('quote', () => {
     expect(quote(cat, { productId: 'digital', size: 'A1', country: 'US' })).toMatchObject({ fulfilment: undefined, shippingAmount: 0, totalAmount: 1690 });
   });
 
+  it('prices gift cards with no shipping or partner, and the new formats with their kind’s shipping', () => {
+    expect(quote(cat, { productId: 'giftcard', size: 'V2', country: 'US' })).toEqual({
+      productId: 'giftcard',
+      kind: 'giftcard',
+      size: 'V2',
+      currency: 'USD',
+      market: 'ROW',
+      fulfilment: undefined,
+      sku: undefined,
+      unitAmount: 9000,
+      shippingAmount: 0,
+      totalAmount: 9000,
+    });
+    expect(quote(cat, { productId: 'poster', size: 'A2', country: 'JP' })).toMatchObject({ sku: 'GLOBAL-EMA-A2', unitAmount: 3200, shippingAmount: 900 });
+    expect(quote(cat, { productId: 'canvas', size: 'A3', country: 'BR' })).toMatchObject({ fulfilment: 'manual', unitAmount: 39990, shippingAmount: 3990 });
+    expect(() => quote(cat, { productId: 'giftcard', size: 'A3', country: 'BR' })).toThrow(/not sold in A3/);
+  });
+
   it('refuses unknown products, sizes and currencies', () => {
     expect(() => quote(cat, { productId: 'mug', size: 'A3', country: 'PT' })).toThrow(QuoteError);
     expect(() => quote(cat, { productId: 'framed', size: 'A1', country: 'PT' })).toThrow(/not sold in A1/);
@@ -117,7 +182,7 @@ describe('priceList and formatMoney', () => {
   it('lists every product with totals for the visitor', () => {
     const list = priceList(parseCatalogue(real), 'BR');
     expect(list.currency).toBe('BRL');
-    expect(list.products.map((p) => p.id)).toEqual(['digital', 'print', 'framed']);
+    expect(list.products.map((p) => p.id)).toEqual(['digital', 'print', 'framed', 'poster', 'canvas', 'giftcard']);
     expect(list.products[2].variants[0]).toEqual({ size: 'A3', unitAmount: 44990, shippingAmount: 3990, totalAmount: 48980 });
   });
 

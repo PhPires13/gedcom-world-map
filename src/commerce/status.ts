@@ -7,6 +7,10 @@
 //   cancelled ◀──┴──────────┴───────────────┘                 │           │
 //      │                                                       │           │
 //      └──────────────────────────▶ refunded ◀─────────────────┴───────────┘
+//
+// A gift card has nothing to make: paid ─▶ delivered as soon as its code is issued.
+
+import type { ProductKind } from './catalogue';
 
 export const ORDER_STATUSES = [
   'created',
@@ -22,7 +26,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 const NEXT: Record<OrderStatus, readonly OrderStatus[]> = {
   created: ['paid', 'cancelled'],
-  paid: ['file_ready', 'cancelled', 'refunded'],
+  paid: ['file_ready', 'delivered', 'cancelled', 'refunded'],
   file_ready: ['sent_to_production', 'delivered', 'cancelled', 'refunded'],
   sent_to_production: ['shipped', 'cancelled', 'refunded'],
   shipped: ['delivered', 'refunded'],
@@ -32,8 +36,11 @@ const NEXT: Record<OrderStatus, readonly OrderStatus[]> = {
   refunded: [],
 };
 
-export function canTransition(from: OrderStatus, to: OrderStatus, kind?: 'digital' | 'print' | 'framed'): boolean {
+export function canTransition(from: OrderStatus, to: OrderStatus, kind?: ProductKind): boolean {
   if (!NEXT[from].includes(to)) return false;
+  // Only a gift card is delivered straight after payment (its code is the delivery), and it is never printed.
+  if (from === 'paid' && to === 'delivered') return kind === 'giftcard';
+  if (kind === 'giftcard' && (to === 'file_ready' || to === 'sent_to_production' || to === 'shipped')) return false;
   // Digital orders are delivered by the download link: they never go to production or shipping.
   if (kind === 'digital' && (to === 'sent_to_production' || to === 'shipped')) return false;
   // Physical orders can't skip production and shipping.
@@ -41,7 +48,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus, kind?: 'digita
   return true;
 }
 
-export const allowedNext = (from: OrderStatus, kind?: 'digital' | 'print' | 'framed') =>
+export const allowedNext = (from: OrderStatus, kind?: ProductKind) =>
   NEXT[from].filter((to) => canTransition(from, to, kind));
 
 /** Statuses after payment: the customer has been charged (and may be owed a refund if cancelled). */
@@ -50,8 +57,8 @@ export const PAID_STATUSES: readonly OrderStatus[] = ['paid', 'file_ready', 'sen
 export const isFinal = (s: OrderStatus) => NEXT[s].length === 0;
 
 /** The forward step an operator takes by hand for a manually fulfilled order, if any. */
-export function nextManualStep(from: OrderStatus, kind: 'digital' | 'print' | 'framed'): OrderStatus | undefined {
-  if (kind === 'digital') return undefined;
+export function nextManualStep(from: OrderStatus, kind: ProductKind): OrderStatus | undefined {
+  if (kind === 'digital' || kind === 'giftcard') return undefined;
   return ({ file_ready: 'sent_to_production', sent_to_production: 'shipped', shipped: 'delivered' } as Partial<Record<OrderStatus, OrderStatus>>)[from];
 }
 
