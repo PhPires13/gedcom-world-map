@@ -12,9 +12,11 @@
         <h1 data-i18n="ops.heading">Pedidos</h1>
         <label><span data-i18n="ops.filter">Situação</span> <select id="filter"></select></label>
         <button id="reload" class="btn" data-i18n="ops.reload">Atualizar</button>
+        <span id="account"></span>
         <span id="lang"></span>
       </header>
       <p id="ops-status" class="muted small"></p>
+      <div id="ops-prompt" class="card prompt" hidden></div>
       <div class="table-wrap"><table id="orders"></table></div>
     </main>
     <script type="module" src="/src/commerce/ops-page.ts"></script>

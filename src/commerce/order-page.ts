@@ -5,6 +5,9 @@
 import './shop.css';
 import { formatDate, onLocaleChange, translateStatic } from '../i18n/core';
 import { mountLanguageSwitcher } from '../i18n/switcher';
+import { loginUrl } from '../account/api';
+import { mountAccountMenu, t as tAccount } from '../account/menu';
+import { ApiError } from '../tree/api';
 import { BORDERS, FINISHES, LAYOUTS } from '../print/catalog';
 import { STYLES } from '../print/styles';
 import { shop } from './client';
@@ -15,10 +18,12 @@ import { DATE_TIME, designWords, esc, frameColourName, money, productKindName, s
 const params = new URLSearchParams(location.search);
 const id = params.get('id') ?? '';
 const from = params.get('from');
+/** The order link's key (e-mailed links): opens the order without signing in. */
+const key = params.get('k');
 const box = document.querySelector<HTMLElement>('#order')!;
 
 /** What the page shows, kept so a language change re-renders it without reloading. */
-let view: { order: OrderDetail } | { error: string } | { noId: true } | undefined;
+let view: { order: OrderDetail } | { error: string } | { noId: true } | { signIn: true } | undefined;
 let message = '';
 
 function steps(o: OrderDetail): OrderStatus[] {
@@ -94,7 +99,7 @@ function render(o: OrderDetail) {
     </div>`;
   document.querySelector('#pay')?.addEventListener('click', async () => {
     try {
-      location.href = (await shop.checkout(o.id)).url;
+      location.href = (await shop.checkout(o.id, key)).url;
     } catch (e) {
       // Server error messages are in English; shown as they come.
       message = String(e instanceof Error ? e.message : e);
@@ -105,7 +110,7 @@ function render(o: OrderDetail) {
     if (!confirm(t('order.cancelConfirm'))) return;
     try {
       message = '';
-      render(await shop.cancel(o.id));
+      render(await shop.cancel(o.id, key));
     } catch (e) {
       message = String(e instanceof Error ? e.message : e);
       document.querySelector('#msg')!.textContent = message;
@@ -118,6 +123,8 @@ function show() {
   translateStatic(document, t);
   if (!view) return; // still loading: the static "Loading…" text was just translated
   if ('order' in view) render(view.order);
+  else if ('signIn' in view)
+    box.innerHTML = `<div class="card prompt"><p>${esc(tAccount('prompt.orderSignIn'))}</p><p><a class="btn primary" href="${esc(loginUrl())}">${esc(tAccount('prompt.signIn'))}</a></p></div>`;
   else if ('error' in view) box.innerHTML = `<div class="card"><p class="error">${esc(t('order.loadError', { error: view.error }))}</p></div>`;
   else box.innerHTML = `<div class="card"><p>${esc(t('order.noId'))}</p></div>`;
 }
@@ -125,18 +132,21 @@ function show() {
 let polls = 0;
 async function refresh() {
   try {
-    const o = await shop.order(id);
+    const o = await shop.order(id, key);
     render(o);
     // Follow the order while it is moving on its own: payment clearing, the file being made.
     const moving = (o.status === 'created' && from === 'checkout') || o.status === 'paid' || (o.status === 'file_ready' && o.kind === 'digital');
     if (moving && polls++ < 120) setTimeout(refresh, 2500);
   } catch (e) {
-    view = { error: e instanceof Error ? e.message : String(e) };
+    // Someone else's order (or nobody signed in, without the order link's key): offer to sign in.
+    const hidden = e instanceof ApiError && (e.status === 404 || e.status === 401);
+    view = hidden && !(await signedIn) ? { signIn: true } : { error: e instanceof Error ? e.message : String(e) };
     show();
   }
 }
 
 mountLanguageSwitcher(document.querySelector<HTMLElement>('#lang')!);
+const signedIn = mountAccountMenu(document.querySelector<HTMLElement>('#account')!);
 onLocaleChange(show);
 show();
 if (id) void refresh();

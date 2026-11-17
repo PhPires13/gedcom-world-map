@@ -5,15 +5,20 @@
 //   POST   /api/webhooks/prodigi                        Prodigi v5 events (X-Prodigi-Signature)
 //   GET    /api/files/:orderId/:file?exp&sig            print file (png | pdf | svg), signed expiring link
 //
-// For the current user (orders belong to their owner, like trees):
+// The order's owner, or anyone with the order's link — `?k=<order key>` (links.ts orderKey), which
+// the order e-mails carry — so a guest, or the buyer on another device,
+// can follow it without signing in. Without the key, someone else's order is 404. Someone who isn't
+// the owner gets the address without phone and tax id:
 //   GET    /api/shop/catalogue?country=BR[&currency=EUR]  products and prices for a country
-//   POST   /api/orders          {treeId, productId, size, frameColour?, design, country, currency?, email, shippingAddress?}
-//   GET    /api/orders                                    my orders
 //   GET    /api/orders/:id                                order, history, download links once paid (digital)
 //   POST   /api/orders/:id/checkout                       → {url} of a Stripe Checkout page
 //   POST   /api/orders/:id/cancel                         cancel an unpaid order
 //
-// Operations (users listed in OPERATOR_EMAILS):
+// Signed in (orders belong to their owner, like trees, and are listed in "Minha conta"):
+//   POST   /api/orders          {treeId, productId, size, frameColour?, design, country, currency?, email, shippingAddress?}
+//   GET    /api/orders                                    my orders
+//
+// Operations (signed in, with an e-mail listed in OPERATOR_EMAILS; 401 / 403 otherwise):
 //   GET    /api/ops/orders[?status=]                      every order, with file links
 //   POST   /api/ops/orders/:id/advance {to?, note?}       next manual step, or a given status
 //   POST   /api/ops/orders/:id/refund {amount?}           refund through Stripe (minor units; default: all)
@@ -27,9 +32,11 @@ import { formatMoney, priceList, productById, quote, QuoteError, type Catalogue,
 import { DesignError, parseDesign, type DesignOptionIds } from '../../src/commerce/design';
 import type { Address, OrderDetail } from '../../src/commerce/order';
 import { allowedNext, nextManualStep, ORDER_STATUSES, STATUS_LABELS } from '../../src/commerce/status';
-import type { AuthEnv, User } from '../auth';
+import { currentUser, type AuthEnv, type User } from '../auth';
 import type { Db } from '../db';
-import { badRequest, HttpError } from '../errors';
+import { badRequest, HttpError, notFound } from '../errors';
+import { sendOrderMail } from '../mail/order-mails';
+import type { Mailer } from '../mail/types';
 import * as repo from '../repo';
 import type { DocumentStorage } from '../storage';
 import { obj, oneOf, optStr, str, uuid } from '../validate';
@@ -59,6 +66,12 @@ export interface CommerceDeps {
   devRoutes?: (app: Hono<AuthEnv>) => void;
   /** Runs after-payment work without holding up the webhook response. Tests pass one they can await. */
   background?: (task: () => Promise<void>) => void;
+  /** E-mails the customer when the order moves (server/mail/order-mails.ts). Without it, no e-mail. */
+  mailer?: Mailer;
+  /** Name at the top of the e-mails (MAIL_BRAND). */
+  mailBrand?: string;
+  /** "Leave a review" link in the delivered e-mail (REVIEW_URL). */
+  reviewUrl?: string;
 }
 
 const DOWNLOAD_TTL = 7 * 24 * 3600;
@@ -95,21 +108,52 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && v.length 
  */
 export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date, deps: CommerceDeps) {
   const { catalogue, links } = deps;
-  const pipeline = new Pipeline({ db, storage, render: deps.render, fulfilment: deps.fulfilment, links, now });
   const background =
     deps.background ??
     ((task) => {
       setImmediate(() => task().catch((e) => console.error('Background order task failed:', e)));
     });
 
+  const downloadLinks = (o: orders.OrderRow): OrderDetail['downloads'] => {
+    if (!o.files.png) return undefined;
+    const made = PRINT_FILES.filter((f) => o.files[f]).map((f) => [f, links.url(o.id, f, DOWNLOAD_TTL)] as const);
+    return { ...Object.fromEntries(made.map(([f, l]) => [f, l.url])), expiresAt: made[0][1].expiresAt.toISOString() };
+  };
+
+  /**
+   * Every status change goes through here: orders.transition, then (when it changed something) the
+   * customer's e-mail, in the background so a slow or failing mail provider never holds up or
+   * breaks the order.
+   */
+  const mailer = deps.mailer;
+  const transition: typeof orders.transition = async (tdb, orderId, to, actor, note, patch) => {
+    const result = await orders.transition(tdb, orderId, to, actor, note, patch);
+    if (result.changed && mailer) {
+      const change = { order: result.order, from: result.from, to, actor, note };
+      background(() => sendOrderMail({ db, mailer, catalogue, orderUrl: orderPageUrl, downloads: downloadLinks, brand: deps.mailBrand, reviewUrl: deps.reviewUrl }, change));
+    }
+    return result;
+  };
+  const pipeline = new Pipeline({ db, storage, render: deps.render, fulfilment: deps.fulfilment, links, now, transition });
+
   const detail = async (o: orders.OrderRow, withLinks: boolean): Promise<OrderDetail> => {
     const out: OrderDetail = { ...orders.publicOrder(o), events: await orders.orderEvents(db, o.id) };
-    if (withLinks && o.files.png) {
-      const made = PRINT_FILES.filter((f) => o.files[f]).map((f) => [f, links.url(o.id, f, DOWNLOAD_TTL)] as const);
-      out.downloads = { ...Object.fromEntries(made.map(([f, l]) => [f, l.url])), expiresAt: made[0][1].expiresAt.toISOString() };
-    }
+    const downloads = withLinks ? downloadLinks(o) : undefined;
+    if (downloads) out.downloads = downloads;
     return out;
   };
+
+  /** The order as seen by someone holding its link who isn't its owner: no phone or tax id. */
+  const forViewer = (out: OrderDetail, o: orders.OrderRow, viewer: User | undefined): OrderDetail => {
+    if (viewer?.id === o.ownerId || !out.shippingAddress) return out;
+    const { phone: _p, taxId: _t, ...address } = out.shippingAddress;
+    return { ...out, shippingAddress: address };
+  };
+
+  /** The customer's order page, with the key that opens it without signing in. */
+  const orderPageUrl = (orderId: string) => `${deps.appUrl}/order.html?id=${orderId}&k=${links.orderKey(orderId)}`;
+
+  const isOperator = (user: User | undefined) => !!user && deps.operators.some((e) => e.toLowerCase() === user.email.toLowerCase());
 
   // ---------- Without login ----------
 
@@ -137,7 +181,7 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       if (!order) return;
       await orders.updateOrder(db, order.id, { refunded_amount: event.amountRefunded });
       if (event.fullyRefunded && order.status !== 'refunded') {
-        await orders.transition(db, order.id, 'refunded', 'stripe', `Refunded ${formatMoney(event.amountRefunded, order.currency)}`);
+        await transition(db, order.id, 'refunded', 'stripe', `Refunded ${formatMoney(event.amountRefunded, order.currency)}`);
       } else if (!event.fullyRefunded) {
         await orders.addEvent(db, order.id, 'stripe', `Partly refunded: ${formatMoney(event.amountRefunded, order.currency)} in all`);
       }
@@ -165,7 +209,7 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
             await orders.addEvent(db, order.id, 'stripe', 'Paid after the order was cancelled: refund it from the operations page');
           return;
         }
-        await orders.transition(db, order.id, 'paid', 'stripe', `Paid ${formatMoney(event.amount, order.currency)}`, { stripe_payment_intent: event.paymentIntent });
+        await transition(db, order.id, 'paid', 'stripe', `Paid ${formatMoney(event.amount, order.currency)}`, { stripe_payment_intent: event.paymentIntent });
         background(() => pipeline.processOrder(order.id));
         return;
       }
@@ -173,10 +217,10 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
         await orders.addEvent(db, order.id, 'stripe', 'Checkout finished; waiting for the payment to clear (Pix / boleto)');
         return;
       case 'failed':
-        if (order.status === 'created') await orders.transition(db, order.id, 'cancelled', 'stripe', 'The delayed payment failed');
+        if (order.status === 'created') await transition(db, order.id, 'cancelled', 'stripe', 'The delayed payment failed');
         return;
       case 'expired':
-        if (order.status === 'created') await orders.transition(db, order.id, 'cancelled', 'stripe', 'Checkout expired without payment');
+        if (order.status === 'created') await transition(db, order.id, 'cancelled', 'stripe', 'Checkout expired without payment');
         return;
     }
   }
@@ -218,15 +262,66 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
     });
   };
 
-  // ---------- Signed-in customer ----------
+  // ---------- Guests and customers: the order's id is its key ----------
 
-  const mountAuthed = (app: Hono<AuthEnv>) => {
+  const mountGuest = (app: Hono<AuthEnv>) => {
     app.get('/api/shop/catalogue', (c) => {
       const country = (c.req.query('country') || 'US').toUpperCase();
       if (!COUNTRY_RE.test(country)) throw badRequest('country must be a two-letter code');
       const currency = c.req.query('currency') as Currency | undefined;
       return c.json({ ...priceList(catalogue, country, currency), paymentsReady: !!deps.payments, paymentMode: deps.payments?.mode });
     });
+
+    /** The order, if the caller owns it or has its link (key); 404 otherwise, like trees. */
+    const linkedOrder = async (c: Context<AuthEnv>) => {
+      const o = await orders.getOrderById(db, uuid(c.req.param('id'), 'id'));
+      if (currentUser(c)?.id === o.ownerId || links.checkOrderKey(o.id, c.req.query('k'))) return o;
+      throw notFound('Order');
+    };
+
+    app.get('/api/orders/:id', async (c) => {
+      const o = await linkedOrder(c);
+      // Digital buyers download from here; physical orders' files are for the lab, not the customer.
+      return c.json(forViewer(await detail(o, o.kind === 'digital' && o.paid && o.status !== 'refunded'), o, currentUser(c)));
+    });
+
+    app.post('/api/orders/:id/checkout', async (c) => {
+      const o = await linkedOrder(c);
+      if (o.status !== 'created') throw new HttpError(409, `Order ${o.number} is already ${o.status}`);
+      if (!deps.payments) throw new HttpError(409, new PaymentsNotConfigured().message);
+      const product = productById(catalogue, o.productId);
+      const name = product ? `${product.name[o.design.lang]} ${o.size}${o.frameColour ? `, ${o.frameColour}` : ''}` : `${o.productId} ${o.size}`;
+      const lines = [{ name, description: o.design.title || undefined, amount: o.unitAmount }];
+      const shipping = { pt: 'Envio', en: 'Shipping', es: 'Envío' }[o.design.lang];
+      if (o.shippingAmount) lines.push({ name: shipping, description: undefined, amount: o.shippingAmount });
+      const session = await deps.payments.createCheckout({
+        orderId: o.id,
+        orderNumber: o.number,
+        email: o.email,
+        currency: o.currency,
+        lines,
+        // The buyer comes back signed in (orders are made by signed-in customers), so no key here.
+        successUrl: `${deps.appUrl}/order.html?id=${o.id}&from=checkout`,
+        cancelUrl: `${deps.appUrl}/order.html?id=${o.id}&from=cancel`,
+        // Stripe Checkout's own page language follows the order's language.
+        locale:
+          o.design.lang === 'pt' ? (o.country === 'BR' ? 'pt-BR' : 'pt') : o.design.lang === 'es' ? (o.country === 'ES' ? 'es' : 'es-419') : 'en',
+      });
+      await orders.updateOrder(db, o.id, { stripe_session_id: session.id }, { actor: 'customer', note: 'Went to Stripe Checkout' });
+      return c.json({ url: session.url });
+    });
+
+    app.post('/api/orders/:id/cancel', async (c) => {
+      const o = await linkedOrder(c);
+      if (o.status !== 'created') throw new HttpError(409, 'Only unpaid orders can be cancelled here; contact us for a paid order');
+      const { order } = await transition(db, o.id, 'cancelled', 'customer', 'Cancelled before payment');
+      return c.json(forViewer(await detail(order, false), order, currentUser(c)));
+    });
+  };
+
+  // ---------- Signed-in customer ----------
+
+  const mountAuthed = (app: Hono<AuthEnv>) => {
 
     app.post('/api/orders', async (c) => {
       const b = obj(await c.req.json().catch(() => null));
@@ -258,52 +353,18 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
 
     app.get('/api/orders', async (c) => c.json((await orders.listOrders(db, { ownerId: c.var.user.id })).map(orders.publicOrder)));
 
-    const myOrder = (c: Context<AuthEnv>) => orders.getOrder(db, c.var.user.id, uuid(c.req.param('id'), 'id'));
-
-    app.get('/api/orders/:id', async (c) => {
-      const o = await myOrder(c);
-      // Digital buyers download from here; physical orders' files are for the lab, not the customer.
-      return c.json(await detail(o, o.kind === 'digital' && o.paid && o.status !== 'refunded'));
-    });
-
-    app.post('/api/orders/:id/checkout', async (c) => {
-      const o = await myOrder(c);
-      if (o.status !== 'created') throw new HttpError(409, `Order ${o.number} is already ${o.status}`);
-      if (!deps.payments) throw new HttpError(409, new PaymentsNotConfigured().message);
-      const product = productById(catalogue, o.productId);
-      const name = product ? `${product.name[o.design.lang]} ${o.size}${o.frameColour ? `, ${o.frameColour}` : ''}` : `${o.productId} ${o.size}`;
-      const lines = [{ name, description: o.design.title || undefined, amount: o.unitAmount }];
-      const shipping = { pt: 'Envio', en: 'Shipping', es: 'Envío' }[o.design.lang];
-      if (o.shippingAmount) lines.push({ name: shipping, description: undefined, amount: o.shippingAmount });
-      const session = await deps.payments.createCheckout({
-        orderId: o.id,
-        orderNumber: o.number,
-        email: o.email,
-        currency: o.currency,
-        lines,
-        successUrl: `${deps.appUrl}/order.html?id=${o.id}&from=checkout`,
-        cancelUrl: `${deps.appUrl}/order.html?id=${o.id}&from=cancel`,
-        // Stripe Checkout's own page language follows the order's language.
-        locale:
-          o.design.lang === 'pt' ? (o.country === 'BR' ? 'pt-BR' : 'pt') : o.design.lang === 'es' ? (o.country === 'ES' ? 'es' : 'es-419') : 'en',
-      });
-      await orders.updateOrder(db, o.id, { stripe_session_id: session.id }, { actor: 'customer', note: 'Went to Stripe Checkout' });
-      return c.json({ url: session.url });
-    });
-
-    app.post('/api/orders/:id/cancel', async (c) => {
-      const o = await myOrder(c);
-      if (o.status !== 'created') throw new HttpError(409, 'Only unpaid orders can be cancelled here; contact us for a paid order');
-      const { order } = await orders.transition(db, o.id, 'cancelled', 'customer', 'Cancelled before payment');
-      return c.json(await detail(order, false));
-    });
-
     // ---------- Operations ----------
 
     const operator = (c: Context<AuthEnv>): User => {
-      if (!deps.operators.includes(c.var.user.email)) throw new HttpError(403, 'Operations are for the shop team only');
+      if (!isOperator(currentUser(c))) throw new HttpError(403, 'Operations are for the shop team only');
       return c.var.user;
     };
+    // Every operations route, including ones added later, is for operators only. (No user at all
+    // has already been answered 401 by requireUser.)
+    app.use('/api/ops/*', async (c, next) => {
+      operator(c);
+      await next();
+    });
     const anyOrder = (c: Context<AuthEnv>) => orders.getOrderById(db, uuid(c.req.param('id'), 'id'));
 
     app.get('/api/ops/orders', async (c) => {
@@ -335,7 +396,7 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       if (to === 'paid' || to === 'refunded') throw new HttpError(409, `Orders become ${to} through Stripe, not by hand`);
       const note = optStr(b.note, 'note', 500);
       const patch = o.fulfilment === 'manual' && to !== 'cancelled' ? { fulfilment_status: to } : {};
-      const { order } = await orders.transition(db, o.id, to, 'operator', note ?? `Marked ${STATUS_LABELS[to].en.toLowerCase()} by ${c.var.user.email}`, patch);
+      const { order } = await transition(db, o.id, to, 'operator', note ?? `Marked ${STATUS_LABELS[to].en.toLowerCase()} by ${c.var.user.email}`, patch);
       if (to === 'file_ready') background(() => pipeline.processOrder(order.id));
       return c.json(await detail(order, true));
     });
@@ -353,7 +414,7 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       const r = await deps.payments.refund(o.stripePaymentIntent, amount === o.totalAmount ? undefined : amount, o.id);
       const refunded = o.refundedAmount + amount;
       if (refunded >= o.totalAmount) {
-        await orders.transition(db, o.id, 'refunded', 'operator', `Refund ${r.id} (${r.status}) of ${formatMoney(amount, o.currency)}`, { refunded_amount: refunded });
+        await transition(db, o.id, 'refunded', 'operator', `Refund ${r.id} (${r.status}) of ${formatMoney(amount, o.currency)}`, { refunded_amount: refunded });
       } else {
         await orders.updateOrder(db, o.id, { refunded_amount: refunded }, { actor: 'operator', note: `Partial refund ${r.id} (${r.status}) of ${formatMoney(amount, o.currency)}` });
       }
@@ -414,6 +475,9 @@ export function createCommerce(db: Db, storage: DocumentStorage, now: () => Date
       mountStripeWebhook(app);
       mountPartnerWebhookAndFiles(app);
     },
+    mountGuest,
     mountAuthed,
+    /** Whether this user may use the operations routes (OPERATOR_EMAILS). */
+    isOperator,
   };
 }

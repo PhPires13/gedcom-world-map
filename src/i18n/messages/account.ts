@@ -1,0 +1,167 @@
+// Accounts: the sign-in page (login.html), "Minha conta" (account.html), the account menu in page
+// headers, and the sign-in prompts of the order and operations pages.
+
+import { plural, type Messages } from '../core';
+
+type Vars = Record<string, string | number>;
+
+const pt = {
+  // ---- Header menu ----
+  'menu.signIn': 'Entrar',
+  'menu.account': 'Minha conta',
+  'menu.signOut': 'Sair',
+  'menu.signedInAs': 'Conectado como {email}',
+
+  // ---- Sign-in page ----
+  'login.pageTitle': 'Entrar',
+  'login.heading': 'Entrar',
+  'login.intro': 'Sem senha: enviamos um link para o seu e-mail. Basta clicar nele para entrar.',
+  'login.email': 'E-mail',
+  'login.emailPlaceholder': 'voce@exemplo.com',
+  'login.submit': 'Enviar link de acesso',
+  'login.sending': 'Enviando…',
+  'login.sent': 'Pronto! Enviamos um link para {email}. Abra seu e-mail e clique no link para entrar. Ele vale por 15 minutos.',
+  'login.sentHint': 'Não chegou? Confira a caixa de spam ou peça outro link.',
+  'login.again': 'Enviar outro link',
+  'login.linkError': 'Este link de acesso não vale mais: ele expirou ou já foi usado. Peça um novo abaixo.',
+  'login.tooMany': 'Muitos pedidos seguidos. Espere alguns minutos e tente de novo.',
+  'login.failed': 'Não foi possível enviar o link: {error}',
+  'login.already': 'Você já entrou como {email}.',
+  'login.continue': 'Continuar',
+  'login.other': 'Para entrar com outro e-mail, peça um link abaixo.',
+  'login.back': '← Mapa',
+
+  // ---- Account page ----
+  'account.pageTitle': 'Minha conta',
+  'account.heading': 'Minha conta',
+  'account.loading': 'Carregando…',
+  'account.signedInAs': 'Você entrou como {email}.',
+  'account.devUser': 'Modo de desenvolvimento: sem login, você é o usuário de teste.',
+  'account.orders': 'Meus pedidos',
+  'account.noOrders': 'Você ainda não fez nenhum pedido.',
+  'account.view': 'Ver pedido',
+  'account.trees': 'Minhas árvores',
+  'account.noTrees': 'Nenhuma árvore salva ainda. Abra o mapa e carregue um arquivo GEDCOM.',
+  'account.people': (v: Vars) => `${v.count} ${plural(Number(v.count), 'pessoa', 'pessoas')}`,
+  'account.makePrint': 'Criar um quadro',
+  'account.ops': 'Operações da loja',
+  'account.loadError': 'Não foi possível carregar sua conta: {error}',
+  'account.col.order': 'Pedido',
+  'account.col.date': 'Data',
+  'account.col.product': 'Produto',
+  'account.col.total': 'Total',
+  'account.col.status': 'Situação',
+
+  // ---- Prompts on other pages ----
+  'prompt.orderSignIn': 'Entre com o e-mail da sua conta para ver este pedido, ou abra o link do pedido que enviamos por e-mail.',
+  'prompt.opsSignIn': 'Esta página é da equipe da loja. Entre com o seu e-mail para continuar.',
+  'prompt.opsForbidden': 'Sua conta ({email}) não tem acesso às operações da loja.',
+  'prompt.signIn': 'Entrar',
+  'prompt.otherAccount': 'Entrar com outra conta',
+};
+type Key = keyof typeof pt;
+
+const en: Record<Key, string | ((v: Vars) => string)> = {
+  'menu.signIn': 'Sign in',
+  'menu.account': 'My account',
+  'menu.signOut': 'Sign out',
+  'menu.signedInAs': 'Signed in as {email}',
+
+  'login.pageTitle': 'Sign in',
+  'login.heading': 'Sign in',
+  'login.intro': 'No password: we e-mail you a link. Click it to sign in.',
+  'login.email': 'E-mail',
+  'login.emailPlaceholder': 'you@example.com',
+  'login.submit': 'Send sign-in link',
+  'login.sending': 'Sending…',
+  'login.sent': 'Done! We sent a link to {email}. Open your e-mail and click the link to sign in. It works for 15 minutes.',
+  'login.sentHint': "Didn't get it? Check your spam folder or ask for another link.",
+  'login.again': 'Send another link',
+  'login.linkError': 'This sign-in link no longer works: it has expired or was already used. Ask for a new one below.',
+  'login.tooMany': 'Too many requests in a row. Wait a few minutes and try again.',
+  'login.failed': 'The link could not be sent: {error}',
+  'login.already': "You're signed in as {email}.",
+  'login.continue': 'Continue',
+  'login.other': 'To sign in with another e-mail, ask for a link below.',
+  'login.back': '← Map',
+
+  'account.pageTitle': 'My account',
+  'account.heading': 'My account',
+  'account.loading': 'Loading…',
+  'account.signedInAs': "You're signed in as {email}.",
+  'account.devUser': "Development mode: without signing in, you're the test user.",
+  'account.orders': 'My orders',
+  'account.noOrders': "You haven't placed any orders yet.",
+  'account.view': 'View order',
+  'account.trees': 'My trees',
+  'account.noTrees': 'No saved trees yet. Open the map and load a GEDCOM file.',
+  'account.people': (v: Vars) => `${v.count} ${plural(Number(v.count), 'person', 'people')}`,
+  'account.makePrint': 'Design a print',
+  'account.ops': 'Shop operations',
+  'account.loadError': 'Your account could not be loaded: {error}',
+  'account.col.order': 'Order',
+  'account.col.date': 'Date',
+  'account.col.product': 'Product',
+  'account.col.total': 'Total',
+  'account.col.status': 'Status',
+
+  'prompt.orderSignIn': 'Sign in with your account e-mail to see this order, or open the order link we e-mailed you.',
+  'prompt.opsSignIn': 'This page is for the shop team. Sign in with your e-mail to continue.',
+  'prompt.opsForbidden': "Your account ({email}) doesn't have access to shop operations.",
+  'prompt.signIn': 'Sign in',
+  'prompt.otherAccount': 'Sign in with another account',
+};
+
+const es: Record<Key, string | ((v: Vars) => string)> = {
+  'menu.signIn': 'Entrar',
+  'menu.account': 'Mi cuenta',
+  'menu.signOut': 'Salir',
+  'menu.signedInAs': 'Conectado como {email}',
+
+  'login.pageTitle': 'Entrar',
+  'login.heading': 'Entrar',
+  'login.intro': 'Sin contraseña: te enviamos un enlace por correo. Haz clic en él para entrar.',
+  'login.email': 'Correo electrónico',
+  'login.emailPlaceholder': 'tu@ejemplo.com',
+  'login.submit': 'Enviar enlace de acceso',
+  'login.sending': 'Enviando…',
+  'login.sent': '¡Listo! Enviamos un enlace a {email}. Abre tu correo y haz clic en el enlace para entrar. Vale por 15 minutos.',
+  'login.sentHint': '¿No llegó? Revisa la carpeta de spam o pide otro enlace.',
+  'login.again': 'Enviar otro enlace',
+  'login.linkError': 'Este enlace de acceso ya no vale: caducó o ya se usó. Pide uno nuevo abajo.',
+  'login.tooMany': 'Demasiadas solicitudes seguidas. Espera unos minutos e inténtalo de nuevo.',
+  'login.failed': 'No se pudo enviar el enlace: {error}',
+  'login.already': 'Ya entraste como {email}.',
+  'login.continue': 'Continuar',
+  'login.other': 'Para entrar con otro correo, pide un enlace abajo.',
+  'login.back': '← Mapa',
+
+  'account.pageTitle': 'Mi cuenta',
+  'account.heading': 'Mi cuenta',
+  'account.loading': 'Cargando…',
+  'account.signedInAs': 'Entraste como {email}.',
+  'account.devUser': 'Modo de desarrollo: sin iniciar sesión, eres el usuario de prueba.',
+  'account.orders': 'Mis pedidos',
+  'account.noOrders': 'Todavía no hiciste ningún pedido.',
+  'account.view': 'Ver pedido',
+  'account.trees': 'Mis árboles',
+  'account.noTrees': 'Todavía no hay árboles guardados. Abre el mapa y carga un archivo GEDCOM.',
+  'account.people': (v: Vars) => `${v.count} ${plural(Number(v.count), 'persona', 'personas')}`,
+  'account.makePrint': 'Crear un cuadro',
+  'account.ops': 'Operaciones de la tienda',
+  'account.loadError': 'No se pudo cargar tu cuenta: {error}',
+  'account.col.order': 'Pedido',
+  'account.col.date': 'Fecha',
+  'account.col.product': 'Producto',
+  'account.col.total': 'Total',
+  'account.col.status': 'Estado',
+
+  'prompt.orderSignIn': 'Entra con el correo de tu cuenta para ver este pedido, o abre el enlace del pedido que te enviamos por correo.',
+  'prompt.opsSignIn': 'Esta página es del equipo de la tienda. Entra con tu correo para continuar.',
+  'prompt.opsForbidden': 'Tu cuenta ({email}) no tiene acceso a las operaciones de la tienda.',
+  'prompt.signIn': 'Entrar',
+  'prompt.otherAccount': 'Entrar con otra cuenta',
+};
+
+export const accountMessages = { pt, en, es } satisfies Messages<Key>;
+export type AccountKey = Key;

@@ -28,6 +28,23 @@ export class LinkSigner {
     return { url, expiresAt: new Date(exp * 1000) };
   }
 
+  /**
+   * The key that opens an order's page without signing in (`order.html?id=…&k=…`): in the
+   * order e-mails, so a guest — or the buyer on another device — can
+   * follow the order. It never expires; it shows the order (without phone and tax id), lets an
+   * unpaid order be paid or cancelled, and nothing else.
+   */
+  orderKey(orderId: string): string {
+    return createHmac('sha256', this.secret).update(`order-page:${orderId}`).digest('base64url').slice(0, 32);
+  }
+
+  checkOrderKey(orderId: string, key: string | undefined): boolean {
+    if (!key) return false;
+    const expected = Buffer.from(this.orderKey(orderId));
+    const given = Buffer.from(key);
+    return expected.length === given.length && timingSafeEqual(expected, given);
+  }
+
   /** Why a link is not valid, or undefined if it is. */
   check(orderId: string, file: string, exp: string | undefined, sig: string | undefined): string | undefined {
     const e = Number(exp);

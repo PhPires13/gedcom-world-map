@@ -8,6 +8,7 @@ const pt = {
   // Header
   'header.print': 'Imprimir',
   'header.printTitle': 'Crie um quadro com o mapa das origens da sua família',
+  'header.account': 'Minha conta',
   'header.hide': 'Ocultar painel',
   'header.show': 'Mostrar painel',
 
@@ -138,6 +139,7 @@ type Key = keyof typeof pt;
 const en: Record<Key, Message> = {
   'header.print': 'Print',
   'header.printTitle': 'Design a framed heritage map print',
+  'header.account': 'My account',
   'header.hide': 'Hide panel',
   'header.show': 'Show panel',
 
@@ -252,6 +254,7 @@ const en: Record<Key, Message> = {
 const es: Record<Key, Message> = {
   'header.print': 'Imprimir',
   'header.printTitle': 'Diseña un cuadro con el mapa de los orígenes de tu familia',
+  'header.account': 'Mi cuenta',
   'header.hide': 'Ocultar panel',
   'header.show': 'Mostrar panel',
 

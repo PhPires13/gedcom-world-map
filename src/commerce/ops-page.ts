@@ -4,6 +4,9 @@
 import './shop.css';
 import { formatDate, formatNumber, onLocaleChange, translateStatic } from '../i18n/core';
 import { mountLanguageSwitcher } from '../i18n/switcher';
+import { loginUrl, type Me } from '../account/api';
+import { mountAccountMenu, t as tAccount } from '../account/menu';
+import { ApiError } from '../tree/api';
 import { BORDERS, FINISHES, LAYOUTS } from '../print/catalog';
 import { STYLES } from '../print/styles';
 import { shop, type OpsOrder } from './client';
@@ -22,6 +25,18 @@ const status = (text: () => string, error = false) => {
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 let rows: OpsOrder[] | undefined;
+/** Why the orders can't be shown: nobody signed in (401) or not an operator (403). */
+let denied: { status: 401 } | { status: 403; me?: Me } | undefined;
+
+function renderPrompt() {
+  const box = $('#ops-prompt');
+  box.hidden = !denied;
+  $('.table-wrap').hidden = !!denied;
+  if (!denied) return;
+  const text = denied.status === 401 ? tAccount('prompt.opsSignIn') : tAccount('prompt.opsForbidden', { email: denied.me?.email ?? '?' });
+  const label = denied.status === 401 ? tAccount('prompt.signIn') : tAccount('prompt.otherAccount');
+  box.innerHTML = `<p>${esc(text)}</p><p><a class="btn primary" href="${esc(loginUrl('/ops.html'))}">${esc(label)}</a></p>`;
+}
 const design = (o: OpsOrder) => {
   const d = designWords(o.design, { styles: STYLES, layouts: LAYOUTS, borders: BORDERS, finishes: FINISHES });
   return `${d.style} · ${d.layout} · ${d.border} · ${d.finish}`;
@@ -81,10 +96,18 @@ async function load() {
   status(() => t('ops.loading'));
   try {
     rows = await shop.ops.list($<HTMLSelectElement>('#filter').value || undefined);
+    denied = undefined;
+    renderPrompt();
     renderTable();
     const count = rows.length;
     status(() => t('ops.count', { count }));
   } catch (e) {
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+      denied = e.status === 401 ? { status: 401 } : { status: 403, me: await signedIn };
+      renderPrompt();
+      status(() => '');
+      return;
+    }
     const error = errorText(e);
     status(() => t('ops.loadError', { error }), true);
   }
@@ -97,6 +120,7 @@ function retranslate() {
   fillFilter();
   renderTable();
   status(statusLine.text, statusLine.error);
+  renderPrompt();
 }
 
 $('#orders').addEventListener('click', async (e) => {
@@ -146,6 +170,7 @@ $('#orders').addEventListener('click', async (e) => {
 });
 
 mountLanguageSwitcher($('#lang'));
+const signedIn = mountAccountMenu($('#account'));
 onLocaleChange(retranslate);
 retranslate();
 $('#filter').addEventListener('change', load);

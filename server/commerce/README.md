@@ -34,6 +34,7 @@ order.html ◀── success_url                    POST /api/webhooks/stripe �
 | `sheet.ts` | The production sheet for manual orders. |
 | `fake-stripe.ts` | The Stripe SDK with its network calls replaced: used by tests and by `FAKE_PAYMENTS=yes`. |
 | `setup.ts` | Builds the shop from environment variables (all listed there). |
+| `server/mail/` | Customer e-mails on status changes (`order-mails.ts`), templates, Resend / console mailers. See `server/README.md`. |
 | `server/print/` | The server renderer: assets from `node_modules`, resvg raster, PDF, worker thread. |
 
 ## Running it
@@ -44,8 +45,12 @@ FAKE_PAYMENTS=yes npm run dev:all        # a local simulated Checkout instead of
 ```
 
 Open `http://localhost:5173/print.html`, load a tree, fill in **Order**, and **Buy**. The order
-page follows it; `http://localhost:5173/ops.html` is the operations page (the dev user is an
-operator; set `OPERATOR_EMAILS` once there are accounts).
+page follows it; `http://localhost:5173/ops.html` is the operations page. `dev:all` runs with
+`AUTH_MODE=dev`: without signing in you are the dev user, who is an operator. In production
+(`AUTH_MODE=required`) customers sign in by e-mail link and only addresses in `OPERATOR_EMAILS`
+reach `/api/ops/*` and `ops.html` (401 / 403 otherwise; the page offers to sign in). Accounts,
+sessions and the customer e-mails (confirmed, download ready, shipped, delivered, refunded) are
+described in `server/README.md`, with their environment variables.
 
 `npx tsx server/scripts/render-sample.ts A2 antique out/` renders a print file from
 `public/sample.ged` without the API (about 25 s for A2); `LAYOUT=storybook BORDER=laurel
@@ -181,5 +186,6 @@ paper, frame, file links, address with CPF), sends it to the lab and framer, the
    import duty when printing outside Brazil, terms of sale and refund policy (EU 14-day withdrawal
    right and its exception for personalised goods), privacy notice (GDPR/LGPD) for addresses and
    CPF, and the flag-use question noted in `src/print/README.md`. None of this is implemented.
-6. **Production hardening** (not done): real accounts instead of the dev user, e-mail receipts with
-   the order link, object storage for the files, a job queue for renders, retention of print files.
+6. **Production hardening**: accounts (e-mail link sign-in) and e-mails to customers are done
+   (`server/README.md`: a Resend account and the domain's SPF / DKIM / DMARC records are needed).
+   Not done: object storage for the files, a job queue for renders, retention of print files.
