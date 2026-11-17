@@ -13,6 +13,7 @@
 //   APP_URL        the web app's address (where people land after signing in; Stripe's return pages)
 //   COOKIE_SECURE  yes | no: session cookie only over HTTPS (default: yes unless AUTH_MODE=dev)
 //   TRUST_PROXY    yes: take the client IP (for rate limits) from X-Forwarded-For; only behind a proxy
+//   PUBLIC_URL     this server's public address, for share-link previews (default: the request's origin)
 //   Mail (MAIL_PROVIDER, MAIL_FROM, RESEND_API_KEY, MAIL_DIR, MAIL_BRAND, REVIEW_URL): server/mail/index.ts
 //   Shop settings (Stripe, Prodigi, links, OPERATOR_EMAILS): server/commerce/setup.ts
 
@@ -66,6 +67,10 @@ const app = createApp({
     secureCookies: yesNo(process.env.COOKIE_SECURE, mode === 'required'),
     trustProxy: yesNo(process.env.TRUST_PROXY, false),
     brand: process.env.MAIL_BRAND || undefined,
+  },
+  shares: {
+    appUrl: process.env.APP_URL || (process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:5173'),
+    publicUrl: process.env.PUBLIC_URL || undefined,
   },
   corsOrigin: origins ? (o) => (origins.includes(o) ? o : null) : undefined,
 });

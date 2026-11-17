@@ -1,0 +1,346 @@
+/* The share dialog (map app) and the public viewer (share.html). Builds on src/style.css tokens. */
+
+/* Scoped to the dialog and the viewer, so the map app's own buttons are untouched. */
+:is(.share-dialog, .share-page) .btn.primary {
+  background: var(--accent, #2563eb);
+  border-color: var(--accent, #2563eb);
+  color: #fff;
+}
+:is(.share-dialog, .share-page) .btn.primary:hover {
+  background: #1d4ed8;
+}
+.share-dialog .btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.share-buttons .btn svg {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+}
+.share-dialog .link-btn.danger {
+  color: #b42318;
+}
+
+/* ---------- Share button in the map app ---------- */
+
+#tree-info .share-btn {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.share-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------- Dialog ---------- */
+
+.share-dialog {
+  border: none;
+  border-radius: var(--radius, 12px);
+  padding: 0;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  box-shadow: var(--panel-shadow, 0 8px 28px rgba(16, 24, 40, 0.14));
+  color: var(--fg, #1b1f24);
+}
+.share-dialog::backdrop {
+  background: rgba(16, 24, 40, 0.45);
+}
+.share-card {
+  padding: 18px 20px 20px;
+}
+.share-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.share-card h2 {
+  margin: 0;
+  font-size: 17px;
+  color: var(--fg, #1b1f24);
+}
+.share-card h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+}
+.share-intro {
+  margin: 10px 0 14px;
+  color: var(--muted, #6b7280);
+  line-height: 1.45;
+}
+.share-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 500;
+}
+.share-field input,
+.share-link-row input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong, #d1d5db);
+  border-radius: var(--radius-sm, 8px);
+  width: 100%;
+}
+.share-field small {
+  font-weight: 400;
+  min-height: 1.2em;
+}
+.share-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.4;
+}
+.share-rules li {
+  position: relative;
+  padding-left: 22px;
+}
+.share-rules li::before {
+  content: '•';
+  position: absolute;
+  left: 6px;
+  color: var(--muted, #6b7280);
+}
+.share-rules li.ok::before {
+  content: '✓';
+  left: 4px;
+  color: #15803d;
+  font-weight: 700;
+}
+.share-rules li.out::before {
+  content: '✕';
+  left: 4px;
+  color: #b42318;
+  font-weight: 700;
+}
+.share-note,
+.share-error,
+.share-notice {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 8px);
+  line-height: 1.4;
+}
+.share-note {
+  background: #fff7e6;
+  color: #7a4b00;
+}
+.share-error {
+  background: #fdecea;
+  color: #b42318;
+}
+.share-notice {
+  background: #ecfdf3;
+  color: #166534;
+}
+.share-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.share-actions .btn {
+  margin: 0;
+}
+.share-actions .link-btn {
+  margin-right: auto;
+}
+.share-ready {
+  margin: 12px 0 8px;
+  font-weight: 500;
+}
+.share-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.share-buttons .btn {
+  margin: 0;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.btn.whatsapp {
+  background: #25d366;
+  border-color: #25d366;
+  color: #fff;
+}
+.btn.whatsapp:hover {
+  background: #1ebe5b;
+}
+.share-mine {
+  margin-top: 16px;
+  border-top: 1px solid var(--border, #e5e7eb);
+  padding-top: 10px;
+}
+.share-mine summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.share-mine ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.share-mine li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.share-mine li .link-btn {
+  margin-left: auto;
+}
+
+/* ---------- Public viewer ---------- */
+
+body.share-page {
+  display: block;
+}
+body.share-page #map {
+  position: absolute;
+  inset: 0;
+  height: auto;
+}
+.share-panel {
+  position: absolute;
+  z-index: 1000;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: var(--panel-shadow, 0 8px 28px rgba(16, 24, 40, 0.14));
+  padding: 14px 16px;
+}
+.share-panel[hidden] {
+  display: none;
+}
+.share-head {
+  top: 12px;
+  left: 12px;
+  width: min(360px, calc(100% - 24px));
+}
+.share-head-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.share-head h1 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+.share-head p {
+  margin: 4px 0 0;
+}
+.share-legend {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.share-legend li.off {
+  opacity: 0.35;
+}
+.share-legend li.faded .dot {
+  opacity: 0.45;
+}
+.share-privacy {
+  font-size: 12px;
+  margin-top: 8px !important;
+}
+.share-cta {
+  right: 12px;
+  bottom: 28px;
+  width: min(300px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.share-cta .cta-print {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.share-cta p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.share-cta .cta-app {
+  color: var(--accent, #2563eb);
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 13px;
+}
+.share-cta .cta-app:hover {
+  text-decoration: underline;
+}
+.share-message {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100% - 32px));
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.45;
+}
+/* Timeline sits bottom-centre, clear of the call to action on wide screens. */
+body.share-page .share-timeline {
+  width: min(420px, calc(100% - 32px));
+}
+#timeline-dot[hidden] {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  body.share-page .share-timeline {
+    left: 12px;
+    transform: none;
+    bottom: 150px;
+  }
+  .share-cta {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
+@media (max-width: 520px) {
+  .share-head {
+    padding: 10px 12px;
+    /* Room for the zoom buttons on the right. */
+    width: calc(100% - 68px);
+  }
+  .share-head h1 {
+    font-size: 17px;
+  }
+  .share-legend {
+    display: none;
+  }
+  .share-cta p {
+    display: none;
+  }
+  body.share-page .share-timeline {
+    bottom: 118px;
+  }
+}

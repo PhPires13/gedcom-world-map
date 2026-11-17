@@ -16,6 +16,7 @@ export default defineConfig({
         ops: fileURLToPath(new URL('./ops.html', import.meta.url)),
         login: fileURLToPath(new URL('./login.html', import.meta.url)),
         account: fileURLToPath(new URL('./account.html', import.meta.url)),
+        share: fileURLToPath(new URL('./share.html', import.meta.url)),
       },
     },
   },

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Mapa das migrações da família</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
+  </head>
+  <!-- A shared family map, read-only (src/share/viewer.ts). Words come from src/i18n/messages/share.ts and map.ts. -->
+  <body class="share-page">
+    <main id="map">
+      <div id="share-head" class="share-panel share-head">
+        <div class="share-head-top">
+          <div>
+            <h1 id="share-title" data-i18n="viewer.loading">Carregando o mapa…</h1>
+            <p id="share-sub" class="muted"></p>
+          </div>
+          <span id="lang-switch"></span>
+        </div>
+        <ul id="share-legend" class="share-legend"></ul>
+        <p class="share-privacy muted" data-i18n="viewer.privacy">Pessoas vivas não aparecem neste mapa.</p>
+      </div>
+
+      <div id="share-cta" class="share-panel share-cta">
+        <a href="print.html" class="btn primary cta-print" data-i18n="viewer.ctaPrint">Transforme este mapa em um quadro</a>
+        <p class="muted" data-i18n="viewer.ctaPrintHint"></p>
+        <a href="./" class="cta-app" data-i18n="viewer.ctaApp">Crie o mapa da sua família</a>
+      </div>
+
+      <div id="timeline" class="timeline share-timeline" hidden>
+        <button id="timeline-play" class="icon-btn play" type="button">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+        </button>
+        <div class="timeline-main">
+          <div class="timeline-label">
+            <i id="timeline-dot" class="dot"></i><b id="timeline-gen">Ver as gerações chegando</b><span id="timeline-year" class="muted"></span>
+          </div>
+          <input id="timeline-range" type="range" min="0" step="1" data-i18n-attr="aria-label:timeline.range" />
+          <div class="timeline-ends"><span data-i18n="timeline.oldest">Mais antiga</span><span data-i18n="timeline.newest">Mais recente</span></div>
+        </div>
+      </div>
+
+      <div id="share-message" class="share-panel share-message" hidden></div>
+    </main>
+
+    <script type="module" src="/src/share/viewer.ts"></script>
+  </body>
+</html>

@@ -32,6 +32,7 @@
 // (reached by their unguessable id) need no login; everything else needs a signed-in user
 // (401 without one), and /api/ops/* an operator (403). In AUTH_MODE=dev a request without a
 // session is the dev user.
+// Public share links (/api/shares…, /s/:id link previews): see server/shares.ts.
 
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -56,6 +57,7 @@ import { badRequest, HttpError } from './errors';
 import * as repo from './repo';
 import { ConsoleMailer } from './mail/console';
 import type { Mailer } from './mail/types';
+import { mountPublicShares, mountShareRoutes, type ShareDeps } from './shares';
 import type { DocumentStorage } from './storage';
 import { arr, obj, oneOf, optStr, str, uuid } from './validate';
 
@@ -72,6 +74,8 @@ export interface AppDeps {
   mailer?: Mailer;
   /** Sign-in settings; see AuthSettings. */
   auth?: AuthSettings;
+  /** Share links: where share.html is served, this server's public address, the preview picture renderer. */
+  shares?: Pick<ShareDeps, 'appUrl' | 'publicUrl' | 'renderImage'>;
 }
 
 export interface AuthSettings extends Partial<Omit<AccountOptions, 'mailer' | 'now'>> {
@@ -155,7 +159,7 @@ async function readFile(v: unknown, allowed?: readonly string[]): Promise<repo.U
   return { name: v.name || 'document', type, bytes: new Uint8Array(await v.arrayBuffer()) };
 }
 
-export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce, mailer, auth = {} }: AppDeps) {
+export function createApp({ db, storage, now = () => new Date(), corsOrigin = localhostOrigin, commerce, mailer, auth = {}, shares }: AppDeps) {
   const app = new Hono<AuthEnv>();
   const mode: AuthMode = auth.mode ?? (process.env.AUTH_MODE === 'dev' ? 'dev' : 'required');
   const year = () => now().getUTCFullYear();
@@ -186,8 +190,12 @@ export function createApp({ db, storage, now = () => new Date(), corsOrigin = lo
   });
   // Order pages work for guests too: an order's id is its key.
   commerce?.mountGuest(app);
+  // Public share links and their previews need no login.
+  const shareDeps: ShareDeps = { db, storage, now, ...shares };
+  mountPublicShares(app, shareDeps);
   app.use('/api/*', requireUser);
   commerce?.mountAuthed(app);
+  mountShareRoutes(app, shareDeps);
 
   app.get('/api/me', (c) => c.json({ ...c.var.user, operator: commerce?.isOperator(c.var.user) ?? false }));
 
