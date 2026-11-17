@@ -18,11 +18,13 @@ export interface FromPrice {
 
 /**
  * The lowest price of each product in the list, keeping the list's order. Products without any
- * priced size (none in this currency) are left out.
+ * priced size (none in this currency) and gift cards are left out.
  */
 export function lowestPrices(list: Pick<PriceList, 'products'>): FromPrice[] {
   const out: FromPrice[] = [];
   for (const p of list.products) {
+    // A gift card's "sizes" are its values, not a price to start from.
+    if (p.kind === 'giftcard') continue;
     const priced = p.variants.filter((v) => Number.isFinite(v.unitAmount) && v.unitAmount > 0);
     if (!priced.length) continue;
     const cheapest = priced.reduce((a, b) => (b.unitAmount < a.unitAmount ? b : a));

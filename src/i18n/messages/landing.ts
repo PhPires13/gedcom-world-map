@@ -102,6 +102,7 @@ const pt = {
   'gift.occasion3': 'Aniversários e bodas',
   'gift.occasion4': 'Reencontros de família',
   'gift.cta': 'Criar um presente',
+  'gift.card': 'Dar um vale-presente',
 
   'trust.title': 'Feito com cuidado',
   'trust.privacy.title': 'Privacidade em primeiro lugar',
@@ -238,6 +239,7 @@ const en: Record<Key, string> = {
   'gift.occasion3': 'Birthdays and anniversaries',
   'gift.occasion4': 'Family reunions',
   'gift.cta': 'Create a gift',
+  'gift.card': 'Give a gift card',
 
   'trust.title': 'Made with care',
   'trust.privacy.title': 'Privacy first',
@@ -373,6 +375,7 @@ const es: Record<Key, string> = {
   'gift.occasion3': 'Cumpleaños y aniversarios',
   'gift.occasion4': 'Reuniones familiares',
   'gift.cta': 'Crear un regalo',
+  'gift.card': 'Regalar una tarjeta regalo',
 
   'trust.title': 'Hecho con cuidado',
   'trust.privacy.title': 'La privacidad primero',

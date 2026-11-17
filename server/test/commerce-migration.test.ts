@@ -28,7 +28,7 @@ describe('migration 003', () => {
        values ('00000000-0000-4000-8000-0000000000aa', '00000000-0000-4000-8000-000000000001', 'digital', 'digital', 'A1',
                '{"lang": "es", "styleId": "antique"}', 'EUR', 1490, 1490, 'ES', 'EU', 'a@b.co')`,
     );
-    expect(await migrate(db)).toEqual(['003_gifts_discounts.sql']);
+    expect(await migrate(db)).toEqual(['003_accounts.sql', '004_gifts_discounts.sql', '005_shares.sql']);
 
     const old = await getOrderById(db, '00000000-0000-4000-8000-0000000000aa');
     expect(old).toMatchObject({ lang: 'es', giftCardAmount: 0, discountAmount: 0, amountPaid: undefined, gift: undefined });

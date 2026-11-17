@@ -30,7 +30,7 @@ paid, its code is issued and it is delivered (no file, no partner).
 | `src/commerce/design.ts` | The design stored on an order (the designer's choices, never people's data) and its validation. |
 | `src/commerce/gift.ts` | Gift details (recipient, card message) validation; gift card code format. Shared with the browser. |
 | `server/db/migrations/002_commerce.sql` | `orders`, `order_events` (history), `webhook_events` (de-duplication). |
-| `server/db/migrations/003_gifts_discounts.sql` | New kinds and gift card value tiers, `orders.gift`, `lang`, `gift_card_amount`, `discount_amount`, `discount_code`, `amount_paid`; the `gift_cards` table. |
+| `server/db/migrations/004_gifts_discounts.sql` | New kinds and gift card value tiers, `orders.gift`, `lang`, `gift_card_amount`, `discount_amount`, `discount_code`, `amount_paid`; the `gift_cards` table. |
 | `giftcards.ts` | Gift cards: issue a code, check one, reserve it on an order (row lock), give it back or void it. |
 | `orders.ts` | Database access; `transition()` locks the row, checks the state machine and writes history. |
 | `routes.ts` | The HTTP routes (listed at the top of the file). |

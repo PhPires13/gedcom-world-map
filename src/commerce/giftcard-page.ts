@@ -2,6 +2,7 @@
 // order needs no design; once it is paid the order page shows the code (server/commerce/giftcards.ts).
 // The designer's buy panel sells the same product once a tree is loaded.
 
+import { ensureSignedIn } from '../account/ensure';
 import './shop.css';
 import { currentLocale, onLocaleChange, translateStatic } from '../i18n/core';
 import { mountLanguageSwitcher } from '../i18n/switcher';
@@ -71,6 +72,7 @@ async function buy() {
   const button = $<HTMLButtonElement>('#gc-buy');
   button.disabled = true;
   try {
+    await ensureSignedIn(email, { onSent: (to) => status(() => t('shop.signinSent', { email: to })) });
     status(() => t('shop.creating'));
     const order = await shop.createOrder({ productId: p.id, size, country, currency: cat.currency as Currency, email, lang: currentLocale() });
     if (!cat.paymentsReady) {

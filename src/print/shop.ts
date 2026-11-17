@@ -12,6 +12,7 @@
 // file adds to the panel) comes from src/i18n/messages/shop.ts and is written again when the
 // language changes, keeping what the visitor chose and typed.
 
+import { ensureSignedIn } from '../account/ensure';
 import { isPhysical, type Currency } from '../commerce/catalogue';
 import { guessCountry, shop, type GiftCardCheck, type ShopCatalogue } from '../commerce/client';
 import type { DesignSpec } from '../commerce/design';
@@ -389,6 +390,8 @@ export function initShop(host: ShopHost) {
     const button = $<HTMLButtonElement>('#shop-buy');
     button.disabled = true;
     try {
+      // Orders belong to an account: sign in by e-mail link without leaving the page.
+      await ensureSignedIn(email, { onSent: (to) => status(() => t('shop.signinSent', { email: to })) });
       let map: { treeId: string; design: unknown } | undefined;
       if (design) {
         status(() => t('shop.saving'));

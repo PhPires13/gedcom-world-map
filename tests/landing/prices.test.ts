@@ -36,8 +36,8 @@ describe('"from" prices on the landing page', () => {
     const br = priceList(cat, 'BR');
     expect(br.currency).toBe('BRL');
     const fromBr = Object.fromEntries(lowestPrices(br).map((p) => [p.productId, p.fromAmount]));
-    for (const p of br.products) expect(fromBr[p.id]).toBe(Math.min(...p.variants.map((v) => v.unitAmount)));
-    expect(lowestPrices(priceList(cat, 'PT')).map((p) => p.productId)).toEqual(['digital', 'print', 'framed']);
+    for (const p of br.products) if (p.kind !== 'giftcard') expect(fromBr[p.id]).toBe(Math.min(...p.variants.map((v) => v.unitAmount)));
+    expect(lowestPrices(priceList(cat, 'PT')).map((p) => p.productId)).toEqual(['digital', 'print', 'framed', 'poster', 'canvas']);
     expect(priceList(cat, 'PT').currency).toBe('EUR');
     expect(priceList(cat, 'JP').currency).toBe('USD');
   });
