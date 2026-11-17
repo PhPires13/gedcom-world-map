@@ -1,4 +1,4 @@
-// Words of the main map page (index.html / src/main.ts), in Portuguese (reference), English and Spanish.
+// Words of the main map page (app.html / src/main.ts), in Portuguese (reference), English and Spanish.
 
 import { plural, type Message, type Messages } from '../core';
 

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GEDCOM World Map</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
+  </head>
+  <body>
+    <aside id="sidebar">
+      <header class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+          </svg>
+        </span>
+        <h1>GEDCOM World Map</h1>
+        <button id="toggle-sidebar" class="icon-btn ghost" data-i18n-attr="title:header.hide; aria-label:header.hide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
+        <div id="brand-tools" class="brand-tools">
+          <a href="print.html" class="small-btn print-link" data-i18n="header.print" data-i18n-attr="title:header.printTitle">Imprimir</a>
+        </div>
+      </header>
+
+      <section id="upload">
+        <label id="dropzone" for="file-input">
+          <input type="file" id="file-input" accept=".ged,.gedcom,text/plain" hidden />
+          <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+          </svg>
+          <strong data-i18n="upload.drop">Solte um arquivo .ged aqui</strong>
+          <span data-i18n="upload.choose">ou clique para escolher um</span>
+        </label>
+        <button id="load-sample" class="btn wide" data-i18n="upload.sample">Experimente uma árvore genealógica de exemplo</button>
+        <p class="hint" data-i18n="upload.privacy"></p>
+      </section>
+
+      <section id="tree-info" hidden>
+        <div class="tree-header">
+          <div class="tree-title">
+            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" />
+            </svg>
+            <span id="file-name" class="file-name"></span>
+            <button id="load-other" class="small-btn" data-i18n="file.change" data-i18n-attr="title:file.changeTitle">Trocar arquivo</button>
+          </div>
+          <div id="stats"></div>
+        </div>
+        <div id="progress" hidden>
+          <div class="progress-row">
+            <span id="progress-label"></span>
+            <button id="progress-stop" class="link-btn" data-i18n="progress.stop">Parar</button>
+          </div>
+          <div class="bar"><div id="progress-fill"></div></div>
+        </div>
+
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            id="search"
+            type="search"
+            data-i18n-attr="placeholder:search.placeholder; aria-label:search.placeholder"
+            autocomplete="off"
+            role="combobox"
+            aria-controls="search-results"
+            aria-autocomplete="list"
+            aria-expanded="false"
+          />
+          <div id="search-popup" hidden>
+            <div id="search-count"></div>
+            <ul id="search-results" role="listbox" data-i18n-attr="aria-label:search.results"></ul>
+          </div>
+        </div>
+
+        <details class="section" id="sec-recent" open hidden>
+          <summary data-i18n="recent.title">Vistos recentemente</summary>
+          <ul id="recent" class="people"></ul>
+        </details>
+
+        <details class="section" id="sec-display" open>
+          <summary data-i18n="display.title">Visualização</summary>
+          <div class="controls">
+            <div class="field">
+              <span class="field-label" data-i18n="display.show">Mostrar</span>
+              <div class="segmented" role="radiogroup" data-i18n-attr="aria-label:display.viewAria">
+                <label><input type="radio" name="view" value="dots" checked /><span data-i18n="display.dots">Pontos</span></label>
+                <label><input type="radio" name="view" value="density" /><span data-i18n="display.density">Densidade</span></label>
+                <label><input type="radio" name="view" value="both" /><span data-i18n="display.both">Ambos</span></label>
+              </div>
+              <div id="density-key" class="density-key" hidden>
+                <div class="density-scale">
+                  <span data-i18n="density.fewer">Menos nascimentos</span>
+                  <span class="density-steps" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                  <span data-i18n="density.more">Mais</span>
+                </div>
+                <span data-i18n="density.note"></span>
+              </div>
+            </div>
+            <label>
+              <span data-i18n="lines.label">Linhas ao selecionar alguém</span>
+              <select id="line-mode">
+                <option value="family" data-i18n="lines.family">Pais, filhos e cônjuges</option>
+                <option value="ancestors" data-i18n="lines.ancestors">Todos os antepassados</option>
+                <option value="descendants" data-i18n="lines.descendants">Todos os descendentes</option>
+                <option value="all" data-i18n="lines.all">Todos os antepassados e descendentes</option>
+              </select>
+            </label>
+            <label class="switch"><input type="checkbox" id="cluster" checked /><span data-i18n="display.cluster">Agrupar pessoas próximas</span></label>
+            <label class="switch">
+              <input type="checkbox" id="flows" />
+              <span><span data-i18n="display.flows">Setas de migração</span> <small data-i18n="display.flowsHint"></small></span>
+            </label>
+            <button id="timeline-open" class="btn wide timeline-btn" type="button">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
+              <span data-i18n="display.timeline">Reproduzir a linha do tempo das gerações</span>
+            </button>
+          </div>
+        </details>
+
+        <details class="section" id="sec-generations" open>
+          <summary><span data-i18n="gens.title">Gerações</span> <span id="gen-summary"></span></summary>
+          <label class="check gen-all"><input type="checkbox" id="gen-all" checked /> <span data-i18n="gens.selectAll">Selecionar todas</span></label>
+          <ul id="legend"></ul>
+          <p class="hint" data-i18n="gens.hint"></p>
+        </details>
+
+        <details class="section" id="unmapped">
+          <summary></summary>
+          <ul class="people"></ul>
+        </details>
+      </section>
+    </aside>
+
+    <button id="show-sidebar" class="icon-btn floating" data-i18n-attr="title:header.show; aria-label:header.show" hidden>☰</button>
+
+    <main id="map">
+      <div id="timeline" class="timeline" hidden>
+        <button id="timeline-play" class="icon-btn play" type="button">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+        </button>
+        <div class="timeline-main">
+          <div class="timeline-label">
+            <i id="timeline-dot" class="dot"></i><b id="timeline-gen"></b><span id="timeline-year" class="muted"></span>
+          </div>
+          <input id="timeline-range" type="range" min="0" step="1" data-i18n-attr="aria-label:timeline.range" />
+          <div class="timeline-ends"><span data-i18n="timeline.oldest">Mais antiga</span><span data-i18n="timeline.newest">Mais recente</span></div>
+        </div>
+        <button id="timeline-close" class="icon-btn ghost" type="button" data-i18n-attr="aria-label:timeline.close; title:timeline.close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+    </main>
+
+    <aside id="person-panel" hidden>
+      <button id="close-person" class="icon-btn" data-i18n-attr="aria-label:person.close; title:person.close">×</button>
+      <div id="person-content"></div>
+    </aside>
+
+    <div id="line-legend" hidden>
+      <span><i class="ln anc"></i><span data-i18n="legend.ancestors">Pais / antepassados</span></span>
+      <span><i class="ln desc"></i><span data-i18n="legend.descendants">Filhos / descendentes</span></span>
+      <span><i class="ln spouse"></i><span data-i18n="legend.spouse">Cônjuge</span></span>
+      <span><i class="ln skip"></i><span data-i18n="legend.skip">Passa por alguém sem local conhecido</span></span>
+    </div>
+
+    <div id="tree-root"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
