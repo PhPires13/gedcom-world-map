@@ -1,0 +1,174 @@
+{
+  "id": "leather",
+  "name": "Tooled leather",
+  "description": "A map tooled into dark leather, with coastlines and routes in gold leaf.",
+  "fonts": {
+    "title": {
+      "family": "Cinzel",
+      "weight": 600,
+      "style": "normal",
+      "widthFactor": 0.72
+    },
+    "heading": {
+      "family": "Cinzel",
+      "weight": 500,
+      "style": "normal",
+      "widthFactor": 0.7
+    },
+    "body": {
+      "family": "EB Garamond",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.46
+    },
+    "italic": {
+      "family": "EB Garamond",
+      "weight": 400,
+      "style": "italic",
+      "widthFactor": 0.42
+    }
+  },
+  "uppercaseTitles": true,
+  "paper": {
+    "color": "#5b3a22",
+    "grain": 0.25,
+    "grainFrequency": 1.4,
+    "stains": 0.4,
+    "vignette": 0.85,
+    "ageColor": "#1c0f07",
+    "texture": {
+      "kind": "leather",
+      "strength": 0.55,
+      "color": "#20110a"
+    }
+  },
+  "ink": {
+    "main": "#ecd39a",
+    "faint": "#b8935e",
+    "accent": "#e0b052",
+    "wobble": 0.05
+  },
+  "map": {
+    "sea": "#4b2e1a",
+    "land": "#6a4428",
+    "coast": {
+      "color": "#e8c77e",
+      "width": 0.4
+    },
+    "waterLines": {
+      "count": 4,
+      "spacing": 0.9,
+      "width": 0.15,
+      "color": "#d6b06a",
+      "opacity": 0.35
+    },
+    "landShade": {
+      "color": "#3a2213",
+      "width": 2.6,
+      "opacity": 0.45
+    },
+    "borders": {
+      "color": "#c9a467",
+      "width": 0.26,
+      "dash": [
+        1.2,
+        0.8
+      ]
+    },
+    "graticule": {
+      "step": 10,
+      "color": "#a07a48",
+      "width": 0.14,
+      "dash": []
+    },
+    "rhumbLines": {
+      "count": 0,
+      "colors": [
+        "#c9a467"
+      ],
+      "width": 0.15,
+      "opacity": 0.3
+    },
+    "projection": "auto"
+  },
+  "routes": {
+    "inks": [
+      "#f4dfa6",
+      "#ecc777",
+      "#e0b052",
+      "#d39a3e",
+      "#f0d08a"
+    ],
+    "minWidth": 1.5,
+    "maxWidth": 4.6,
+    "taper": true,
+    "arrow": "barb",
+    "arrowSize": 7.5,
+    "opacity": 0.92,
+    "halo": "#3a2213",
+    "haloWidth": 1.4,
+    "dateSize": 4,
+    "surnameSize": 6.2
+  },
+  "marks": {
+    "kind": "town",
+    "size": 2.8,
+    "fill": "#5b3a22",
+    "stroke": "#ecd39a"
+  },
+  "labels": {
+    "placeSize": 4.6,
+    "placeColor": "#f0dcaa",
+    "countrySize": 7,
+    "countryColor": "#d9b46c",
+    "countryLetterSpacing": 2.2,
+    "oceanSize": 10,
+    "oceanColor": "#c49a5a",
+    "oceanLetterSpacing": 3.5,
+    "halo": "rgba(60,36,20,0.8)"
+  },
+  "flags": {
+    "radius": 11,
+    "ring": "#e0b052",
+    "ringWidth": 0.7,
+    "outerRing": "#7a5a2a",
+    "tone": 0.45,
+    "labelSize": 4,
+    "leader": "#d6b06a"
+  },
+  "cartouche": {
+    "kind": "framed",
+    "fill": "#4a2d19",
+    "stroke": "#e0b052",
+    "titleSize": 17,
+    "subtitleSize": 6.5,
+    "dedicationSize": 4.4,
+    "maxWidthShare": 0.38
+  },
+  "legend": {
+    "fill": "#4a2d19",
+    "stroke": "#e0b052",
+    "titleSize": 6.4,
+    "rowSize": 4.8
+  },
+  "frame": {
+    "kind": "antique",
+    "color": "#e0b052",
+    "margin": 12,
+    "band": 6,
+    "outerWidth": 1,
+    "innerWidth": 0.35,
+    "degreeLabels": true
+  },
+  "compass": {
+    "kind": "ornate",
+    "size": 44,
+    "fill": "#4a2d19",
+    "dark": "#ecd39a",
+    "accent": "#e0b052"
+  },
+  "scaleBar": {
+    "kind": "checkered",
+    "length": 70
+  }
+}

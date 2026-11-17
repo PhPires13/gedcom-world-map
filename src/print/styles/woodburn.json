@@ -1,0 +1,174 @@
+{
+  "id": "woodburn",
+  "name": "Pyrography on wood",
+  "description": "Burned into a pale wooden board, like a hand-made keepsake: wood grain, scorched lines and darker edges.",
+  "fonts": {
+    "title": {
+      "family": "Almendra SC",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.6
+    },
+    "heading": {
+      "family": "Almendra SC",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.6
+    },
+    "body": {
+      "family": "Almendra",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.47
+    },
+    "italic": {
+      "family": "Almendra",
+      "weight": 400,
+      "style": "italic",
+      "widthFactor": 0.44
+    }
+  },
+  "uppercaseTitles": false,
+  "paper": {
+    "color": "#dcb47f",
+    "grain": 0.2,
+    "grainFrequency": 1.2,
+    "stains": 0.2,
+    "vignette": 0.9,
+    "ageColor": "#5a2e10",
+    "texture": {
+      "kind": "wood",
+      "strength": 0.6,
+      "color": "#8a531f"
+    }
+  },
+  "ink": {
+    "main": "#3a1d0c",
+    "faint": "#6b3a18",
+    "accent": "#5a230c",
+    "wobble": 0.2
+  },
+  "map": {
+    "sea": "#d4a96f",
+    "land": "#e2bd88",
+    "coast": {
+      "color": "#3a1d0c",
+      "width": 0.55
+    },
+    "waterLines": {
+      "count": 4,
+      "spacing": 1.1,
+      "width": 0.22,
+      "color": "#6b3a18",
+      "opacity": 0.55
+    },
+    "landShade": {
+      "color": "#8a4f20",
+      "width": 2.4,
+      "opacity": 0.45
+    },
+    "borders": {
+      "color": "#6b3a18",
+      "width": 0.3,
+      "dash": [
+        1.2,
+        0.9
+      ]
+    },
+    "graticule": {
+      "step": 90,
+      "color": "#8a5a30",
+      "width": 0,
+      "dash": []
+    },
+    "rhumbLines": {
+      "count": 0,
+      "colors": [
+        "#6b3a18"
+      ],
+      "width": 0.15,
+      "opacity": 0.3
+    },
+    "projection": "auto"
+  },
+  "routes": {
+    "inks": [
+      "#2b1408",
+      "#3f1d0a",
+      "#52260d",
+      "#3a1d0c",
+      "#62300f"
+    ],
+    "minWidth": 1.5,
+    "maxWidth": 4.6,
+    "taper": true,
+    "arrow": "barb",
+    "arrowSize": 7.5,
+    "opacity": 0.92,
+    "halo": "#e6c38f",
+    "haloWidth": 1.8,
+    "dateSize": 4,
+    "surnameSize": 6.2
+  },
+  "marks": {
+    "kind": "town",
+    "size": 2.8,
+    "fill": "#e6c38f",
+    "stroke": "#3a1d0c"
+  },
+  "labels": {
+    "placeSize": 4.6,
+    "placeColor": "#3a1d0c",
+    "countrySize": 7,
+    "countryColor": "#5a2a10",
+    "countryLetterSpacing": 2.2,
+    "oceanSize": 10,
+    "oceanColor": "#5a2e12",
+    "oceanLetterSpacing": 3.5,
+    "halo": "rgba(226,189,136,0.8)"
+  },
+  "flags": {
+    "radius": 11,
+    "ring": "#3a1d0c",
+    "ringWidth": 0.7,
+    "outerRing": "#7a4520",
+    "tone": 0.6,
+    "labelSize": 4,
+    "leader": "#5a2e12"
+  },
+  "cartouche": {
+    "kind": "scroll",
+    "fill": "#e6c38f",
+    "stroke": "#3a1d0c",
+    "titleSize": 17,
+    "subtitleSize": 6.5,
+    "dedicationSize": 4.4,
+    "maxWidthShare": 0.38
+  },
+  "legend": {
+    "fill": "#e6c38f",
+    "stroke": "#3a1d0c",
+    "titleSize": 6.4,
+    "rowSize": 4.8
+  },
+  "frame": {
+    "kind": "antique",
+    "color": "#3a1d0c",
+    "margin": 12,
+    "band": 6,
+    "outerWidth": 1,
+    "innerWidth": 0.35,
+    "degreeLabels": false
+  },
+  "compass": {
+    "kind": "ornate",
+    "size": 44,
+    "fill": "#e6c38f",
+    "dark": "#3a1d0c",
+    "accent": "#7a3a14"
+  },
+  "scaleBar": {
+    "kind": "checkered",
+    "length": 70
+  }
+}

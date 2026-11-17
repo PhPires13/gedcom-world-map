@@ -1,0 +1,13 @@
+{
+  "id": "homelands",
+  "name": "Family countries",
+  "description": "Only the family's countries, drawn large and brought close together, each where it lies in relation to the others.",
+  "kind": "homelands",
+  "padding": 0.04,
+  "homelands": {
+    "sizeExponent": 0.4,
+    "gap": 0.05,
+    "shadow": 0.5,
+    "islandMin": 0.12
+  }
+}

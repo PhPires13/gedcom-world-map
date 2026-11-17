@@ -37,7 +37,7 @@ let cache: { styles: PrintStyle[]; layouts: LayoutSpec[]; borders: BorderSpec[];
 /** The designer's options, read from the same JSON files (src/print/{styles,layouts,borders,finishes}). */
 export function loadPrintOptions() {
   if (!cache) {
-    const layoutOrder = ['accurate', 'closeup', 'storybook', 'vignette'];
+    const layoutOrder = ['accurate', 'closeup', 'homelands', 'storybook', 'vignette'];
     cache = {
       styles: loadJsonDir<PrintStyle>('styles', validateStyle, 'antique'),
       layouts: loadJsonDir<LayoutSpec>('layouts', validateLayout, 'accurate').sort(

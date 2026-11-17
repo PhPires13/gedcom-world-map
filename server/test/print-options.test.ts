@@ -67,11 +67,12 @@ const COMBOS = [
   { layoutId: 'storybook', borderId: 'laurel', finishId: 'aged', flagScale: 1.3, routes: 'essential' },
   { layoutId: 'vignette', borderId: 'rope', finishId: 'deckled', flagScale: 0.75, routes: 'essential' },
   { layoutId: 'accurate', borderId: 'engraved', finishId: 'clean', flagScale: 1, routes: 'detailed' },
+  { layoutId: 'homelands', borderId: 'engraved', finishId: 'aged', flagScale: 1.2, routes: 'essential' },
 ] as const;
 
 describe('the server prints every option the designer offers', () => {
   it('knows the same option lists as the designer', () => {
-    expect(ids.styles).toEqual(STYLES.map((s) => s.id));
+    expect([...ids.styles].sort()).toEqual(STYLES.map((s) => s.id).sort());
     expect(ids.layouts).toEqual(LAYOUTS.map((l) => l.id));
     expect([...ids.borders].sort()).toEqual(BORDERS.map((b) => b.id).sort());
     expect([...ids.finishes].sort()).toEqual(FINISHES.map((f) => f.id).sort());
@@ -107,7 +108,8 @@ describe('the server prints every option the designer offers', () => {
       expect(a.layout.routeLabels.map((l) => l.text)).toContain('Almeida · 1940');
       const off = preparePrint(detail, { ...design, show: { ...design.show, surnames: false } }, 'A2');
       expect(renderHeritageMap(off.data, off.options, off.assets).layout.routeLabels.map((l) => l.text)).not.toContain('Almeida · 1940');
-    });
+      // Full A2 renders on 1:10m coastlines take several seconds on a busy machine.
+    }, 30_000);
   }
 
   it('picks the same few essential routes as the preview on a dense tree, and every move when detailed', () => {

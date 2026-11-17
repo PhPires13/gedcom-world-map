@@ -15,8 +15,8 @@ const ctx = { style: STYLES[0], k: 1, lang: 'pt' as const, frame };
 const inBox = (p: Pt, b: Box) => p[0] >= b.x && p[0] <= b.x + b.w && p[1] >= b.y && p[1] <= b.y + b.h;
 
 describe('layout specs', () => {
-  it('ships the four layouts, all valid', () => {
-    expect(LAYOUTS.map((l) => l.id)).toEqual(['accurate', 'closeup', 'storybook', 'vignette']);
+  it('ships the five layouts, all valid', () => {
+    expect(LAYOUTS.map((l) => l.id)).toEqual(['accurate', 'closeup', 'homelands', 'storybook', 'vignette']);
     for (const l of LAYOUTS) expect(validateLayout(l), l.id).toEqual([]);
     expect(BORDERS.length).toBeGreaterThanOrEqual(5);
     expect(FINISHES.length).toBeGreaterThanOrEqual(4);

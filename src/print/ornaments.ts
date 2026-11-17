@@ -84,17 +84,43 @@ export function compassRose(style: PrintStyle, cx: number, cy: number, size: num
   return `<g class="compass">${out}</g>`;
 }
 
-/** Rhumb lines: straight lines radiating from the compass across the whole chart, as on a portolan. */
-export function rhumbLines(style: PrintStyle, cx: number, cy: number, reach: number, k: number): string {
+/**
+ * Rhumb lines: straight lines radiating from the compass across the whole chart, as on a portolan.
+ * Each line stops at the edge of `box` (the map frame): lines running far off the sheet made resvg's
+ * filters on the same layer fail.
+ */
+export function rhumbLines(style: PrintStyle, cx: number, cy: number, box: { x: number; y: number; w: number; h: number }, k: number): string {
   const r = style.map.rhumbLines;
   if (!r.count) return '';
   const byColor = new Map<string, string>();
-  for (let i = 0; i < r.count; i++) {
-    const a = (i / r.count) * Math.PI * 2 - Math.PI / 2;
-    // Principal winds in the first colour, half winds the second, quarter winds the third.
-    const level = i % 4 === 0 ? 0 : i % 2 === 0 ? 1 : 2;
-    const color = r.colors[Math.min(level, r.colors.length - 1)];
-    byColor.set(color, (byColor.get(color) ?? '') + `M${n(cx)},${n(cy)}L${n(cx + Math.cos(a) * reach)},${n(cy + Math.sin(a) * reach)}`);
+  // The compass, then the network's roses on a circle around the middle of the map.
+  const centres: [number, number][] = [[cx, cy]];
+  const roses = r.network ?? 0;
+  if (roses > 0) {
+    const mx = box.x + box.w / 2;
+    const my = box.y + box.h / 2;
+    const radius = Math.min(box.w, box.h) * 0.42;
+    centres.push([mx, my]);
+    for (let j = 0; j < roses; j++) {
+      const b = (j / roses) * Math.PI * 2;
+      centres.push([mx + Math.cos(b) * radius * (box.w / Math.max(box.w, box.h)) * 1.5, my + Math.sin(b) * radius]);
+    }
+  }
+  for (const [ox, oy] of centres) {
+    if (ox < box.x || ox > box.x + box.w || oy < box.y || oy > box.y + box.h) continue;
+    for (let i = 0; i < r.count; i++) {
+      const a = (i / r.count) * Math.PI * 2 - Math.PI / 2;
+      const dx = Math.cos(a);
+      const dy = Math.sin(a);
+      // Distance along the ray to the frame's edge.
+      const tx = dx > 1e-9 ? (box.x + box.w - ox) / dx : dx < -1e-9 ? (box.x - ox) / dx : Infinity;
+      const ty = dy > 1e-9 ? (box.y + box.h - oy) / dy : dy < -1e-9 ? (box.y - oy) / dy : Infinity;
+      const reach = Math.max(0, Math.min(tx, ty));
+      // Principal winds in the first colour, half winds the second, quarter winds the third.
+      const level = i % 4 === 0 ? 0 : i % 2 === 0 ? 1 : 2;
+      const color = r.colors[Math.min(level, r.colors.length - 1)];
+      byColor.set(color, (byColor.get(color) ?? '') + `M${n(ox)},${n(oy)}L${n(ox + dx * reach)},${n(oy + dy * reach)}`);
+    }
   }
   return [...byColor].map(([color, d]) => el('path', { d, stroke: color, 'stroke-width': r.width * k, fill: 'none', opacity: r.opacity })).join('');
 }

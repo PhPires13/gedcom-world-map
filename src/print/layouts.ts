@@ -22,7 +22,7 @@ import type { PrintStyle } from './style';
 import { el, n } from './svg';
 import type { Box, Lang, Pt } from './types';
 
-export const LAYOUT_KINDS = ['accurate', 'storybook', 'vignette'] as const;
+export const LAYOUT_KINDS = ['accurate', 'storybook', 'vignette', 'homelands'] as const;
 
 export interface LayoutSpec {
   id: string;
@@ -48,6 +48,17 @@ export interface LayoutSpec {
     shadow: number;
     /** Opacity of the rest of the world (0..1). */
     background: number;
+  };
+  /** Family countries: only the homelands, large, drawn close together (homelands.ts). */
+  homelands?: {
+    /** How much of the real size difference stays (0 = all the same size, 1 = true relative size). */
+    sizeExponent: number;
+    /** Space kept between countries, as a share of the largest country's size. */
+    gap: number;
+    /** Strength of the shadow under the countries (0..1). */
+    shadow: number;
+    /** Smallest size of a far island brought in to the coast, as a share of its country's size. */
+    islandMin: number;
   };
   vignette?: {
     /** Medallion radius in mm on A2, for the smallest and the largest group of places. */
@@ -90,6 +101,13 @@ export function validateLayout(s: unknown): string[] {
     num('storybook.regionShare', b.regionShare, 0, 1);
     num('storybook.shadow', b.shadow, 0, 1);
     num('storybook.background', b.background, 0, 1);
+  }
+  if (o.kind === 'homelands') {
+    const h = o.homelands ?? {};
+    num('homelands.sizeExponent', h.sizeExponent, 0, 1);
+    num('homelands.gap', h.gap, 0, 1);
+    num('homelands.shadow', h.shadow, 0, 1);
+    num('homelands.islandMin', h.islandMin, 0, 1);
   }
   if (o.kind === 'vignette') {
     const v = o.vignette ?? {};
@@ -136,6 +154,10 @@ export interface ArtMap {
   medallions: Medallion[];
   /** Which medallion a place is in (medallion layouts only), for grouping routes. */
   regionOf?: (p: GeoPlace) => string | undefined;
+  /** Points the cartouche, legend and compass should keep clear of (outlines of enlarged countries). */
+  obstacles?: Pt[];
+  /** A roomy spot inside a country for its flag roundel of radius `r`, if the layout has one. */
+  flagSpot?: (code: string, r: number) => Pt | null;
 }
 
 // ---------- Pieces of countries, flattened to the sheet ----------
@@ -509,7 +531,7 @@ export function clusterRegions<P extends { centroid: Pt; lon: number; lat: numbe
 }
 
 /** Engraved lines out to sea around the coasts (masked from #land, as on the geographic map). */
-function waterLines(S: PrintStyle, k: number, frame: Box, land = '#land', id = 'art-water', scale = 1): string {
+export function waterLines(S: PrintStyle, k: number, frame: Box, land = '#land', id = 'art-water', scale = 1): string {
   const wl = S.map.waterLines;
   if (!(wl.count > 0 && wl.spacing > 0)) return '';
   let rings = '';

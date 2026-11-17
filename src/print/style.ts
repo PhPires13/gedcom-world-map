@@ -11,6 +11,7 @@ export const MARK_KINDS = ['town', 'dot', 'ring'] as const;
 export const CARTOUCHE_KINDS = ['scroll', 'framed', 'plain'] as const;
 export const SCALEBAR_KINDS = ['checkered', 'simple'] as const;
 export const PROJECTION_PREFS = ['auto', 'mercator'] as const;
+export const TEXTURE_KINDS = ['wood', 'leather'] as const;
 
 export interface PrintStyle {
   id: string;
@@ -40,6 +41,11 @@ export interface PrintStyle {
     vignette: number;
     /** Colour of the grain, stains and vignette. */
     ageColor: string;
+    /**
+     * A material instead of plain paper, laid over the whole sheet like the grain: `wood` (long
+     * grain lines and growth rings, for a pyrography look) or `leather` (a pebbled, embossed hide).
+     */
+    texture?: { kind: (typeof TEXTURE_KINDS)[number]; strength: number; color: string };
   };
   ink: {
     main: string;
@@ -59,7 +65,17 @@ export interface PrintStyle {
     borders: { color: string; width: number; dash: number[] };
     graticule: { step: number; color: string; width: number; dash: number[] };
     /** Lines radiating from the compass rose across the sea, as on portolan charts (0 = none). */
-    rhumbLines: { count: number; colors: string[]; width: number; opacity: number };
+    rhumbLines: {
+      count: number;
+      colors: string[];
+      width: number;
+      opacity: number;
+      /**
+       * Roses on a hidden circle around the middle of the map, each sending out the same lines, as on
+       * medieval portolan charts (16 is the classic number; 0 or absent = only the compass's lines).
+       */
+      network?: number;
+    };
     projection: (typeof PROJECTION_PREFS)[number];
   };
   routes: {
@@ -212,6 +228,11 @@ export function validateStyle(s: unknown): string[] {
   num('paper.stains', 0, 1);
   num('paper.vignette', 0, 1);
   color('paper.ageColor');
+  if (get('paper.texture') !== undefined) {
+    oneOf('paper.texture.kind', TEXTURE_KINDS);
+    num('paper.texture.strength', 0, 1);
+    color('paper.texture.color');
+  }
   color('ink.main');
   color('ink.faint');
   color('ink.accent');
@@ -239,6 +260,7 @@ export function validateStyle(s: unknown): string[] {
   if ((get('map.rhumbLines.count') as number) > 0) colors('map.rhumbLines.colors', 1);
   num('map.rhumbLines.width', 0, 5);
   num('map.rhumbLines.opacity', 0, 1);
+  if (get('map.rhumbLines.network') !== undefined) num('map.rhumbLines.network', 0, 32);
   oneOf('map.projection', PROJECTION_PREFS);
   colors('routes.inks', 1);
   num('routes.minWidth', 0.05, 20);

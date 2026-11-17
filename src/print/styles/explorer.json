@@ -1,0 +1,172 @@
+{
+  "id": "explorer",
+  "name": "Explorer's journal",
+  "description": "A well-travelled explorer's map: deeply aged, stained and hand-inked, with routes in red ink.",
+  "fonts": {
+    "title": {
+      "family": "Fondamento",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.52
+    },
+    "heading": {
+      "family": "Fondamento",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.52
+    },
+    "body": {
+      "family": "Fondamento",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.47
+    },
+    "italic": {
+      "family": "Fondamento",
+      "weight": 400,
+      "style": "italic",
+      "widthFactor": 0.44
+    }
+  },
+  "uppercaseTitles": false,
+  "paper": {
+    "color": "#d8bd88",
+    "grain": 0.45,
+    "grainFrequency": 2.0,
+    "stains": 0.75,
+    "vignette": 1.0,
+    "ageColor": "#4e2c0e"
+  },
+  "ink": {
+    "main": "#2b1a0c",
+    "faint": "#6e5232",
+    "accent": "#8a1f12",
+    "wobble": 0.3
+  },
+  "map": {
+    "sea": "#d2b47c",
+    "land": "#e3cb98",
+    "coast": {
+      "color": "#2b1a0c",
+      "width": 0.45
+    },
+    "waterLines": {
+      "count": 6,
+      "spacing": 0.8,
+      "width": 0.15,
+      "color": "#4e3418",
+      "opacity": 0.5
+    },
+    "landShade": {
+      "color": "#a5824a",
+      "width": 3,
+      "opacity": 0.45
+    },
+    "borders": {
+      "color": "#7a6244",
+      "width": 0.28,
+      "dash": [
+        1.2,
+        0.8
+      ]
+    },
+    "graticule": {
+      "step": 15,
+      "color": "#8a6c44",
+      "width": 0.14,
+      "dash": [
+        1.4,
+        1.4
+      ]
+    },
+    "rhumbLines": {
+      "count": 0,
+      "colors": [
+        "#7a6244"
+      ],
+      "width": 0.15,
+      "opacity": 0.3
+    },
+    "projection": "auto"
+  },
+  "routes": {
+    "inks": [
+      "#7d1d12",
+      "#8a2e14",
+      "#9b2d1c",
+      "#6b2010",
+      "#a3301e"
+    ],
+    "minWidth": 1.5,
+    "maxWidth": 4.6,
+    "taper": true,
+    "arrow": "barb",
+    "arrowSize": 7.5,
+    "opacity": 0.92,
+    "halo": "#e6d0a2",
+    "haloWidth": 1.6,
+    "dateSize": 4,
+    "surnameSize": 6.2
+  },
+  "marks": {
+    "kind": "town",
+    "size": 2.8,
+    "fill": "#e6d0a2",
+    "stroke": "#2b1a0c"
+  },
+  "labels": {
+    "placeSize": 4.6,
+    "placeColor": "#2b1a0c",
+    "countrySize": 7,
+    "countryColor": "#5e4222",
+    "countryLetterSpacing": 2.2,
+    "oceanSize": 10,
+    "oceanColor": "#5a4426",
+    "oceanLetterSpacing": 3.5,
+    "halo": "rgba(222,198,150,0.75)"
+  },
+  "flags": {
+    "radius": 11,
+    "ring": "#2b1a0c",
+    "ringWidth": 0.7,
+    "outerRing": "#8a1f12",
+    "tone": 0.5,
+    "labelSize": 4,
+    "leader": "#5c4630"
+  },
+  "cartouche": {
+    "kind": "scroll",
+    "fill": "#e6d0a2",
+    "stroke": "#2b1a0c",
+    "titleSize": 17,
+    "subtitleSize": 6.5,
+    "dedicationSize": 4.4,
+    "maxWidthShare": 0.38
+  },
+  "legend": {
+    "fill": "#e6d0a2",
+    "stroke": "#2b1a0c",
+    "titleSize": 6.4,
+    "rowSize": 4.8
+  },
+  "frame": {
+    "kind": "antique",
+    "color": "#2b1a0c",
+    "margin": 12,
+    "band": 6,
+    "outerWidth": 1,
+    "innerWidth": 0.35,
+    "degreeLabels": true
+  },
+  "compass": {
+    "kind": "ornate",
+    "size": 44,
+    "fill": "#e6d0a2",
+    "dark": "#2b1a0c",
+    "accent": "#8a1f12"
+  },
+  "scaleBar": {
+    "kind": "checkered",
+    "length": 70
+  }
+}

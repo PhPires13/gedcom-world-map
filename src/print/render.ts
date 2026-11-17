@@ -11,6 +11,7 @@ import { pathLength, placeAlongCurve, routeSurnames, smoothPath } from './curvel
 import { regionOf as flowRegion } from '../flows';
 import { essentialRoutes, routeCap, routesAsFlows } from './simplify';
 import { frameTicks, inset, kmPerMm, makeProjection, niceScaleKm, pageSize, showsWholeSphere, sizeScale, topologyDetail } from './geo';
+import { buildHomelands } from './homelands';
 import { buildStorybook, medallionBanner, planVignette, type ArtMap, type LayoutSpec, type Medallion, type VignettePlan } from './layouts';
 import {
   contains,
@@ -127,7 +128,8 @@ export const GEOGRAPHIC: LayoutSpec = { id: 'accurate', name: 'Geographic', kind
  */
 export function topologyDetailFor(data: PrintData, o: PrintOptions): '50m' | '10m' {
   const L = o.layout ?? GEOGRAPHIC;
-  if (L.kind === 'vignette') return '10m';
+  // Medallions and family countries enlarge each homeland a lot.
+  if (L.kind === 'vignette' || L.kind === 'homelands') return '10m';
   // Storybook countries are enlarged from a continent-wide view: 1:50m is plenty, 1:10m only bloats the file.
   if (L.kind === 'storybook') return '50m';
   const { w, h } = pageSize(o.paper, o.orientation);
@@ -173,6 +175,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   let art: ArtMap | null = null;
   let plan: VignettePlan | null = null;
   if (L.kind === 'storybook') art = buildStorybook(data.people, locator, { ...L.storybook!, padding: L.padding ?? 0.05 }, drawCtx);
+  if (L.kind === 'homelands') art = buildHomelands(data.people, locator, { ...L.homelands!, padding: L.padding ?? 0.04 }, drawCtx);
   // Essential routes (the default) keep one medallion per country, so routes run between countries.
   const essential = (o.routes ?? 'essential') === 'essential';
   if (L.kind === 'vignette')
@@ -323,7 +326,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
       const cx = box.x + side / 2;
       const cy = box.y + side / 2;
       out.svg = compassRose(S, cx, cy, size, o.lang, k) + out.svg;
-      out.rhumb = rhumbLines(S, cx, cy, Math.hypot(W, H), k);
+      out.rhumb = rhumbLines(S, cx, cy, frame, k);
     }
 
     // A scale only means something on a true map.
@@ -395,7 +398,8 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
     },
     (id) => yearOf.get(id),
   );
-  if (!panels) panels = placePanels({ points: [...marks.map((m) => m.pt), ...strokes.flatMap((s) => s.pts)], boxes: [] }, moverGensOf(strokes.map((s) => s.gen)));
+  if (!panels)
+    panels = placePanels({ points: [...marks.map((m) => m.pt), ...strokes.flatMap((s) => s.pts), ...(art?.obstacles ?? [])], boxes: [] }, moverGensOf(strokes.map((s) => s.gen)));
   const map = art;
 
   // ---------- Flag roundels ----------
@@ -427,6 +431,16 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
     }
     for (const [code, a] of [...anchors].sort((x, y) => y[1].people - x[1].people)) {
       const anchor: Pt = [a.pts.reduce((s, p) => s + p[0], 0) / a.pts.length, a.pts.reduce((s, p) => s + p[1], 0) / a.pts.length];
+      // Layouts that draw countries large put the flag inside its own country when there's room.
+      const inside = map?.flagSpot?.(code, R);
+      if (inside) {
+        const box: Box = { x: inside[0] - R, y: inside[1] - R, w: 2 * R, h: 2 * R + flagLabel * 1.8 };
+        if (!taken.some((t) => overlaps(t, box)) && !routeLines.some((line) => line.some((q) => q[0] > box.x && q[0] < box.x + box.w && q[1] > box.y && q[1] < box.y + box.h))) {
+          taken.push(box);
+          flags.push({ code, center: inside, r: flagR, anchor: inside });
+          continue;
+        }
+      }
       const spot = placeRoundel(anchor, R, flagLabel * 1.8, inset(frame, 1.5 * k), markPts, routeLines, taken);
       if (!spot) continue;
       taken.push(spot.box);
@@ -602,8 +616,15 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
         const pt = map ? map.water(lon, lat) : project({ lon, lat });
         if (!pt) continue;
         const box: Box = { x: pt[0] - w / 2, y: pt[1] - h / 2, w, h };
-        // The whole name has to be over the sea, not just its middle.
-        if (Array.from({ length: 11 }, (_, i) => [box.x + (i / 10) * box.w, pt[1]] as Pt).some(isLand)) continue;
+        // The whole name has to be over the sea, not just its middle: its top, middle and bottom,
+        // with a little room to the coast.
+        const pad = size * 0.35;
+        const probes = Array.from({ length: 13 }, (_, i) => box.x - pad + (i / 12) * (box.w + 2 * pad)).flatMap((x) => [
+          [x, box.y - pad] as Pt,
+          [x, pt[1]] as Pt,
+          [x, box.y + box.h + pad] as Pt,
+        ]);
+        if (probes.some(isLand)) continue;
         if (!contains(inset(frame, 2 * k), box) || [...taken, ...medallionBoxes].some((t) => overlaps(t, box, k))) continue;
         if (strokes.some((s) => s.pts.some((p) => p[0] > box.x && p[0] < box.x + box.w && p[1] > box.y && p[1] < box.y + box.h))) continue;
         taken.push(box);
@@ -645,6 +666,8 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
       ),
     );
   }
+  const texture = S.paper.texture && S.paper.texture.strength > 0 ? S.paper.texture : undefined;
+  if (texture) defs.push(textureFilter(texture, fullPage, k));
   if (S.paper.stains > 0 && ageing) {
     const s = S.paper.stains;
     defs.push(
@@ -744,6 +767,7 @@ export function renderHeritageMap(data: PrintData, o: PrintOptions, assets: Prin
   if (caption) body.push(caption.svg(outer.y + outer.h, W / 2));
   // Ageing on top of everything, as it would be on real paper.
   if (S.paper.stains > 0 && ageing) body.push(el('rect', { x: 0, y: 0, width: W, height: H, filter: 'url(#paper-stains)' }));
+  if (texture) body.push(el('rect', { x: 0, y: 0, width: W, height: H, filter: 'url(#paper-texture)' }));
   if (S.paper.grain > 0) body.push(el('rect', { x: 0, y: 0, width: W, height: H, filter: 'url(#paper-grain)' }));
   if (S.paper.vignette > 0 && ageing) body.push(el('rect', { x: 0, y: 0, width: W, height: H, fill: 'url(#vignette)' }));
   const finished = applyFinish(finish, S, W, H, k, body.join(''));
@@ -906,4 +930,39 @@ function roundelSvg(
     );
   }
   return `<g class="roundel">${out}</g>`;
+}
+
+/**
+ * The sheet's material, drawn as a translucent layer of `texture.color` over everything.
+ * Wood: noise stretched along the sheet into long grain lines, banded into growth rings.
+ * Leather: fine noise lit from the top left, so the hide looks pebbled and embossed.
+ */
+function textureFilter(texture: NonNullable<PrintStyle['paper']['texture']>, region: Record<string, string | number>, k: number): string {
+  const [r, g, b] = hexToRgb(texture.color).map((v) => v / 255);
+  const s = texture.strength;
+  const tint = (alpha: string) => el('feColorMatrix', { type: 'matrix', values: `0 0 0 0 ${n(r)} 0 0 0 0 ${n(g)} 0 0 0 0 ${n(b)} ${alpha}` });
+  if (texture.kind === 'wood') {
+    return el(
+      'filter',
+      { id: 'paper-texture', ...region },
+      // Long, wavy fibres along the sheet…
+      el('feTurbulence', { type: 'fractalNoise', baseFrequency: `${(0.0035 / k).toPrecision(3)} ${(0.09 / k).toPrecision(3)}`, numOctaves: 4, seed: 7, result: 'fibre' }) +
+        // …banded into rings (alternating light and dark early/late wood).
+        el('feComponentTransfer', { in: 'fibre', result: 'rings' }, el('feFuncR', { type: 'table', tableValues: '0 1 0.2 0.9 0 1 0.3 0.8 0 1 0.1 0.9 0' })) +
+        tint(`${n(s * 0.55)} 0 0 0 ${n(-s * 0.12)}`) +
+        el('feGaussianBlur', { stdDeviation: n(0.12 * k) }),
+    );
+  }
+  return el(
+    'filter',
+    { id: 'paper-texture', ...region },
+    el('feTurbulence', { type: 'fractalNoise', baseFrequency: (0.7 / k).toPrecision(3), numOctaves: 3, seed: 5, result: 'pebble' }) +
+      el(
+        'feDiffuseLighting',
+        { in: 'pebble', surfaceScale: n(1.6), diffuseConstant: 1, 'lighting-color': '#ffffff', result: 'lit' },
+        el('feDistantLight', { azimuth: 225, elevation: 48 }),
+      ) +
+      // Shadows of the bumps darken the hide; the lit tops leave it as it is.
+      el('feColorMatrix', { in: 'lit', type: 'matrix', values: `0 0 0 0 ${n(r)} 0 0 0 0 ${n(g)} 0 0 0 0 ${n(b)} ${n(-s * 1.1)} 0 0 0 ${n(s * 0.95)}` }),
+  );
 }

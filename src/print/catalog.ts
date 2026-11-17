@@ -15,12 +15,15 @@ function load<T extends { id: string }>(files: Record<string, T>, validate: (x: 
     .sort((a, b) => (a.id === first ? -1 : b.id === first ? 1 : 0));
 }
 
+/** The order layouts are offered in. */
+const LAYOUT_ORDER = ['accurate', 'closeup', 'homelands', 'storybook', 'vignette'];
+
 export const LAYOUTS: LayoutSpec[] = load(
   import.meta.glob<LayoutSpec>('./layouts/*.json', { eager: true, import: 'default' }),
   validateLayout,
   'layout',
   'accurate',
-).sort((a, b) => ['accurate', 'closeup', 'storybook', 'vignette'].indexOf(a.id) - ['accurate', 'closeup', 'storybook', 'vignette'].indexOf(b.id));
+).sort((a, b) => LAYOUT_ORDER.indexOf(a.id) - LAYOUT_ORDER.indexOf(b.id));
 
 export const BORDERS: BorderSpec[] = load(import.meta.glob<BorderSpec>('./borders/*.json', { eager: true, import: 'default' }), validateBorder, 'border', 'engraved');
 

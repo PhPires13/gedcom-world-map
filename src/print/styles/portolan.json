@@ -1,0 +1,172 @@
+{
+  "id": "portolan",
+  "name": "Portolan chart",
+  "description": "A Portuguese navigator's chart on vellum: rhumb lines from compass roses, black and vermilion inks, Gothic lettering.",
+  "fonts": {
+    "title": {
+      "family": "Pirata One",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.5
+    },
+    "heading": {
+      "family": "Pirata One",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.5
+    },
+    "body": {
+      "family": "IM Fell English",
+      "weight": 400,
+      "style": "normal",
+      "widthFactor": 0.47
+    },
+    "italic": {
+      "family": "IM Fell English",
+      "weight": 400,
+      "style": "italic",
+      "widthFactor": 0.43
+    }
+  },
+  "uppercaseTitles": false,
+  "paper": {
+    "color": "#e8d3a4",
+    "grain": 0.4,
+    "grainFrequency": 1.8,
+    "stains": 0.45,
+    "vignette": 0.7,
+    "ageColor": "#5e3d17"
+  },
+  "ink": {
+    "main": "#2a1d12",
+    "faint": "#6e5538",
+    "accent": "#a3291c",
+    "wobble": 0.18
+  },
+  "map": {
+    "sea": "#e6cf9c",
+    "land": "#efdcb0",
+    "coast": {
+      "color": "#2a1d12",
+      "width": 0.45
+    },
+    "waterLines": {
+      "count": 0,
+      "spacing": 0.9,
+      "width": 0.16,
+      "color": "#5c4630",
+      "opacity": 0.5
+    },
+    "landShade": {
+      "color": "#7d8a4a",
+      "width": 3.2,
+      "opacity": 0.35
+    },
+    "borders": {
+      "color": "#a3291c",
+      "width": 0.3,
+      "dash": [
+        1.6,
+        1.0
+      ]
+    },
+    "graticule": {
+      "step": 90,
+      "color": "#9a8462",
+      "width": 0,
+      "dash": []
+    },
+    "rhumbLines": {
+      "count": 16,
+      "colors": [
+        "#2a1d12",
+        "#2f5a3a",
+        "#a3291c"
+      ],
+      "width": 0.2,
+      "opacity": 0.45,
+      "network": 16
+    },
+    "projection": "mercator"
+  },
+  "routes": {
+    "inks": [
+      "#a3291c",
+      "#8a2a17",
+      "#2f5a3a",
+      "#2a1d12",
+      "#7a1f14"
+    ],
+    "minWidth": 1.5,
+    "maxWidth": 4.6,
+    "taper": true,
+    "arrow": "barb",
+    "arrowSize": 7.5,
+    "opacity": 0.92,
+    "halo": "#f0dfb8",
+    "haloWidth": 1.6,
+    "dateSize": 4,
+    "surnameSize": 6.2
+  },
+  "marks": {
+    "kind": "town",
+    "size": 2.8,
+    "fill": "#a3291c",
+    "stroke": "#2a1d12"
+  },
+  "labels": {
+    "placeSize": 4.6,
+    "placeColor": "#2a1d12",
+    "countrySize": 7,
+    "countryColor": "#a3291c",
+    "countryLetterSpacing": 2.2,
+    "oceanSize": 10,
+    "oceanColor": "#5c3d22",
+    "oceanLetterSpacing": 3.5,
+    "halo": "rgba(232,211,164,0.8)"
+  },
+  "flags": {
+    "radius": 11,
+    "ring": "#2a1d12",
+    "ringWidth": 0.7,
+    "outerRing": "#a3291c",
+    "tone": 0.4,
+    "labelSize": 4,
+    "leader": "#5c4630"
+  },
+  "cartouche": {
+    "kind": "scroll",
+    "fill": "#f0dfb8",
+    "stroke": "#2a1d12",
+    "titleSize": 17,
+    "subtitleSize": 6.5,
+    "dedicationSize": 4.4,
+    "maxWidthShare": 0.38
+  },
+  "legend": {
+    "fill": "#f0dfb8",
+    "stroke": "#2a1d12",
+    "titleSize": 6.4,
+    "rowSize": 4.8
+  },
+  "frame": {
+    "kind": "antique",
+    "color": "#2a1d12",
+    "margin": 12,
+    "band": 6,
+    "outerWidth": 1,
+    "innerWidth": 0.35,
+    "degreeLabels": false
+  },
+  "compass": {
+    "kind": "ornate",
+    "size": 52,
+    "fill": "#f0dfb8",
+    "dark": "#2a1d12",
+    "accent": "#a3291c"
+  },
+  "scaleBar": {
+    "kind": "checkered",
+    "length": 70
+  }
+}
