@@ -3,8 +3,8 @@ import { defineConfig } from 'vite';
 
 // Pages: the sales landing page (index.html), the map app (app.html; app.html#tree opens the
 // family tree), the heritage print designer (print.html), the customer's order page (order.html),
-// the shop's operations page (ops.html), sign-in (login.html), the customer's account
-// (account.html) and a shared family map (share.html).
+// the gift card page (gift-card.html), the shop's operations page (ops.html), sign-in (login.html),
+// the customer's account (account.html) and a shared family map (share.html).
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -17,6 +17,7 @@ export default defineConfig({
         login: fileURLToPath(new URL('./login.html', import.meta.url)),
         account: fileURLToPath(new URL('./account.html', import.meta.url)),
         share: fileURLToPath(new URL('./share.html', import.meta.url)),
+        giftCard: fileURLToPath(new URL('./gift-card.html', import.meta.url)),
       },
     },
   },

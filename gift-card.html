@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vale-presente do mapa de família</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>" />
+  </head>
+  <body class="shop-page">
+    <main>
+      <header class="page-head">
+        <a href="./print.html" class="back" data-i18n="order.back">← Editor de impressão</a>
+        <span id="lang"></span>
+      </header>
+      <div class="card form">
+        <h1 data-i18n="gc.title">Vale-presente</h1>
+        <p class="muted" data-i18n="gc.intro"></p>
+        <p id="gc-notice" class="note small" hidden></p>
+        <div id="gc-form" hidden>
+          <label><span data-i18n="gc.currency">Moeda</span><select id="gc-currency"></select></label>
+          <span class="muted small" data-i18n="gc.value">Valor</span>
+          <div id="gc-values" class="values" role="radiogroup"></div>
+          <label><span data-i18n="gc.email">E-mail</span><input type="email" id="gc-email" autocomplete="email" /></label>
+          <p class="muted small" id="gc-hint"></p>
+          <button class="btn primary" id="gc-buy" data-i18n="gc.buy">Comprar vale-presente</button>
+        </div>
+        <p id="gc-status" class="small"></p>
+      </div>
+    </main>
+    <script type="module" src="/src/commerce/giftcard-page.ts"></script>
+  </body>
+</html>

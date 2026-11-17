@@ -51,8 +51,9 @@ export function mailKindFor(order: Pick<orders.OrderRow, 'kind'>, to: OrderStatu
     case 'shipped':
       return 'order_shipped';
     case 'delivered':
-      // A digital order is "delivered" by its download links, already sent at file_ready.
-      return order.kind === 'digital' ? undefined : 'order_delivered';
+      // A digital order is "delivered" by its download links, already sent at file_ready; a gift
+      // card by its code on the order page, which the paid e-mail links to.
+      return order.kind === 'digital' || order.kind === 'giftcard' ? undefined : 'order_delivered';
     case 'refunded':
       return 'order_refunded';
     default:
@@ -89,12 +90,12 @@ const trackingNote = (c: StatusChange) => (c.actor === 'operator' && c.note && !
 
 export function renderOrderMail(deps: OrderMailDeps, kind: OrderMailKind, c: StatusChange): Rendered | undefined {
   const o = c.order;
-  const lang = o.design.lang ?? 'pt';
+  const lang = o.lang ?? o.design?.lang ?? 'pt';
   const info: OrderMailInfo = {
     lang,
     number: o.number,
     product: productName(deps, o, lang),
-    title: o.design.title || undefined,
+    title: o.design?.title || undefined,
     total: formatMoney(o.totalAmount, o.currency),
     digital: o.kind === 'digital',
     orderUrl: deps.orderUrl(o.id),

@@ -8,6 +8,11 @@
 // - Quotes: POST /quotes/order.
 // Field names follow the v5 OpenAPI spec as read on 2026-11-10; check them against the sandbox
 // (see server/commerce/README.md) before the first real order.
+//
+// Gifts: no free-text gift or packing note field was found in the order request (the v4 docs had a
+// `packingSlip` with only a `url` to an image), so the message is NOT sent to Prodigi: the order's
+// history says so and the operator decides (e.g. a printed packing slip image, or an e-mail to the
+// recipient). Prodigi ships white-label without retail prices; `recipientCost` is for customs only.
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FulfilmentAdapter, FulfilmentRequest, FulfilmentUpdate, ShippingAddress, ShippingQuote, Tracking } from './types';
@@ -132,7 +137,7 @@ export function prodigiFulfilment(opts: ProdigiOptions): FulfilmentAdapter {
               sku: req.sku,
               quantity: 1,
               sizing: 'fillPrintArea',
-              attributes: req.frameColour ? { color: req.frameColour } : {},
+              attributes: { ...(req.attributes ?? {}), ...(req.frameColour ? { color: req.frameColour } : {}) },
               recipientCost: { amount: (req.value.amount / 100).toFixed(2), currency: req.value.currency },
               assets: [{ printArea: 'default', url: req.fileUrl }],
             },
@@ -142,7 +147,14 @@ export function prodigiFulfilment(opts: ProdigiOptions): FulfilmentAdapter {
         { 'Idempotency-Key': `order-${req.orderId}` },
       );
       const u = toUpdate(order);
-      return { ref: u.ref, partnerStatus: u.partnerStatus, sentToProduction: true };
+      return {
+        ref: u.ref,
+        partnerStatus: u.partnerStatus,
+        sentToProduction: true,
+        giftNote: req.gift?.message
+          ? 'A gift: Prodigi has no field for the gift message, so it was not sent. Send the message another way (packing slip image or e-mail).'
+          : undefined,
+      };
     },
     async status(ref) {
       return toUpdate(await call('GET', `/orders/${encodeURIComponent(ref)}`));

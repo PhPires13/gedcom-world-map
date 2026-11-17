@@ -5,6 +5,8 @@
     "Prices are in major units (349.90 = R$ 349,90) and include VAT/taxes as shown to the customer. 'shipping' adds a flat amount per order; 0 = shipping included.",
     "Where the placeholders come from (docs/research, seen 2026-11-10): digital migration maps on Etsy sell for BRL 32-98; framed migration prints BRL 240-1,198; the plan's framed hypothesis was USD 129-249. Partner wholesale costs are unknown until a Prodigi quote / local lab quote.",
     "Prodigi SKUs: GLOBAL-HPR-A3 and GLOBAL-HPR-A2 (Hahnemuhle Photo Rag 308 gsm) were seen on Prodigi's product pages. GLOBAL-HPR-A1 and the framed GLOBAL-CFPM-A3/-A2 are UNVERIFIED guesses: check them with the Prodigi catalogue API or dashboard before going live.",
+    "UNVERIFIED (guessed 2026-11-17, never seen on Prodigi): the poster SKUs GLOBAL-EMA-A3/-A2/-A1 (Enhanced Matte Art paper, 200 gsm) and the canvas SKUs GLOBAL-CAN-A3/-A2 (stretched canvas) and its 'wrap' attribute value 'MirrorWrap' (mirrored edges, so the whole design stays on the front). Check each one before the first order.",
+    "'partnerAttributes' are fixed options sent to the partner with every order of that product (the canvas edge). Gift cards ('kind': 'giftcard') have value tiers V1-V3 instead of sizes; their 'prices' are the card's value in each currency, and they are never shipped.",
     "Product names, descriptions and materials need 'pt', 'en' and 'es' (the site's languages); the shop shows the visitor's. Frame colours stay as English ids (sent to the partner); the pages translate them.",
     "Each market's 'fulfilment' picks who makes physical products: 'prodigi' (API) or 'manual' (an operator sends the file to a local lab and framer). Brazil is manual: no Brazilian framed-print partner with an API was found."
   ],
@@ -59,6 +61,57 @@
         { "size": "A3", "prices": { "BRL": 449.9, "EUR": 119, "USD": 129 }, "skus": { "prodigi": "GLOBAL-CFPM-A3" } },
         { "size": "A2", "prices": { "BRL": 649.9, "EUR": 169, "USD": 189 }, "skus": { "prodigi": "GLOBAL-CFPM-A2" } }
       ]
+    },
+    {
+      "id": "poster",
+      "kind": "poster",
+      "name": { "pt": "Pôster (sem moldura)", "en": "Poster (unframed)", "es": "Póster (sin marco)" },
+      "description": {
+        "pt": "Impressão em papel fosco de boa gramatura, mais em conta que a fine-art, enviada enrolada em um tubo.",
+        "en": "Printed on a heavy matte paper, more affordable than the fine-art print, shipped rolled in a tube.",
+        "es": "Impreso en papel mate de buen gramaje, más económico que la impresión fine art, enviado enrollado en un tubo."
+      },
+      "material": { "pt": "Papel fosco Enhanced Matte Art 200 g/m²", "en": "Enhanced Matte Art paper 200 gsm", "es": "Papel mate Enhanced Matte Art 200 g/m²" },
+      "variants": [
+        { "size": "A3", "prices": { "BRL": 89.9, "EUR": 22, "USD": 24 }, "skus": { "prodigi": "GLOBAL-EMA-A3" } },
+        { "size": "A2", "prices": { "BRL": 129.9, "EUR": 29, "USD": 32 }, "skus": { "prodigi": "GLOBAL-EMA-A2" } },
+        { "size": "A1", "prices": { "BRL": 169.9, "EUR": 39, "USD": 42 }, "skus": { "prodigi": "GLOBAL-EMA-A1" } }
+      ]
+    },
+    {
+      "id": "canvas",
+      "kind": "canvas",
+      "name": { "pt": "Tela canvas", "en": "Canvas", "es": "Lienzo (canvas)" },
+      "description": {
+        "pt": "Seu mapa impresso em tela canvas esticada em chassi de madeira, pronta para pendurar, sem vidro.",
+        "en": "Your map printed on canvas stretched over a wooden frame, ready to hang, no glass.",
+        "es": "Tu mapa impreso en lienzo tensado sobre un bastidor de madera, listo para colgar, sin vidrio."
+      },
+      "material": {
+        "pt": "Tela canvas de algodão e poliéster, chassi de madeira, bordas espelhadas",
+        "en": "Cotton-poly canvas, wooden stretcher bars, mirrored edges",
+        "es": "Lienzo de algodón y poliéster, bastidor de madera, bordes en espejo"
+      },
+      "partnerAttributes": { "prodigi": { "wrap": "MirrorWrap" } },
+      "variants": [
+        { "size": "A3", "prices": { "BRL": 399.9, "EUR": 99, "USD": 109 }, "skus": { "prodigi": "GLOBAL-CAN-A3" } },
+        { "size": "A2", "prices": { "BRL": 549.9, "EUR": 139, "USD": 149 }, "skus": { "prodigi": "GLOBAL-CAN-A2" } }
+      ]
+    },
+    {
+      "id": "giftcard",
+      "kind": "giftcard",
+      "name": { "pt": "Vale-presente", "en": "Gift card", "es": "Tarjeta regalo" },
+      "description": {
+        "pt": "Um código para usar em qualquer mapa da loja, entregue logo após o pagamento. Uso único, na mesma moeda.",
+        "en": "A code to spend on any map in the shop, delivered right after payment. Single use, in the same currency.",
+        "es": "Un código para usar en cualquier mapa de la tienda, entregado justo después del pago. De un solo uso, en la misma moneda."
+      },
+      "variants": [
+        { "size": "V1", "prices": { "BRL": 200, "EUR": 50, "USD": 50 } },
+        { "size": "V2", "prices": { "BRL": 350, "EUR": 90, "USD": 90 } },
+        { "size": "V3", "prices": { "BRL": 500, "EUR": 130, "USD": 130 } }
+      ]
     }
   ],
   "markets": [
@@ -68,7 +121,7 @@
       "countries": ["BR"],
       "currency": "BRL",
       "fulfilment": "manual",
-      "shipping": { "print": { "BRL": 0 }, "framed": { "BRL": 39.9 } }
+      "shipping": { "print": { "BRL": 0 }, "poster": { "BRL": 0 }, "framed": { "BRL": 39.9 }, "canvas": { "BRL": 39.9 } }
     },
     {
       "id": "EU",
@@ -76,7 +129,7 @@
       "countries": ["PT", "ES", "IT", "FR", "DE", "NL", "BE", "LU", "IE", "AT", "DK", "SE", "FI", "PL", "CZ", "SK", "SI", "HR", "HU", "RO", "BG", "GR", "CY", "MT", "EE", "LV", "LT"],
       "currency": "EUR",
       "fulfilment": "prodigi",
-      "shipping": { "print": { "EUR": 0 }, "framed": { "EUR": 0 } }
+      "shipping": { "print": { "EUR": 0 }, "poster": { "EUR": 0 }, "framed": { "EUR": 0 }, "canvas": { "EUR": 0 } }
     },
     {
       "id": "ROW",
@@ -84,7 +137,7 @@
       "countries": ["*"],
       "currency": "USD",
       "fulfilment": "prodigi",
-      "shipping": { "print": { "USD": 9 }, "framed": { "USD": 25 } }
+      "shipping": { "print": { "USD": 9 }, "poster": { "USD": 9 }, "framed": { "USD": 25 }, "canvas": { "USD": 25 } }
     }
   ]
 }

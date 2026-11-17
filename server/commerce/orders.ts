@@ -4,12 +4,14 @@
 // The commerce routes wrap it (createCommerce → `transition`) to e-mail the customer after a change.
 
 import { randomUUID } from 'node:crypto';
-import type { Quote } from '../../src/commerce/catalogue';
+import { formatMoney, type Quote } from '../../src/commerce/catalogue';
 import type { DesignSpec } from '../../src/commerce/design';
+import { maskGiftCode, normaliseGiftCode, type GiftDetails } from '../../src/commerce/gift';
 import type { Address, Order, OrderEvent } from '../../src/commerce/order';
 import { canTransition, PAID_STATUSES, type OrderStatus } from '../../src/commerce/status';
 import type { Db } from '../db';
 import { HttpError, notFound } from '../errors';
+import { onOrderUndone, reserveGiftCard } from './giftcards';
 
 type Row = Record<string, unknown>;
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
@@ -25,11 +27,16 @@ export function toOrder(r: Row): Order {
     kind: r.kind as Order['kind'],
     size: r.size as Order['size'],
     frameColour: opt(r.frame_colour),
-    design: r.design as DesignSpec,
+    design: opt(r.design),
+    lang: (r.lang ?? 'pt') as Order['lang'],
     currency: r.currency as Order['currency'],
     unitAmount: r.unit_amount as number,
     shippingAmount: r.shipping_amount as number,
     totalAmount: r.total_amount as number,
+    giftCardAmount: (r.gift_card_amount ?? 0) as number,
+    discountAmount: (r.discount_amount ?? 0) as number,
+    discountCode: opt(r.discount_code),
+    amountPaid: opt(r.amount_paid),
     refundedAmount: r.refunded_amount as number,
     country: r.country as string,
     market: r.market as string,
@@ -37,6 +44,7 @@ export function toOrder(r: Row): Order {
     sku: opt(r.sku),
     email: r.email as string,
     shippingAddress: opt(r.shipping_address),
+    gift: opt(r.gift),
     status,
     files: (r.files ?? {}) as Order['files'],
     fileError: opt(r.file_error),
@@ -69,13 +77,18 @@ export function publicOrder(o: OrderRow): Order {
 
 export interface NewOrder {
   ownerId: string;
-  treeId: string;
+  /** The tree and design of a map; a gift card order has neither. */
+  treeId?: string;
   quote: Quote;
   country: string;
   frameColour?: string;
-  design: DesignSpec;
+  design?: DesignSpec;
+  lang: Order['lang'];
   email: string;
   shippingAddress?: Address;
+  gift?: GiftDetails;
+  /** A gift card code to spend on this order (reserved in the same transaction, or nothing is created). */
+  giftCardCode?: string;
 }
 
 export async function createOrder(db: Db, o: NewOrder): Promise<OrderRow> {
@@ -84,17 +97,17 @@ export async function createOrder(db: Db, o: NewOrder): Promise<OrderRow> {
   await db.transaction(async (tx) => {
     await tx.query(
       `insert into orders (id, owner_id, tree_id, product_id, kind, size, frame_colour, design, currency, unit_amount, shipping_amount,
-         total_amount, country, market, fulfilment, sku, email, shipping_address)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+         total_amount, country, market, fulfilment, sku, email, shipping_address, lang, gift)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
       [
         id,
         o.ownerId,
-        o.treeId,
+        o.treeId ?? null,
         q.productId,
         q.kind,
         q.size,
         o.frameColour ?? null,
-        JSON.stringify(o.design),
+        o.design ? JSON.stringify(o.design) : null,
         q.currency,
         q.unitAmount,
         q.shippingAmount,
@@ -105,9 +118,22 @@ export async function createOrder(db: Db, o: NewOrder): Promise<OrderRow> {
         q.sku ?? null,
         o.email,
         o.shippingAddress ? JSON.stringify(o.shippingAddress) : null,
+        o.lang,
+        o.gift ? JSON.stringify(o.gift) : null,
       ],
     );
-    await tx.query(`insert into order_events (order_id, to_status, actor, note) values ($1, 'created', 'customer', $2)`, [id, `${q.productId} ${q.size}`]);
+    await tx.query(`insert into order_events (order_id, to_status, actor, note) values ($1, 'created', 'customer', $2)`, [
+      id,
+      `${q.productId} ${q.size}${o.gift ? ' (a gift)' : ''}`,
+    ]);
+    if (o.giftCardCode) {
+      const covered = await reserveGiftCard(tx, o.giftCardCode, { id, currency: q.currency, total: q.totalAmount });
+      await tx.query('update orders set gift_card_amount = $2 where id = $1', [id, covered]);
+      await tx.query(`insert into order_events (order_id, actor, note) values ($1, 'customer', $2)`, [
+        id,
+        `Gift card ${maskGiftCode(normaliseGiftCode(o.giftCardCode))} pays ${formatMoney(covered, q.currency)}`,
+      ]);
+    }
   });
   return getOrderById(db, id);
 }
@@ -164,6 +190,9 @@ export interface OrderPatch {
   fulfilment_status?: string;
   tracking?: Order['tracking'];
   refunded_amount?: number;
+  amount_paid?: number;
+  discount_amount?: number;
+  discount_code?: string | null;
 }
 
 function patchSql(patch: OrderPatch, params: unknown[]): string[] {
@@ -196,6 +225,9 @@ export async function transition(
     const sets = [`status = $${params.push(to)}`, 'updated_at = now()', ...patchSql(patch, params)];
     const [updated] = await tx.query(`update orders set ${sets.join(', ')} where id = $1 returning *`, params);
     await tx.query('insert into order_events (order_id, from_status, to_status, actor, note) values ($1, $2, $3, $4, $5)', [orderId, from, to, actor, note ?? null]);
+    // Gift cards follow the order: a spent card comes back, a bought one that is unused is voided.
+    if (to === 'cancelled' || to === 'refunded')
+      for (const n of await onOrderUndone(tx, orderId, String(row.kind))) await tx.query(`insert into order_events (order_id, actor, note) values ($1, 'system', $2)`, [orderId, n]);
     return { order: toRow(updated), changed: true, from };
   });
 }

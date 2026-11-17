@@ -62,3 +62,17 @@ td a { color: var(--accent); }
   .badge { background: #1f2440; color: #a4b0ff; }
 }
 .page-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 4px; }
+/* A gift card's code on the order page, and a gift's card message. */
+.giftcard { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+.giftcard-code { font: 600 20px/1.3 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.08em; padding: 8px 14px; border: 2px dashed var(--accent); border-radius: 10px; background: var(--surface); user-select: all; overflow-wrap: anywhere; }
+.gift-message { white-space: pre-wrap; font-style: italic; }
+/* The gift card page (gift-card.html). */
+.form label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.form input, .form select { display: block; width: 100%; margin-top: 4px; font: inherit; color: var(--fg); padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.form .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.values { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+.values label { margin: 0; }
+.values input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.values span { display: inline-block; padding: 10px 16px; border: 1px solid var(--border); border-radius: 10px; color: var(--fg); font-weight: 600; cursor: pointer; background: var(--bg); }
+.values input:checked + span { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.values input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }

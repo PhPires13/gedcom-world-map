@@ -18,13 +18,20 @@ order.html ◀── success_url                    POST /api/webhooks/stripe �
                                               webhooks → shipped → delivered    operator marks each step
 ```
 
+Every map order (digital or printed) gets the signed download links on its order page once the
+file is made: physical orders include the digital file. A **gift card** order has no design: once
+paid, its code is issued and it is delivered (no file, no partner).
+
 | File | What it does |
 | --- | --- |
 | `config/catalogue.json` | Products, sizes, prices per currency, markets and their fulfilment route. **Edit this to change prices.** |
 | `src/commerce/catalogue.ts` | Catalogue validation and `quote()`, the only place prices are worked out. Shared with the browser. |
 | `src/commerce/status.ts` | The order state machine (`canTransition`). |
 | `src/commerce/design.ts` | The design stored on an order (the designer's choices, never people's data) and its validation. |
+| `src/commerce/gift.ts` | Gift details (recipient, card message) validation; gift card code format. Shared with the browser. |
 | `server/db/migrations/002_commerce.sql` | `orders`, `order_events` (history), `webhook_events` (de-duplication). |
+| `server/db/migrations/003_gifts_discounts.sql` | New kinds and gift card value tiers, `orders.gift`, `lang`, `gift_card_amount`, `discount_amount`, `discount_code`, `amount_paid`; the `gift_cards` table. |
+| `giftcards.ts` | Gift cards: issue a code, check one, reserve it on an order (row lock), give it back or void it. |
 | `orders.ts` | Database access; `transition()` locks the row, checks the state machine and writes history. |
 | `routes.ts` | The HTTP routes (listed at the top of the file). |
 | `payments.ts` | Stripe Checkout Sessions, webhook verification, refunds. |
@@ -32,10 +39,75 @@ order.html ◀── success_url                    POST /api/webhooks/stripe �
 | `fulfilment/` | `prodigi.ts` (v5 sandbox API), `manual.ts`, and the `FulfilmentAdapter` interface. |
 | `links.ts` | Signed, expiring links to print files (for customers and for partners). |
 | `sheet.ts` | The production sheet for manual orders. |
-| `fake-stripe.ts` | The Stripe SDK with its network calls replaced: used by tests and by `FAKE_PAYMENTS=yes`. |
+| `fake-stripe.ts` | The Stripe SDK with its network calls replaced: used by tests and by `FAKE_PAYMENTS=yes`. Has promotion codes (`TESTE10`, `TESTE20REAIS`). |
 | `setup.ts` | Builds the shop from environment variables (all listed there). |
 | `server/mail/` | Customer e-mails on status changes (`order-mails.ts`), templates, Resend / console mailers. See `server/README.md`. |
 | `server/print/` | The server renderer: assets from `node_modules`, resvg raster, PDF, worker thread. |
+
+## What is sold
+
+| Product (`config/catalogue.json`) | Kind | Sizes | Made by |
+| --- | --- | --- | --- |
+| Digital heritage map | `digital` | A1 | the server (download) |
+| Fine-art print (unframed) | `print` | A3, A2, A1 | Prodigi / local lab |
+| Framed fine-art print | `framed` | A3, A2 | Prodigi / local lab and framer |
+| Poster (unframed, matte paper) | `poster` | A3, A2, A1 | Prodigi / local lab |
+| Canvas (stretched, mirrored edges) | `canvas` | A3, A2 | Prodigi / local lab |
+| Gift card (vale-presente) | `giftcard` | value tiers V1–V3 (BRL 200/350/500, EUR/USD 50/90/130) | the server (a code) |
+
+Every price is a placeholder. `partnerAttributes` sends fixed options with a product (the canvas's
+`wrap: MirrorWrap`). The poster and canvas SKUs are guesses: see Decisions.
+
+## Promotion codes, gifts and gift cards
+
+**Promotion codes (coupons).** Checkout Sessions are created with `allow_promotion_codes: true`
+(turn it off with `STRIPE_PROMOTION_CODES=no`), so Stripe's page shows a code field. The codes are
+made in the Stripe Dashboard (Product catalogue → Coupons → create a coupon, then add a customer-facing
+promotion code). The webhook checks the session's `amount_subtotal` against what the server asked
+for and requires `amount_total = subtotal − total_details.amount_discount`, then records on the order
+`discount_amount`, `discount_code` (the `promo_…` id: look it up in the Dashboard) and `amount_paid`.
+The order page shows the discount and what was charged; the operations page shows them under the
+total; refunds are capped at what Stripe took. `FAKE_PAYMENTS=yes` offers `TESTE10` (10 % off) and
+`TESTE20REAIS` (R$ 20 off BRL orders) on the simulated Checkout.
+
+**Gift orders.** Printed products only. The buy panel's *É um presente* adds the name on the card
+(defaults to the delivery name) and a message (≤ 300 characters, ≤ 8 lines; control and invisible
+characters dropped). The delivery address is the recipient's; the buyer's e-mail stays the contact.
+Stored in `orders.gift`, validated by `parseGift` on the server. The production sheet gets a
+*Presente* box (no prices, receipt or invoice with amounts in the parcel) and a 148 × 105 mm card
+to print, cut out and put in the parcel; the declared value stays on the sheet for the carrier
+only. **Prodigi**: no free-text gift or packing note field was found in its order API (v4 had a
+`packingSlip` taking only an image URL), so the message is not sent to Prodigi and the order's
+history says so; Prodigi ships white-label (its `recipientCost` is for customs).
+
+**Gift cards.** Bought like any product but with no tree (the designer's panel once a tree is
+loaded, or `gift-card.html` without one). When the order is paid, the pipeline issues a code (12
+characters from 30 unambiguous symbols, ≈ 59 bits, `crypto.randomInt`, shown `XXXX-XXXX-XXXX`) in
+`gift_cards`, and the order is delivered; the order page shows the code to its owner
+(`OrderDetail.giftCard`, ready for a confirmation e-mail), operators see it masked.
+
+Spending one: the buy panel's *Tenho um vale-presente* checks the code
+(`POST /api/shop/gift-cards/check`) and shows what is left to pay; `POST /api/orders` takes
+`giftCardCode`. In the transaction that creates the map order, the card row is locked
+(`select … for update`) and marked `redeemed` by an update that only matches an active card, so two
+orders can never spend one code (a refused order is rolled back whole). Same currency only (no
+conversion). Single use: what the card doesn't need is not kept.
+
+- **Covers everything**: the order goes `created → paid` at once (actor `system`, `amount_paid` 0),
+  without Stripe, and the pipeline runs as usual.
+- **Covers part**: Checkout charges the rest. The line amounts are lowered (product first, then
+  shipping) and the line description says *vale-presente −R$ 200,00*. Chosen over a one-off Stripe
+  coupon because `createCheckout` already takes the amounts, it needs no extra Stripe object to
+  create and clean up, the webhook check stays "subtotal = what the server asked for", and a
+  promotion code can still be used on top (Checkout refuses `discounts` together with
+  `allow_promotion_codes`).
+- **Undone**: when the map order is cancelled (by the customer before paying, Checkout expiring, an
+  operator) or fully refunded, the card is given back (`transition` does it in the same transaction).
+  Refunding a gift card's purchase voids it first, and is refused (409) once it is spent; a gift card
+  is refunded whole or not at all.
+
+Abandoned unpaid orders keep their card until cancelled from the order page or until their Checkout
+expires (two hours after it was opened).
 
 ## Running it
 
@@ -51,6 +123,7 @@ page follows it; `http://localhost:5173/ops.html` is the operations page. `dev:a
 reach `/api/ops/*` and `ops.html` (401 / 403 otherwise; the page offers to sign in). Accounts,
 sessions and the customer e-mails (confirmed, download ready, shipped, delivered, refunded) are
 described in `server/README.md`, with their environment variables.
+`http://localhost:5173/gift-card.html` sells gift cards without a tree.
 
 `npx tsx server/scripts/render-sample.ts A2 antique out/` renders a print file from
 `public/sample.ged` without the API (about 25 s for A2); `LAYOUT=storybook BORDER=laurel
@@ -167,7 +240,8 @@ paper, frame, file links, address with CPF), sends it to the lab and framer, the
 
 ## Decisions for the owner
 
-1. **Prices.** Every price in `config/catalogue.json` is a placeholder (`placeholderPrices: true`).
+1. **Prices.** Every price in `config/catalogue.json` is a placeholder (`placeholderPrices: true`),
+   including the poster, canvas and gift card values.
    Research: plain digital migration maps sell for BRL 32–98 on Etsy (so BRL 69.90 / €14.90 is at
    the top); framed migration prints BRL 240–1,198. Real costs need a Prodigi quote
    (`POST /api/ops/quote` once a sandbox key is set) and a local lab quote in Brazil. Set
@@ -176,7 +250,10 @@ paper, frame, file links, address with CPF), sends it to the lab and framer, the
    `GLOBAL-CFPM-A3`, `GLOBAL-CFPM-A2` (unverified; `GLOBAL-HPR-A3/A2` were seen), the frame
    colours and mount, and order one sample. Note that framed sizes are the glazed size: a mounted
    A2 shows a smaller print, so decide whether "framed A2" means an A2 print (bigger frame) or an
-   A2 frame.
+   A2 frame. Also check the **poster** (`GLOBAL-EMA-A3/A2/A1`) and **canvas** (`GLOBAL-CAN-A3/A2`)
+   SKUs, which are unverified guesses, the canvas `wrap` attribute (`MirrorWrap`) and how much of
+   the design a canvas's edge takes; and whether Prodigi can carry a gift message (a packing slip
+   image?) — until then gift messages for Prodigi orders must be sent another way.
 3. **Brazilian lab and framer** for the manual route: quotes for A3/A2 giclée with frame, lead
    times, shipping by Correios/courier.
 4. **Stripe**: which entity sells (a Portuguese company can take cards and Pix in BRL; boleto
@@ -189,3 +266,12 @@ paper, frame, file links, address with CPF), sends it to the lab and framer, the
 6. **Production hardening**: accounts (e-mail link sign-in) and e-mails to customers are done
    (`server/README.md`: a Resend account and the domain's SPF / DKIM / DMARC records are needed).
    Not done: object storage for the files, a job queue for renders, retention of print files.
+7. **Promotion codes**: create the coupons and promotion codes in the Stripe Dashboard (test mode
+   first); none exist by default. Decide whether promotion codes may be combined with a gift card
+   (they can now) and with 100 % discounts (Checkout then completes with nothing to pay).
+8. **Gift cards**: expiry (none now; check consumer law in Brazil and the EU), whether an unused
+   remainder should be kept (now: single use, the rest is lost, and the buy panel says so), whether
+   a refunded map order paid partly by gift card should give the card back (it does now), and
+   rate limits on `POST /api/shop/gift-cards/check` once there are real accounts (codes have ~59
+   bits, so guessing is not practical, but limits are cheap). The confirmation e-mail should
+   include `OrderDetail.giftCard.code`.

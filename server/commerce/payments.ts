@@ -9,6 +9,11 @@
 //   boleto) complete later with `checkout.session.async_payment_succeeded`.
 // - A Portuguese, EU or US Stripe account can charge cards and Pix in BRL; boleto needs a
 //   Brazilian Stripe account.
+// - `allow_promotion_codes: true` shows a code field on Checkout for the promotion codes created in
+//   the Dashboard (Products → Coupons → promotion codes). The completed session carries
+//   `amount_subtotal` (the line items), `total_details.amount_discount` and `discounts[].promotion_code`;
+//   `amount_total` = subtotal − discount (no Stripe Tax or shipping rates here). It can't be combined
+//   with `discounts` (which this shop doesn't use: a gift card lowers the line amounts instead).
 
 import Stripe from 'stripe';
 import type { Currency } from '../../src/commerce/catalogue';
@@ -26,7 +31,22 @@ export interface CheckoutInput {
 
 /** What the order logic needs from a Stripe event, already verified. */
 export type PaymentEvent =
-  | { id: string; type: 'paid'; orderId: string; sessionId: string; paymentIntent?: string; amount: number; currency: string }
+  | {
+      id: string;
+      type: 'paid';
+      orderId: string;
+      sessionId: string;
+      paymentIntent?: string;
+      /** What was charged (amount_total). */
+      amount: number;
+      /** The line items before discounts (amount_subtotal). */
+      subtotal: number;
+      /** Taken off by a promotion code (total_details.amount_discount). */
+      discount: number;
+      /** The promotion code's id (promo_…), if one was used. */
+      promotionCode?: string;
+      currency: string;
+    }
   | { id: string; type: 'pending'; orderId: string; sessionId: string }
   | { id: string; type: 'failed'; orderId: string; sessionId: string }
   | { id: string; type: 'expired'; orderId: string; sessionId: string }
@@ -53,6 +73,8 @@ export interface StripeOptions {
   pixForBrl?: boolean;
   /** How long a Pix QR code stays payable. */
   pixExpiresSeconds?: number;
+  /** Show Checkout's promotion code field (default true; codes are made in the Stripe Dashboard). */
+  promotionCodes?: boolean;
 }
 
 const sessionOrderId = (s: Stripe.Checkout.Session) => s.metadata?.order_id ?? s.client_reference_id ?? '';
@@ -79,6 +101,7 @@ export function stripePayments(stripe: Stripe, secretKey: string, webhookSecret:
         payment_intent_data: { metadata: { order_id: input.orderId, order_number: input.orderNumber } },
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
+        allow_promotion_codes: opts.promotionCodes ?? true,
         // An unpaid session can be reused for 2 hours; then `checkout.session.expired` arrives.
         expires_at: Math.floor(Date.now() / 1000) + 2 * 3600,
       };
@@ -106,8 +129,20 @@ export function stripePayments(stripe: Stripe, secretKey: string, webhookSecret:
           const base = { id: event.id, orderId: sessionOrderId(s), sessionId: s.id };
           // A Pix/boleto session "completes" when the voucher is issued; it is paid later.
           if (s.payment_status === 'unpaid') return { ...base, type: 'pending' };
+          // "paid", or "no_payment_required" when a 100% promotion code left nothing to charge.
           const pi = typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id;
-          return { ...base, type: 'paid', paymentIntent: pi, amount: s.amount_total ?? 0, currency: (s.currency ?? '').toUpperCase() };
+          const promo = s.discounts?.find((d) => d.promotion_code)?.promotion_code;
+          const amount = s.amount_total ?? 0;
+          return {
+            ...base,
+            type: 'paid',
+            paymentIntent: pi ?? undefined,
+            amount,
+            subtotal: s.amount_subtotal ?? amount,
+            discount: s.total_details?.amount_discount ?? 0,
+            promotionCode: (typeof promo === 'string' ? promo : promo?.id) ?? undefined,
+            currency: (s.currency ?? '').toUpperCase(),
+          };
         }
         case 'checkout.session.async_payment_failed': {
           const s = event.data.object as Stripe.Checkout.Session;
@@ -141,5 +176,6 @@ export function paymentsFromEnv(env: NodeJS.ProcessEnv, placeholderPrices: boole
   }
   return stripePayments(new Stripe(key, { maxNetworkRetries: 2, appInfo: { name: 'heritage-map-shop' } }), key, secret, {
     pixForBrl: env.STRIPE_PIX === 'yes',
+    promotionCodes: env.STRIPE_PROMOTION_CODES !== 'no',
   });
 }

@@ -4,6 +4,10 @@
 //   file_ready ──digital──▶ delivered (the signed download link is the delivery)
 //   file_ready ──prodigi──▶ submitted to Prodigi ──▶ sent_to_production (then Prodigi's webhooks)
 //   file_ready ──manual───▶ waits for an operator (operations page, production sheet)
+//   paid ──gift card──▶ issue its code ──▶ delivered (the code on the order page is the delivery)
+//
+// Every map order keeps its print files: physical orders include the digital file too (the order
+// page shows the download links once the file is ready).
 //
 // Failures are written to the order's history and leave the status where it was, so an operator
 // can retry (POST /api/ops/orders/:id/retry). The server also resumes unfinished orders at start.
@@ -11,16 +15,19 @@
 // Rendering an A2 takes ~10 s of CPU on this thread; with real traffic move `processOrder` to a
 // worker or a job queue (it only needs the database and storage).
 
+import { isPaperSize, isPhysical, productById, type Catalogue } from '../../src/commerce/catalogue';
 import type { DesignSpec } from '../../src/commerce/design';
 import type { TreeDetail } from '../../src/model';
 import type { PaperSize } from '../../src/print/types';
 import type { Db } from '../db';
 import * as repo from '../repo';
 import type { DocumentStorage } from '../storage';
-import type { FulfilmentAdapter, FulfilmentUpdate } from './fulfilment/types';
+import type { FulfilmentAdapter, FulfilmentRequest, FulfilmentUpdate } from './fulfilment/types';
 import type { LinkSigner } from './links';
 import * as orders from './orders';
+import { issueGiftCard } from './giftcards';
 import { canTransition, type OrderStatus } from '../../src/commerce/status';
+import { maskGiftCode, normaliseGiftCode } from '../../src/commerce/gift';
 
 export interface RenderedFiles {
   png: Uint8Array;
@@ -43,6 +50,8 @@ export interface PipelineDeps {
   now: () => Date;
   /** orders.transition, or a wrapper of it that also tells the customer (createCommerce). */
   transition?: typeof orders.transition;
+  /** For the products' fixed partner options (a canvas's edge). */
+  catalogue?: Catalogue;
 }
 
 /** How long a partner's file link stays valid (labs may fetch it days later, or again for a reprint). */
@@ -65,6 +74,10 @@ export class Pipeline {
     this.running.add(orderId);
     try {
       let order = await orders.getOrderById(this.deps.db, orderId);
+      if (order.kind === 'giftcard') {
+        if (order.status === 'paid') await this.issueCard(order);
+        return;
+      }
       if (order.status === 'paid') order = (await this.makeFiles(order)) ?? order;
       if (order.status === 'file_ready') await this.fulfil(order);
     } finally {
@@ -72,10 +85,22 @@ export class Pipeline {
     }
   }
 
+  private async issueCard(order: orders.OrderRow) {
+    const { db } = this.deps;
+    try {
+      const card = await issueGiftCard(db, order);
+      await this.transition(db, order.id, 'delivered', 'system', `Gift card ${maskGiftCode(normaliseGiftCode(card.code))} issued: the code is on the order page`);
+    } catch (e) {
+      console.error(`Gift card for order ${order.number} failed:`, e);
+      await orders.addEvent(db, order.id, 'system', `Issuing the gift card failed: ${message(e)}`);
+    }
+  }
+
   private async makeFiles(order: orders.OrderRow): Promise<orders.OrderRow | undefined> {
     const { db, storage } = this.deps;
     try {
       if (!order.treeId) throw new Error('The tree this order was designed from has been deleted');
+      if (!order.design || !isPaperSize(order.size)) throw new Error('This order has no map design to print');
       const tree = await repo.getTree(db, order.ownerId, order.treeId);
       // Always the public view: presumed-living people are redacted before anything is drawn.
       const detail = await repo.treeDetail(db, tree, this.deps.now().getUTCFullYear(), 'public');
@@ -112,24 +137,28 @@ export class Pipeline {
       await orders.addEvent(db, order.id, 'system', `No "${order.fulfilment}" fulfilment is configured on this server: fulfil by hand or set its keys`);
       return;
     }
-    if (!order.shippingAddress) {
+    if (!order.shippingAddress || !isPhysical(order.kind)) {
       await orders.addEvent(db, order.id, 'system', 'No shipping address on this order');
       return;
     }
+    const product = this.deps.catalogue && productById(this.deps.catalogue, order.productId);
     try {
       const res = await adapter.submit({
         orderId: order.id,
         orderNumber: order.number,
         sku: order.sku,
-        kind: order.kind as 'print' | 'framed',
+        kind: order.kind as FulfilmentRequest['kind'],
         size: order.size,
         frameColour: order.frameColour,
+        attributes: product?.partnerAttributes?.[adapter.route],
+        gift: order.gift,
         email: order.email,
         address: order.shippingAddress,
         fileUrl: links.url(order.id, 'png', PARTNER_LINK_TTL).url,
         value: { amount: order.totalAmount, currency: order.currency },
       });
       const patch = { fulfilment_ref: res.ref, fulfilment_status: res.partnerStatus };
+      if (res.giftNote) await orders.addEvent(db, order.id, 'system', res.giftNote);
       if (res.sentToProduction) {
         await this.transition(db, order.id, 'sent_to_production', 'system', `Sent to ${adapter.route}${res.ref ? ` (order ${res.ref})` : ''}`, patch);
       } else {

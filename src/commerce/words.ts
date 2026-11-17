@@ -7,6 +7,7 @@ import { shopMessages, type ShopKey } from '../i18n/messages/shop';
 import { hasPrintKey, printMessages } from '../i18n/messages/print';
 import { localised, type Currency, type Localised, type ProductKind } from './catalogue';
 import type { DesignSpec } from './design';
+import type { IssuedGiftCard, Order } from './order';
 import type { OrderStatus } from './status';
 
 export const t = makeT(shopMessages);
@@ -24,6 +25,15 @@ export const statusDescription = (s: OrderStatus) => t(`statusDesc.${s}`);
 export const inLocale = (text: Localised) => localised(text, currentLocale());
 
 export const productKindName = (kind: ProductKind) => t(`product.${kind}`);
+
+/** "A2", or a gift card's value ("R$ 200,00"). */
+export const variantName = (o: Pick<Order, 'kind' | 'size' | 'unitAmount' | 'currency'>) => (o.kind === 'giftcard' ? money(o.unitAmount, o.currency) : o.size);
+
+/** Where a gift card stands, in words. */
+export function giftCardStatus(card: IssuedGiftCard): string {
+  if (card.status === 'redeemed') return card.redeemedOrderNumber ? t('giftcard.status.redeemedOn', { number: card.redeemedOrderNumber }) : t('giftcard.status.redeemed');
+  return t(`giftcard.status.${card.status}`);
+}
 
 /** A frame colour from the catalogue ("antique gold") in the visitor's language. */
 export function frameColourName(colour: string): string {

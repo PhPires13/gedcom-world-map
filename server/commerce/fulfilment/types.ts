@@ -3,6 +3,7 @@
 // API) can be added as another adapter without touching orders or payments.
 
 import type { FulfilmentRoute } from '../../../src/commerce/catalogue';
+import type { GiftDetails } from '../../../src/commerce/gift';
 import type { Address } from '../../../src/commerce/order';
 import type { OrderStatus } from '../../../src/commerce/status';
 
@@ -13,9 +14,13 @@ export interface FulfilmentRequest {
   orderId: string;
   orderNumber: string;
   sku?: string;
-  kind: 'print' | 'framed';
+  kind: 'print' | 'poster' | 'framed' | 'canvas';
   size: string;
   frameColour?: string;
+  /** The product's fixed partner options from the catalogue (e.g. a canvas's wrap). */
+  attributes?: Record<string, string>;
+  /** A present: the parcel must carry no prices, and the card's message if the partner can print it. */
+  gift?: GiftDetails;
   email: string;
   address: ShippingAddress;
   /** Public, signed, long-lived link to the print file (PNG 300 dpi). */
@@ -52,6 +57,8 @@ export interface SubmitResult {
   /** True when the partner has the order and production starts without anyone's help. */
   sentToProduction: boolean;
   note?: string;
+  /** For gift orders: what the partner does (or can't do) with the gift message, for the history. */
+  giftNote?: string;
 }
 
 export interface ShippingQuote {

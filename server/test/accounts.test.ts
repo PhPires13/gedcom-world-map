@@ -248,6 +248,7 @@ describe('orders and accounts', () => {
       treeId,
       quote: { productId: 'print', kind: 'print', size: 'A3', currency: 'BRL', market: 'BR', fulfilment: 'manual', unitAmount: 1000, shippingAmount: 0, totalAmount: 1000 },
       country: 'BR',
+      lang: 'pt',
       design: { styleId: 'antique', orientation: 'landscape', area: 'family', lang: 'pt', title: '', subtitle: '', dedication: '', layoutId: 'accurate', flagScale: 1, show: { dates: true, placeNames: true, flags: 'origins', countryNames: true, oceanNames: true, compass: true, scaleBar: true, legend: true, graticule: true, surnames: true }, selection: { branch: 'all' }, places: {} },
       email: ownerEmail,
       shippingAddress: { name: 'Ana', line1: 'Rua A 1', city: 'São Paulo', postalCode: '01000-000', country: 'BR', phone: '+55 11 99999-0000', taxId: '12345678909' },

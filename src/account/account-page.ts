@@ -36,7 +36,7 @@ function render() {
       (o) => `<tr>
         <td><a href="./order.html?id=${encodeURIComponent(o.id)}"><b>${esc(o.number)}</b></a></td>
         <td>${esc(formatDate(o.createdAt, DATE_TIME))}</td>
-        <td>${esc(productKindName(o.kind))} ${esc(o.size)}${o.design.title ? `<div class="sub">${esc(o.design.title)}</div>` : ''}</td>
+        <td>${esc(productKindName(o.kind))} ${esc(o.size)}${o.design?.title ? `<div class="sub">${esc(o.design.title)}</div>` : ''}</td>
         <td>${esc(money(o.totalAmount, o.currency))}</td>
         <td>${badge(o)}</td>
         <td><a class="btn small" href="./order.html?id=${encodeURIComponent(o.id)}">${esc(t('account.view'))}</a></td>
