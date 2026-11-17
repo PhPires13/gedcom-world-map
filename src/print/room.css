@@ -1,0 +1,50 @@
+/* The preview switch ("Folha" | "Na parede") and the room scene (room.ts). */
+
+.view-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; flex: none; }
+.seg { display: inline-flex; background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 999px; padding: 3px; }
+.seg button { font: inherit; font-size: 13px; border: 0; background: none; color: var(--fg); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed='true'] { background: var(--bg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); font-weight: 600; }
+.swatches { display: inline-flex; gap: 8px; align-items: center; }
+.swatch { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; background: var(--swatch, #ccc); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2); cursor: pointer; padding: 0; }
+.swatch[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--fg); }
+#room-download { font-size: 12.5px; padding: 6px 12px; background: rgba(255, 255, 255, 0.7); }
+
+.room {
+  position: relative;
+  flex: none;
+  width: 100%;
+  aspect-ratio: var(--room-aspect, 260 / 225);
+  /* Fit the stage's height: the bar above and the note below take about 120 px. */
+  max-width: min(100%, calc((100vh - 64px - 120px) * (var(--room-w, 260) / var(--room-h, 225))));
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+  background: #e9e4da;
+}
+.room-layer, .room-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.room-front { pointer-events: none; }
+.room-art { position: absolute; }
+
+/* The map's own element, moved into the frame: no flat-view frame, mat or shadow of its own. */
+#stage[data-view='room'] .room-art > #sheet {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  background: #fff;
+  overflow: hidden;
+}
+#stage[data-view='room'] .room-art > #sheet svg { width: 100%; height: 100%; box-shadow: none; }
+#stage[data-view='room'] .room-art > #sheet .empty { padding: 4px; font-size: 10px; }
+
+.room-note { margin: 0; text-align: center; font-size: 12.5px; line-height: 1.5; color: #4b4a46; flex: none; }
+.room-note b { display: block; font-weight: 600; color: var(--fg); font-size: 13.5px; }
+
+@media (max-width: 640px) {
+  .room { max-width: 100%; }
+  .view-bar { gap: 8px; }
+}

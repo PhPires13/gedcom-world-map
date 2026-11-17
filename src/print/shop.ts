@@ -26,6 +26,8 @@ export interface ShopHost {
   serverTree(): Promise<{ treeId: string; personId: (localId: string) => string | undefined }>;
   /** Shows the chosen size in the preview. */
   setPaper(size: PaperSize): void;
+  /** The visitor picked another product or frame colour (to show it in the preview). */
+  choiceChanged?(choice: { kind: string; frameColour?: string }): void;
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
@@ -284,6 +286,12 @@ export function initShop(host: ShopHost) {
   });
   $('#shop-currency').addEventListener('change', () => void loadCatalogue(true));
   $('#shop-product').addEventListener('change', fillProduct);
+  const notifyChoice = () => {
+    const p = cat?.products.find((x) => x.id === val('shop-product'));
+    if (p) host.choiceChanged?.({ kind: p.kind, frameColour: p.kind === 'framed' ? val('shop-frame') : undefined });
+  };
+  $('#shop-product').addEventListener('change', notifyChoice);
+  $('#shop-frame').addEventListener('change', notifyChoice);
   $('#shop-size').addEventListener('change', fillPrice);
   $('#shop-buy').addEventListener('click', () => void buy());
   void loadCatalogue();

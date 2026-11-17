@@ -25,6 +25,8 @@ import { BORDERS, FINISHES, LAYOUTS, borderById, finishById, layoutById } from '
 import { mmToPx, pageSize } from './geo';
 import { setPngDpi } from './png';
 import { initShop } from './shop';
+import { initRoom } from './room';
+import { frameForProduct } from './room-layout';
 import { defaultTexts, renderHeritageMap, topologyDetailFor } from './render';
 import { STYLES, styleById } from './styles';
 import type { AreaId, Lang, Orientation, PaperSize, PrintAssets, PrintData, PrintOptions } from './types';
@@ -292,6 +294,7 @@ async function render() {
     console.debug(`Rendered print in ${Math.round(performance.now() - t0)} ms (${Math.round(res.svg.length / 1024)} kB)`);
     sheet.style.setProperty('--aspect', String(res.width / res.height));
     sheet.innerHTML = res.svg;
+    room.setSheet(o.paper, o.orientation);
     state.lastWarnings = { people: data.people.length, ...res.notices };
     showWarnings();
   } catch (e) {
@@ -457,6 +460,20 @@ function translatePage() {
     $('#style-desc').textContent = named('style', styleById(val('style'))).description;
     showWarnings();
   }
+  room.relabel();
+}
+
+// "Na parede": the preview hung in a room at its true size; it reuses the rendered map element.
+const room = initRoom({
+  mapSvg: async () => (await exportBlob('svg')).blob.text(),
+  download,
+});
+
+/** The frame the preview is shown in (flat and on the wall); not part of the print. */
+function setMockup(frame: string) {
+  $<HTMLSelectElement>('#mockup').value = frame;
+  $('#stage').dataset.frame = frame;
+  room.setFrame(frame);
 }
 
 mountLanguageSwitcher($('#lang-switch'));
@@ -472,7 +489,7 @@ onLocaleChange((locale) => {
 });
 $('#lang').addEventListener('change', () => (state.langTouched = true));
 // The frame around the preview is only a mock-up of the finished object; it isn't exported.
-$('#mockup').addEventListener('change', () => ($('#stage').dataset.frame = val('mockup')));
+$('#mockup').addEventListener('change', () => setMockup(val('mockup')));
 
 $<HTMLInputElement>('#file').addEventListener('change', async (e) => {
   const file = (e.target as HTMLInputElement).files?.[0];
@@ -544,6 +561,11 @@ initShop({
       scheduleRender(0);
     }
   },
+  // The order panel's product and frame colour show in the preview (a digital file keeps the choice).
+  choiceChanged({ kind, frameColour }) {
+    const frame = frameForProduct(kind, frameColour);
+    if (frame) setMockup(frame);
+  },
 });
 
 $('#sample').addEventListener('click', async () => {
@@ -553,8 +575,10 @@ $('#sample').addEventListener('click', async () => {
 $('#geocode').addEventListener('click', geocodePending);
 $('#title').addEventListener('input', () => (state.titleTouched = true));
 $('#subtitle').addEventListener('input', () => (state.subtitleTouched = true));
-$('#design').addEventListener('input', () => scheduleRender());
-$('#design').addEventListener('change', () => scheduleRender());
+// The frame mock-up and the order panel don't change the map (the panel's size goes through setPaper).
+const drawsTheMap = (e: Event) => !(e.target instanceof Element && e.target.closest('#mockup, #shop'));
+$('#design').addEventListener('input', (e) => drawsTheMap(e) && scheduleRender());
+$('#design').addEventListener('change', (e) => drawsTheMap(e) && scheduleRender());
 for (const b of document.querySelectorAll<HTMLButtonElement>('[data-export]')) {
   b.addEventListener('click', () => exportFile(b.dataset.export as 'svg' | 'png' | 'pdf'));
 }
