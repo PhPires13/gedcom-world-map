@@ -20,7 +20,20 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Then drop in a `.ged` file, or click **Try a sample family tree**.
+Open http://localhost:5173/app.html. Then drop in a `.ged` file, or click **Try a sample family tree**.
+
+### Pages
+
+| URL | Page |
+| --- | --- |
+| `/` (`index.html`) | Sales landing page for the framed heritage map (`src/landing/`); prices come live from `/api/shop/catalogue` |
+| `/app.html` | The interactive map (`src/main.ts`); `/app.html#tree` opens the family tree |
+| `/print.html` | Heritage map print designer and Order panel |
+| `/order.html`, `/ops.html` | The customer's order page and the shop's operations page |
+
+Example previews for the landing page go in `public/examples/`: `<styleId>.jpg` for the style gallery (antique, nautical, modern, portolan, leather, woodburn, explorer), `woodburn-homelands.jpg` for the featured "Países da família" card and `antique-homelands.jpg` for the hero frame (falls back to `antique.jpg`). A missing one is hidden: the gallery shows a colour swatch and the hero a drawn placeholder instead.
+
+**Analytics (optional).** Set `VITE_PLAUSIBLE_DOMAIN` (e.g. `VITE_PLAUSIBLE_DOMAIN=example.com npm run build`) to load [Plausible](https://plausible.io) (cookieless) on the landing page and count `CTA click` events. Unset, `track()` in `src/analytics.ts` does nothing and no external script is loaded.
 
 ```bash
 npm test         # unit tests (parser, generations, helpers, evidence model) and API tests
@@ -55,7 +68,7 @@ npm install
 npm run dev:all      # API on http://localhost:8787 and the app on http://localhost:5173
 ```
 
-Open http://localhost:5173, click **Tree**, then **Use the sample family** (or import your own GEDCOM).
+Open http://localhost:5173/app.html, click **Tree**, then **Use the sample family** (or import your own GEDCOM).
 
 - `npm run server` runs the API alone (`npm run server:dev` restarts it on changes).
 - Data lives in `server/.data/` (a [PGlite](https://pglite.dev) database, which is Postgres compiled to WebAssembly, so there is nothing to install, plus uploaded documents on disk). Delete the folder to start over.
