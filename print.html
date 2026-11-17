@@ -63,6 +63,7 @@
               <option value="oak" data-i18n="mockup.oak">Moldura de carvalho</option>
               <option value="gold" data-i18n="mockup.gold">Moldura dourada</option>
               <option value="white" data-i18n="mockup.white">Moldura branca</option>
+              <option value="brown" data-i18n="mockup.brown">Moldura marrom</option>
               <option value="none" data-i18n="mockup.none">Sem moldura</option>
             </select></label>
           </div>
@@ -165,8 +166,27 @@
       </fieldset>
     </aside>
 
-    <main id="stage" data-frame="black">
+    <main id="stage" data-frame="black" data-view="sheet">
+      <!-- The preview flat, or hanging in a room at its true size (src/print/room.ts). -->
+      <div id="view-bar" class="view-bar" hidden>
+        <div class="seg" role="group" data-i18n-attr="aria-label:view.label">
+          <button type="button" data-view="sheet" aria-pressed="true" data-i18n="view.sheet">Folha</button>
+          <button type="button" data-view="room" aria-pressed="false" data-i18n="view.room">Na parede</button>
+        </div>
+        <div id="wall-swatches" class="swatches" role="group" data-i18n-attr="aria-label:wall.label" hidden>
+          <button type="button" class="swatch" data-wall="linen" data-i18n-attr="title:wall.linen; aria-label:wall.linen"></button>
+          <button type="button" class="swatch" data-wall="sage" data-i18n-attr="title:wall.sage; aria-label:wall.sage"></button>
+          <button type="button" class="swatch" data-wall="terracotta" data-i18n-attr="title:wall.terracotta; aria-label:wall.terracotta"></button>
+        </div>
+        <button type="button" id="room-download" class="btn" data-i18n="room.download" hidden>Baixar imagem da parede</button>
+      </div>
       <div id="sheet"><p class="empty" data-i18n="sheet.empty"></p></div>
+      <div id="room" class="room" role="img" hidden>
+        <div class="room-layer room-back"></div>
+        <div class="room-art"></div>
+        <div class="room-layer room-front"></div>
+      </div>
+      <p id="room-note" class="room-note" hidden></p>
       <ul id="warnings" hidden></ul>
     </main>
 
